@@ -14,6 +14,7 @@ import {
   type AuthService,
   type LoginInput,
   type RegisterInput,
+  type UpdateProfileInput,
 } from '../services/auth.service.js';
 
 const UNAUTHENTICATED_MESSAGE = 'Not authenticated';
@@ -73,6 +74,18 @@ export function createAuthRouter(authService: AuthService, userRepository: UserR
         throw new HttpError(UNAUTHENTICATED_MESSAGE, HTTP_STATUS.UNAUTHORIZED);
       }
       res.status(HTTP_STATUS.OK).json({ user: toPublicUser(user) });
+    }),
+  );
+
+  router.patch(
+    '/me',
+    requireAuth,
+    requireCsrf,
+    asyncHandler(async (req, res) => {
+      const userId = res.locals['userId'] as string;
+      const input = pickStringFields<UpdateProfileInput>(req.body, ['address']);
+      const user = await authService.updateProfile(userId, input);
+      res.status(HTTP_STATUS.OK).json({ user });
     }),
   );
 

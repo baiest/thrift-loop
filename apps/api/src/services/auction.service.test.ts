@@ -53,6 +53,26 @@ class FakeAuctionRepository implements AuctionRepository {
     this.auctions.set(id, updated);
     return Promise.resolve(updated);
   }
+
+  findAllPublished(): Promise<Auction[]> {
+    return Promise.resolve(
+      [...this.auctions.values()].filter((a) => a.status === 'published' || a.status === 'sold'),
+    );
+  }
+
+  findDueForClose(before: Date): Promise<Auction[]> {
+    return Promise.resolve(
+      [...this.auctions.values()].filter(
+        (a) => a.status === 'published' && a.bidEndsAt && new Date(a.bidEndsAt) <= before,
+      ),
+    );
+  }
+
+  findWonByUserId(userId: string): Promise<Auction[]> {
+    return Promise.resolve(
+      [...this.auctions.values()].filter((a) => a.status === 'sold' && a.winnerUserId === userId),
+    );
+  }
 }
 
 class FakePhotoStorage implements PhotoStorage {
@@ -292,6 +312,75 @@ describe('AuctionService', () => {
 
       const error = await catchHttpError(service.addPhotos('USR-1', auction.id, makeFiles(1)));
       expect(error.status).toBe(409);
+    });
+  });
+
+  describe('listPublishedAuctions', () => {
+    it('returns published and sold auctions, but not drafts', async () => {
+      const draft = await service.createAuction('USR-1', validInput);
+      const published = await service.createAuction('USR-1', validInput);
+      await service.updateAuction('USR-1', published.id, { status: 'published' });
+
+      const list = await service.listPublishedAuctions();
+
+      expect(list.map((a) => a.id)).toEqual([published.id]);
+      expect(list.map((a) => a.id)).not.toContain(draft.id);
+    });
+  });
+
+  describe('getAuctionForViewer', () => {
+    it('lets anyone view a published auction', async () => {
+      const auction = await service.createAuction('USR-1', validInput);
+      await service.updateAuction('USR-1', auction.id, { status: 'published' });
+
+      const viewed = await service.getAuctionForViewer('USR-2', auction.id);
+      expect(viewed.id).toBe(auction.id);
+    });
+
+    it('lets an anonymous viewer (null) view a published auction', async () => {
+      const auction = await service.createAuction('USR-1', validInput);
+      await service.updateAuction('USR-1', auction.id, { status: 'published' });
+
+      const viewed = await service.getAuctionForViewer(null, auction.id);
+      expect(viewed.id).toBe(auction.id);
+    });
+
+    it('lets the owner view their own draft', async () => {
+      const auction = await service.createAuction('USR-1', validInput);
+      const viewed = await service.getAuctionForViewer('USR-1', auction.id);
+      expect(viewed.id).toBe(auction.id);
+    });
+
+    it('404s a draft for anyone else', async () => {
+      const auction = await service.createAuction('USR-1', validInput);
+      const error = await catchHttpError(service.getAuctionForViewer('USR-2', auction.id));
+      expect(error.status).toBe(404);
+    });
+
+    it('404s a draft for an anonymous viewer', async () => {
+      const auction = await service.createAuction('USR-1', validInput);
+      const error = await catchHttpError(service.getAuctionForViewer(null, auction.id));
+      expect(error.status).toBe(404);
+    });
+
+    it('404s a missing auction', async () => {
+      const error = await catchHttpError(service.getAuctionForViewer(null, 'AUC-missing'));
+      expect(error.status).toBe(404);
+    });
+  });
+
+  describe('listMyPurchases', () => {
+    it('lists auctions won by the caller', async () => {
+      const auction = await service.createAuction('USR-1', validInput);
+      await service.updateAuction('USR-1', auction.id, { status: 'published' });
+      await repository.update(auction.id, { status: 'sold', winnerUserId: 'USR-2' });
+
+      const purchases = await service.listMyPurchases('USR-2');
+      expect(purchases.map((a) => a.id)).toEqual([auction.id]);
+    });
+
+    it('returns an empty list when the caller has won nothing', async () => {
+      await expect(service.listMyPurchases('USR-9')).resolves.toEqual([]);
     });
   });
 });

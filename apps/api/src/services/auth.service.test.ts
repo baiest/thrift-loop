@@ -19,6 +19,16 @@ class FakeUserRepository implements UserRepository {
     this.users.set(user.phone, user);
     return Promise.resolve();
   }
+
+  async update(id: string, patch: Partial<Pick<User, 'address'>>): Promise<User | null> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      return null;
+    }
+    const updated = { ...existing, ...patch, updatedAt: new Date().toISOString() };
+    this.users.set(updated.phone, updated);
+    return updated;
+  }
 }
 
 const validInput: RegisterInput = {
@@ -185,6 +195,45 @@ describe('AuthService', () => {
       );
 
       expect(unknownPhoneError.message).toBe(wrongPasswordError.message);
+    });
+  });
+
+  describe('updateProfile', () => {
+    it('sets the address', async () => {
+      const registered = await service.register(validInput);
+      const updated = await service.updateProfile(registered.user.id, { address: 'Calle 1' });
+
+      expect(updated.address).toBe('Calle 1');
+    });
+
+    it('trims the address', async () => {
+      const registered = await service.register(validInput);
+      const updated = await service.updateProfile(registered.user.id, {
+        address: '  Calle 1  ',
+      });
+
+      expect(updated.address).toBe('Calle 1');
+    });
+
+    it('treats an empty address as clearing it', async () => {
+      const registered = await service.register(validInput);
+      await service.updateProfile(registered.user.id, { address: 'Calle 1' });
+      const cleared = await service.updateProfile(registered.user.id, { address: '' });
+
+      expect(cleared.address).toBeNull();
+    });
+
+    it('rejects an address longer than the max length', async () => {
+      const registered = await service.register(validInput);
+      await expectHttpError(
+        service.updateProfile(registered.user.id, { address: 'x'.repeat(201) }),
+        400,
+        'address',
+      );
+    });
+
+    it('404s a user that no longer exists', async () => {
+      await expectHttpError(service.updateProfile('USR-missing', { address: 'Calle 1' }), 404);
     });
   });
 });
