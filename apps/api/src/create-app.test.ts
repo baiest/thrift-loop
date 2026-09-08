@@ -1,3 +1,6 @@
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
@@ -27,7 +30,7 @@ describe('GET /health', () => {
   beforeEach(() => {
     vi.stubEnv('JWT_SECRET', 'test-secret');
     const userRepository = new FakeUserRepository();
-    app = createApp(new AuthService(userRepository), userRepository, 'http://localhost:5173');
+    app = createApp(new AuthService(userRepository), userRepository);
   });
 
   afterEach(() => {
@@ -42,20 +45,69 @@ describe('GET /health', () => {
   });
 });
 
-describe('/auth rate limiting', () => {
+describe('/api/auth rate limiting', () => {
   it('returns 429 once the configured limit is exceeded', async () => {
     const userRepository = new FakeUserRepository();
     const limitedApp = createApp(
       new AuthService(userRepository),
       userRepository,
-      'http://localhost:5173',
       createAuthRateLimiter({ windowMs: 60_000, max: 2 }),
     );
 
-    await request(limitedApp).post('/auth/login').send({});
-    await request(limitedApp).post('/auth/login').send({});
-    const third = await request(limitedApp).post('/auth/login').send({});
+    await request(limitedApp).post('/api/auth/login').send({});
+    await request(limitedApp).post('/api/auth/login').send({});
+    const third = await request(limitedApp).post('/api/auth/login').send({});
 
     expect(third.status).toBe(429);
+  });
+});
+
+describe('single-origin static serving', () => {
+  let webDistPath: string;
+
+  beforeEach(async () => {
+    vi.stubEnv('JWT_SECRET', 'test-secret');
+    webDistPath = await mkdtemp(join(tmpdir(), 'thrift-loop-web-dist-'));
+    // Path is built from mkdtemp's own return value, not attacker-controlled input.
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    await writeFile(join(webDistPath, 'index.html'), '<!doctype html><title>app shell</title>');
+  });
+
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    await rm(webDistPath, { recursive: true, force: true });
+  });
+
+  function buildAppWithDist(): Express {
+    const userRepository = new FakeUserRepository();
+    return createApp(
+      new AuthService(userRepository),
+      userRepository,
+      createAuthRateLimiter(),
+      webDistPath,
+    );
+  }
+
+  it('serves the app shell for a non-API GET route', async () => {
+    const response = await request(buildAppWithDist()).get('/register');
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('app shell');
+  });
+
+  it('still serves /api routes as JSON, not the app shell', async () => {
+    const response = await request(buildAppWithDist()).get('/api/auth/me');
+
+    expect(response.status).toBe(401);
+    expect(response.headers['content-type']).toContain('application/json');
+  });
+
+  it('does not serve static files when webDistPath is omitted', async () => {
+    const userRepository = new FakeUserRepository();
+    const app = createApp(new AuthService(userRepository), userRepository);
+
+    const response = await request(app).get('/register');
+
+    expect(response.status).toBe(404);
   });
 });
