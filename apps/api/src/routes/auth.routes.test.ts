@@ -5,6 +5,7 @@ import type { PublicUser } from '@thrift-loop/shared';
 import type { User } from '../models/user.js';
 import type { UserRepository } from '../repositories/user.repository.js';
 import { SESSION_COOKIE_NAME } from '../lib/cookies.js';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '../lib/csrf.js';
 import { signSessionToken } from '../lib/jwt.js';
 import { createAuthService } from '../services/auth.service.js';
 import { createApp } from '../create-app.js';
@@ -17,6 +18,13 @@ interface AuthResponseBody {
 
 function body(response: Response): AuthResponseBody {
   return response.body as AuthResponseBody;
+}
+
+function extractCsrfToken(response: Response): string {
+  const cookies = response.headers['set-cookie'] as unknown as string[] | undefined;
+  const csrfCookie = (cookies ?? []).find((cookie) => cookie.startsWith(`${CSRF_COOKIE_NAME}=`));
+  const match = /=([^;]+)/.exec(csrfCookie ?? '');
+  return match?.[1] ?? '';
 }
 
 class FakeUserRepository implements UserRepository {
@@ -78,6 +86,18 @@ describe('auth routes', () => {
       expect(cookieHeader).toContain('HttpOnly');
     });
 
+    it('also sets a non-httpOnly CSRF token cookie', async () => {
+      const response = await request(app).post('/api/auth/register').send(registerBody);
+
+      const csrfCookie = (response.headers['set-cookie'] as unknown as string[] | undefined)?.find(
+        (cookie) => cookie.startsWith(`${CSRF_COOKIE_NAME}=`),
+      );
+
+      expect(csrfCookie).toBeDefined();
+      expect(csrfCookie).not.toContain('HttpOnly');
+      expect(extractCsrfToken(response).length).toBeGreaterThan(0);
+    });
+
     it('returns 400 with field errors for an invalid submission', async () => {
       const response = await request(app)
         .post('/api/auth/register')
@@ -110,7 +130,7 @@ describe('auth routes', () => {
   });
 
   describe('POST /api/auth/login', () => {
-    it('returns 200 and sets the session cookie for correct credentials', async () => {
+    it('returns 200 and sets the session and CSRF cookies for correct credentials', async () => {
       await request(app).post('/api/auth/register').send(registerBody);
 
       const response = await request(app)
@@ -119,6 +139,7 @@ describe('auth routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.headers['set-cookie']?.[0]).toContain('session=');
+      expect(extractCsrfToken(response).length).toBeGreaterThan(0);
     });
 
     it('returns 401 with a generic message for wrong credentials', async () => {
@@ -159,15 +180,25 @@ describe('auth routes', () => {
   });
 
   describe('POST /api/auth/logout', () => {
-    it('clears the session cookie', async () => {
+    it('clears the session cookie when a valid CSRF token is sent', async () => {
+      const agent = request.agent(app);
+      const registerResponse = await agent.post('/api/auth/register').send(registerBody);
+      const csrfToken = extractCsrfToken(registerResponse);
+
+      const response = await agent.post('/api/auth/logout').set(CSRF_HEADER_NAME, csrfToken);
+
+      expect(response.status).toBe(204);
+      const meResponse = await agent.get('/api/auth/me');
+      expect(meResponse.status).toBe(401);
+    });
+
+    it('rejects logout without a matching CSRF token', async () => {
       const agent = request.agent(app);
       await agent.post('/api/auth/register').send(registerBody);
 
       const response = await agent.post('/api/auth/logout');
 
-      expect(response.status).toBe(204);
-      const meResponse = await agent.get('/api/auth/me');
-      expect(meResponse.status).toBe(401);
+      expect(response.status).toBe(403);
     });
   });
 });
