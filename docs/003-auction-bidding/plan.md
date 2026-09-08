@@ -58,7 +58,7 @@ missing or still a draft.
 `POST /api/auctions/:id/bids` (auth + CSRF) — `{ amountCOP: string }` → 201
 `{ auction, bid }`; 400 field error, 403 own auction, 404, 409 not open/closed.
 
-`GET /api/purchases` (auth) — `{ purchases: PublicPurchase[] }`, each with a resolved
+`GET /api/auctions/purchases` (auth) — `{ purchases: PublicPurchase[] }`, each with a resolved
 `handover: { mode: 'delivery', address } | { mode: 'pickup', city }`.
 
 `PATCH /api/auth/me` (auth + CSRF) — `{ address }` → 200 `{ user }`.
