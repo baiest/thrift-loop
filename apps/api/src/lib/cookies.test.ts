@@ -16,9 +16,9 @@ describe('getSessionCookieOptions', () => {
     expect(getSessionCookieOptions().secure).toBe(true);
   });
 
-  it('is always httpOnly with sameSite lax', () => {
+  it('is always httpOnly with sameSite strict', () => {
     const options = getSessionCookieOptions();
     expect(options.httpOnly).toBe(true);
-    expect(options.sameSite).toBe('lax');
+    expect(options.sameSite).toBe('strict');
   });
 });

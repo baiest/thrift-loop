@@ -28,6 +28,10 @@ are imported by both `apps/api` and `apps/web`, so there is one source of truth.
 - **Routing**: `react-router-dom` is a new dependency for `apps/web` (two pages: register, login;
   a minimal placeholder "home" to redirect to after login). This is the smallest reasonable
   choice — no state-machine router library needed for two screens.
+- **Single origin in production**: `apps/api` serves both `/api/*` and the built SPA (static
+  files + fallback to `index.html`). No CORS anywhere, dev or prod — Vite's dev server proxies
+  `/api` to the API so the browser sees one origin even locally. See "Deployment" below for why
+  this replaced the original two-origin design.
 
 ## Data model
 
@@ -56,46 +60,72 @@ interface PublicUser {
 
 ## API contract
 
-`POST /auth/register`
+`POST /api/auth/register`
 
 - Body: `{ phone, firstName, lastName, city, password, confirmPassword }`
-- 201: `{ user: PublicUser }`, `Set-Cookie: session=<jwt>; HttpOnly; SameSite=Lax[; Secure]`
+- 201: `{ user: PublicUser }`, `Set-Cookie: session=<jwt>; HttpOnly; SameSite=Strict[; Secure]`
 - 400: `{ error: string, fields: Record<string, string> }` — one message per invalid field
 - 409: `{ error: string }` — phone already registered
 
-`POST /auth/login`
+`POST /api/auth/login`
 
 - Body: `{ phone, password }`
 - 200: `{ user: PublicUser }`, sets the same session cookie
 - 401: `{ error: "Phone number or password is incorrect" }` — for both unknown phone and wrong
   password
 
-`POST /auth/logout`
+`POST /api/auth/logout`
 
 - 204, clears the session cookie. Necessary companion to a cookie-based session — without it a
   user could never sign out. Included as infrastructure, not a new user-facing feature.
 
-`GET /auth/me`
+`GET /api/auth/me`
 
 - Reads the session cookie. 200 `{ user: PublicUser }` if valid, 401 `{ error: string }` if not.
   Lets the frontend know on page load whether a session already exists.
+
+All four routes live under `/api/auth`, not `/auth` — see "Deployment" below.
 
 ## Affected areas (new)
 
 - `packages/shared/src/{colombia-cities,phone,password-policy,user}.ts`
 - `apps/api/src/{models,repositories,services,routes,lib,middlewares}/*`, `container.ts`,
   `create-app.ts`, `index.ts`, `.env.example`
-- `apps/web/src/{components/{atoms,molecules,organisms},pages,stores,lib,assets}/*`
+- `apps/web/src/{components/{atoms,molecules,organisms},pages,stores,lib,assets}/*`,
+  `vite.config.ts` (dev proxy)
+
+## Deployment
+
+Single Railway service, not two. `apps/api` serves everything:
+
+- Routes under `/api/*` — unchanged behavior, just remounted (`app.use('/api/auth', ...)`
+  instead of `app.use('/auth', ...)` in `create-app.ts`).
+- Everything else: `express.static(webDistPath)` plus a catch-all `GET` (excluding `/api/*`) that
+  serves `index.html`, so React Router's client-side routes work on a hard refresh. `webDistPath`
+  is an optional `createApp(...)` parameter — omitted in every test, so tests are unaffected; set
+  from a `WEB_DIST_PATH` env var (default `../web/dist`, relative to `apps/api`) in `index.ts`.
+
+Build command (Railway or local): `npm run build` at the repo root — builds `packages/shared`,
+then `apps/api` (tsc) and `apps/web` (vite build) via the existing workspace build script. Start
+command: run `apps/api`'s compiled `dist/index.js` (`node apps/api/dist/index.js`, or
+`npm run start --workspace=apps/api`). No Railway config files are added in this PR — this is the
+shape the service needs, not the deploy configuration itself, since that wasn't asked for.
+
+Was originally two services (see git history) — CORS with `credentials: true` and an explicit
+`CORS_ORIGIN`. Changed to single-origin after realizing that setup has a real bug: the session
+cookie was `SameSite=Lax`, and a `Lax` cookie is not sent on cross-site `fetch`/XHR requests
+(only top-level GET navigation). Two different Railway subdomains are cross-site to the browser,
+so login would set the cookie but the next `fetch('/auth/me', {credentials:'include'})` would
+never send it back — working locally (same-site on `localhost`), silently broken in production.
+Single origin removes the failure mode entirely and allows `SameSite=Strict`.
 
 ## Risks
 
-- **httpOnly cookie + separate dev ports (Vite on 5173, API on 3000)**: requires CORS with
-  `credentials: true` and an explicit `CORS_ORIGIN`, and the frontend fetch wrapper must send
-  `credentials: 'include'`. Documented in `.env.example` and `lib/api-client.ts`.
 - **Brute-force login attempts**: initially accepted as a non-goal, but CodeQL's default code
-  scanning flagged the unthrottled `/register`, `/login`, and `/me` handlers as a real high-severity
-  finding on the PR. Mitigated with `express-rate-limit` on the whole `/auth` router
-  (`middlewares/rate-limit.ts`, 20 requests / 15 min per IP by default, injectable for tests).
+  scanning flagged the unthrottled `/register`, `/login`, and `/me` handlers as a real
+  high-severity finding on the PR. Mitigated with `express-rate-limit` on the whole `/api/auth`
+  router (`middlewares/rate-limit.ts`, 20 requests / 15 min per IP by default, injectable for
+  tests).
 
 ## Test strategy (TDD)
 

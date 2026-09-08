@@ -48,7 +48,7 @@ const registerBody = {
 function buildApp(): Express {
   const userRepository = new FakeUserRepository();
   const authService = new AuthService(userRepository);
-  return createApp(authService, userRepository, 'http://localhost:5173');
+  return createApp(authService, userRepository);
 }
 
 describe('auth routes', () => {
@@ -63,9 +63,9 @@ describe('auth routes', () => {
     vi.unstubAllEnvs();
   });
 
-  describe('POST /auth/register', () => {
+  describe('POST /api/auth/register', () => {
     it('returns 201, the public user, and an httpOnly session cookie', async () => {
-      const response = await request(app).post('/auth/register').send(registerBody);
+      const response = await request(app).post('/api/auth/register').send(registerBody);
 
       expect(response.status).toBe(201);
       expect(body(response).user).toMatchObject({ firstName: 'Ana', lastName: 'Gómez' });
@@ -80,7 +80,7 @@ describe('auth routes', () => {
 
     it('returns 400 with field errors for an invalid submission', async () => {
       const response = await request(app)
-        .post('/auth/register')
+        .post('/api/auth/register')
         .send({ ...registerBody, phone: 'not-a-phone' });
 
       expect(response.status).toBe(400);
@@ -88,8 +88,8 @@ describe('auth routes', () => {
     });
 
     it('returns 409 for a duplicate phone number', async () => {
-      await request(app).post('/auth/register').send(registerBody);
-      const response = await request(app).post('/auth/register').send(registerBody);
+      await request(app).post('/api/auth/register').send(registerBody);
+      const response = await request(app).post('/api/auth/register').send(registerBody);
 
       expect(response.status).toBe(409);
     });
@@ -100,25 +100,21 @@ describe('auth routes', () => {
         findById: () => Promise.resolve(null),
         save: () => Promise.resolve(),
       };
-      const brokenApp = createApp(
-        new AuthService(brokenRepository),
-        brokenRepository,
-        'http://localhost:5173',
-      );
+      const brokenApp = createApp(new AuthService(brokenRepository), brokenRepository);
 
-      const response = await request(brokenApp).post('/auth/register').send(registerBody);
+      const response = await request(brokenApp).post('/api/auth/register').send(registerBody);
 
       expect(response.status).toBe(500);
       expect(body(response).error).toBe('Something went wrong');
     });
   });
 
-  describe('POST /auth/login', () => {
+  describe('POST /api/auth/login', () => {
     it('returns 200 and sets the session cookie for correct credentials', async () => {
-      await request(app).post('/auth/register').send(registerBody);
+      await request(app).post('/api/auth/register').send(registerBody);
 
       const response = await request(app)
-        .post('/auth/login')
+        .post('/api/auth/login')
         .send({ phone: registerBody.phone, password: registerBody.password });
 
       expect(response.status).toBe(200);
@@ -127,7 +123,7 @@ describe('auth routes', () => {
 
     it('returns 401 with a generic message for wrong credentials', async () => {
       const response = await request(app)
-        .post('/auth/login')
+        .post('/api/auth/login')
         .send({ phone: '3009999999', password: 'whatever1A' });
 
       expect(response.status).toBe(401);
@@ -135,17 +131,17 @@ describe('auth routes', () => {
     });
   });
 
-  describe('GET /auth/me', () => {
+  describe('GET /api/auth/me', () => {
     it('returns 401 without a session cookie', async () => {
-      const response = await request(app).get('/auth/me');
+      const response = await request(app).get('/api/auth/me');
       expect(response.status).toBe(401);
     });
 
     it('returns the current user with a valid session cookie', async () => {
       const agent = request.agent(app);
-      await agent.post('/auth/register').send(registerBody);
+      await agent.post('/api/auth/register').send(registerBody);
 
-      const response = await agent.get('/auth/me');
+      const response = await agent.get('/api/auth/me');
 
       expect(response.status).toBe(200);
       expect(body(response).user).toMatchObject({ firstName: 'Ana' });
@@ -155,22 +151,22 @@ describe('auth routes', () => {
       const token = signSessionToken({ userId: 'deleted-user' });
 
       const response = await request(app)
-        .get('/auth/me')
+        .get('/api/auth/me')
         .set('Cookie', `${SESSION_COOKIE_NAME}=${token}`);
 
       expect(response.status).toBe(401);
     });
   });
 
-  describe('POST /auth/logout', () => {
+  describe('POST /api/auth/logout', () => {
     it('clears the session cookie', async () => {
       const agent = request.agent(app);
-      await agent.post('/auth/register').send(registerBody);
+      await agent.post('/api/auth/register').send(registerBody);
 
-      const response = await agent.post('/auth/logout');
+      const response = await agent.post('/api/auth/logout');
 
       expect(response.status).toBe(204);
-      const meResponse = await agent.get('/auth/me');
+      const meResponse = await agent.get('/api/auth/me');
       expect(meResponse.status).toBe(401);
     });
   });
