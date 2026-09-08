@@ -1,0 +1,140 @@
+import { randomUUID } from 'node:crypto';
+import bcrypt from 'bcryptjs';
+import {
+  isColombiaCity,
+  isColombianMobilePhone,
+  validatePassword,
+  type PasswordRule,
+  type PublicUser,
+} from '@thrift-loop/shared';
+import type { User } from '../models/user.js';
+import type { UserRepository } from '../repositories/user.repository.js';
+import { signSessionToken } from '../lib/jwt.js';
+import { HTTP_STATUS } from '../lib/http-status.js';
+
+const SALT_ROUNDS = 10;
+const GENERIC_LOGIN_ERROR = 'Phone number or password is incorrect';
+
+const PASSWORD_RULE_MESSAGES: Record<PasswordRule, string> = {
+  minLength: 'Password must be at least 8 characters',
+  uppercase: 'Password must include an uppercase letter',
+  lowercase: 'Password must include a lowercase letter',
+  digit: 'Password must include a digit',
+};
+
+export class AuthError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly fields?: Record<string, string>,
+  ) {
+    super(message);
+    this.name = 'AuthError';
+  }
+}
+
+export interface RegisterInput {
+  phone: string;
+  firstName: string;
+  lastName: string;
+  city: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface LoginInput {
+  phone: string;
+  password: string;
+}
+
+export interface AuthResult {
+  user: PublicUser;
+  token: string;
+}
+
+export function toPublicUser(user: User): PublicUser {
+  return {
+    id: user.id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    city: user.city,
+    country: user.country,
+  };
+}
+
+function validateRegisterInput(input: RegisterInput): Record<string, string> {
+  const errors: Record<string, string> = {};
+
+  if (!isColombianMobilePhone(input.phone)) {
+    errors['phone'] = 'Enter a valid Colombian mobile number (10 digits, starts with 3)';
+  }
+  if (input.firstName.trim().length === 0) {
+    errors['firstName'] = 'First name is required';
+  }
+  if (input.lastName.trim().length === 0) {
+    errors['lastName'] = 'Last name is required';
+  }
+  if (!isColombiaCity(input.city)) {
+    errors['city'] = 'Select a valid city';
+  }
+
+  const passwordViolations = validatePassword(input.password);
+  const firstViolation = passwordViolations[0];
+  if (firstViolation) {
+    // firstViolation is a PasswordRule from the shared validator's closed union,
+    // not attacker-controlled input.
+    // eslint-disable-next-line security/detect-object-injection
+    errors['password'] = PASSWORD_RULE_MESSAGES[firstViolation];
+  } else if (input.password !== input.confirmPassword) {
+    errors['confirmPassword'] = 'Passwords do not match';
+  }
+
+  return errors;
+}
+
+export class AuthService {
+  constructor(private readonly userRepository: UserRepository) {}
+
+  async register(input: RegisterInput): Promise<AuthResult> {
+    const errors = validateRegisterInput(input);
+    if (Object.keys(errors).length > 0) {
+      throw new AuthError('Validation failed', HTTP_STATUS.BAD_REQUEST, errors);
+    }
+
+    const existing = await this.userRepository.findByPhone(input.phone);
+    if (existing) {
+      throw new AuthError('Phone number already registered', HTTP_STATUS.CONFLICT, {
+        phone: 'This phone number is already registered',
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+    const user: User = {
+      id: randomUUID(),
+      phone: input.phone,
+      firstName: input.firstName.trim(),
+      lastName: input.lastName.trim(),
+      city: input.city,
+      country: 'CO',
+      passwordHash,
+      createdAt: new Date().toISOString(),
+    };
+    await this.userRepository.save(user);
+
+    return { user: toPublicUser(user), token: signSessionToken({ userId: user.id }) };
+  }
+
+  async login(input: LoginInput): Promise<AuthResult> {
+    const user = await this.userRepository.findByPhone(input.phone);
+    if (!user) {
+      throw new AuthError(GENERIC_LOGIN_ERROR, HTTP_STATUS.UNAUTHORIZED);
+    }
+
+    const passwordMatches = await bcrypt.compare(input.password, user.passwordHash);
+    if (!passwordMatches) {
+      throw new AuthError(GENERIC_LOGIN_ERROR, HTTP_STATUS.UNAUTHORIZED);
+    }
+
+    return { user: toPublicUser(user), token: signSessionToken({ userId: user.id }) };
+  }
+}
