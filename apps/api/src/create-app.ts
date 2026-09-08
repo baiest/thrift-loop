@@ -1,8 +1,9 @@
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
-import express, { type Express } from 'express';
+import express, { type Express, type RequestHandler } from 'express';
 import { createAuthRouter } from './routes/auth.routes.js';
 import { HTTP_STATUS } from './lib/http-status.js';
+import { createAuthRateLimiter } from './middlewares/rate-limit.js';
 import type { UserRepository } from './repositories/user.repository.js';
 import type { AuthService } from './services/auth.service.js';
 
@@ -10,6 +11,7 @@ export function createApp(
   authService: AuthService,
   userRepository: UserRepository,
   corsOrigin: string,
+  authRateLimiter: RequestHandler = createAuthRateLimiter(),
 ): Express {
   const app = express();
 
@@ -21,7 +23,7 @@ export function createApp(
     res.status(HTTP_STATUS.OK).json({ status: 'ok' });
   });
 
-  app.use('/auth', createAuthRouter(authService, userRepository));
+  app.use('/auth', authRateLimiter, createAuthRouter(authService, userRepository));
 
   return app;
 }
