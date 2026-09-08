@@ -23,4 +23,27 @@ describe('App', () => {
     render(<App />);
     expect(await screen.findByText('Welcome back')).toBeInTheDocument();
   });
+
+  it('renders the create-auction page inside the app layout with a sidebar', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          user: {
+            id: 'USR-1',
+            firstName: 'Ana',
+            lastName: 'Gómez',
+            city: 'Bogotá D.C.',
+            country: 'CO',
+          },
+        }),
+    } as Response);
+    window.history.pushState({}, '', '/auctions/new');
+
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: /create auction/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /menu/i })).toBeInTheDocument();
+  });
 });

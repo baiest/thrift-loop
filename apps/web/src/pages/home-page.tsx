@@ -37,7 +37,7 @@ export function HomePage(): React.JSX.Element | null {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col px-4 py-6">
+    <main className="mx-auto flex min-h-screen max-w-md flex-col px-4 py-6 pt-20">
       <h1 className="mb-2 text-2xl font-bold text-gray-900">Welcome, {user.firstName}</h1>
       <p className="mb-6 text-sm text-gray-600">{user.city}, Colombia</p>
       <Button onClick={() => void handleLogout()}>Log out</Button>
