@@ -12,14 +12,14 @@
   "scripts": {
     "check:commits": "tsx scripts/check-commit-msg.ts --range",
     "check:eol": "tsx scripts/check-eol.ts",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck": "tsx scripts/run-workspace-script.ts typecheck && tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "npm run test --workspaces --if-present",
-    "test:cov": "npm run test:cov --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present",
+    "test": "tsx scripts/run-workspace-script.ts test",
+    "test:cov": "tsx scripts/run-workspace-script.ts test:cov",
+    "build": "tsx scripts/run-workspace-script.ts build",
     "audit": "npm audit --audit-level=high",
     "prepare": "husky",
     "verify": "npm run check:eol && npm run typecheck && npm run lint && npm run format:check && npm run test:cov && npm run build"
