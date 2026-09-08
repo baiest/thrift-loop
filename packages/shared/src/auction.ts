@@ -7,6 +7,7 @@ export type AuctionStatus = 'draft' | 'published' | 'sold';
 export interface PublicAuction {
   id: string;
   userId: string;
+  title: string;
   category: ItemCategory;
   condition: ItemCondition;
   priceCOP: number;
