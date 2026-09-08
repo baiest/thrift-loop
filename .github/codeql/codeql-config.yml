@@ -1,0 +1,11 @@
+name: 'CodeQL config'
+
+# Test files build throwaway Express apps (supertest fixtures) that mount
+# cookie-parser without the app-wide CSRF middleware from create-app.ts,
+# tripping js/missing-token-validation as a false positive on code that is
+# never shipped. Excluding tests here stops both the workflow job and the
+# PR-diff alert check that codeql-action/analyze posts separately.
+paths-ignore:
+  - '**/*.test.ts'
+  - '**/*.test.tsx'
+  - '**/dist/**'
