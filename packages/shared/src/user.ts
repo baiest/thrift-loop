@@ -4,4 +4,5 @@ export interface PublicUser {
   lastName: string;
   city: string;
   country: 'CO';
+  address: string | null;
 }
