@@ -180,10 +180,79 @@ Rules that keep storage swappable and business logic isolated:
 - `routes/` stays thin: parse the request, call a service, shape the response. No business logic
   in a route handler.
 - The JSON file is an implementation detail behind `ItemRepository`. Moving to MongoDB later
-  means adding `item.repository.mongo.ts` that implements the same interface and switching one
+  means adding `item.repository.mongo.ts` that satisfies the same interface and switching one
   line in `container.ts` — `services/` and `routes/` do not change.
 - Service tests use an in-memory fake repository, not the real JSON file — fast, no I/O,
   no shared state between tests.
+
+#### Paradigm: functions, not classes
+
+Services and repositories are **plain functions, or factory functions returning an object
+literal of closures** — never a `class` for business logic. No `this`, no inheritance, no
+shared mutable instance state to reason about.
+
+```ts
+// repositories/item.repository.json.ts
+export function createJsonItemRepository(filePath: string): ItemRepository {
+  return {
+    findAll: () => readAll(filePath),
+    findById: (id) => findOne(filePath, id),
+    save: (item) => append(filePath, item),
+  };
+}
+
+// services/item.service.ts
+export function createItemService(itemRepository: ItemRepository) {
+  return {
+    listItems: () => itemRepository.findAll(),
+    // ...
+  };
+}
+```
+
+The interface (`ItemRepository`) doesn't change or go away — it's still the contract. A class
+satisfies an interface with `implements`; a factory function satisfies it by returning an object
+literal typed as that interface. Interfaces are what make storage swappable; the factory-vs-class
+choice is only about how a given implementation is built. `container.ts` calls the factory
+(`createJsonItemRepository(path)`) instead of `new JsonItemRepository(path)` — call sites that
+use the result (`itemRepository.findAll()`) don't change either way.
+
+The one sanctioned exception is **custom error types** — JavaScript requires `class X extends
+Error` for `instanceof` checks and stack traces to work. Even there, reuse the shared
+`lib/http-error.ts`'s `HttpError` rather than inventing a new error class per feature.
+
+#### Adding a new route
+
+Every route file follows the same shape (see `routes/auth.routes.ts` for a full example):
+
+1. Parse the request body with `pickStringFields` (`lib/request-body.ts`) into a typed input —
+   never pass `req.body` straight to a service.
+2. Wrap each handler in `asyncHandler` (`lib/async-handler.ts`). It awaits the handler and turns
+   a thrown `HttpError` into the right status/body automatically — no manual `try`/`catch` per
+   route, and no risk of an unhandled rejection hanging the request (Express 4 does not catch
+   async rejections on its own).
+3. The handler itself stays a few lines: parse input → call the service → set status/cookie →
+   respond. Validation and business rules live in the service and raise `HttpError`, not in the
+   route.
+4. Mount the router in `create-app.ts` under `/api/<feature>`.
+
+```ts
+router.post(
+  '/items',
+  asyncHandler(async (req, res) => {
+    const input = pickStringFields<CreateItemInput>(req.body, ['title', 'price']);
+    const item = await itemService.createItem(input);
+    res.status(HTTP_STATUS.CREATED).json({ item });
+  }),
+);
+```
+
+**Why the `complexity`/cognitive-complexity ESLint rules don't catch a route file getting messy
+on their own**: both rules score each function independently, so a router-factory function that
+just registers four small handlers stays low-complexity even if the handlers _inside_ it aren't
+— the rule doesn't see them as one unit. Following the pattern above (handlers stay a few lines,
+real logic lives in the service) is what actually keeps things clean; the lint rule alone won't
+force it.
 
 ### Frontend (`apps/web`)
 
