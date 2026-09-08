@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import {
   isColombiaCity,
@@ -12,6 +11,9 @@ import type { UserRepository } from '../repositories/user.repository.js';
 import { signSessionToken } from '../lib/jwt.js';
 import { HTTP_STATUS } from '../lib/http-status.js';
 import { HttpError } from '../lib/http-error.js';
+import { createPrefixedId } from '../lib/prefixed-id.js';
+
+const USER_ID_PREFIX = 'USR';
 
 const SALT_ROUNDS = 10;
 const GENERIC_LOGIN_ERROR = 'Phone number or password is incorrect';
@@ -104,15 +106,17 @@ async function registerUser(
   }
 
   const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+  const now = new Date().toISOString();
   const user: User = {
-    id: randomUUID(),
+    id: createPrefixedId(USER_ID_PREFIX),
     phone: input.phone,
     firstName: input.firstName.trim(),
     lastName: input.lastName.trim(),
     city: input.city,
     country: 'CO',
     passwordHash,
-    createdAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
   };
   await userRepository.save(user);
 

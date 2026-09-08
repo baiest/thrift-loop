@@ -1,0 +1,114 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { Auction } from '../models/auction.js';
+import { createJsonAuctionRepository } from './auction.repository.json.js';
+
+function makeAuction(overrides: Partial<Auction> = {}): Auction {
+  return {
+    id: 'AUC-1',
+    userId: 'USR-1',
+    category: 'jeans',
+    condition: 'good',
+    priceCOP: 50_000,
+    publishAt: null,
+    status: 'draft',
+    deliveryMethod: 'pickup',
+    photoKeys: [],
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+describe('createJsonAuctionRepository', () => {
+  let tempDir: string;
+  let filePath: string;
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'thrift-loop-auctions-'));
+    filePath = join(tempDir, 'auctions.json');
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it('returns null when the file does not exist yet', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await expect(repository.findById('AUC-1')).resolves.toBeNull();
+  });
+
+  it('saves an auction and finds it by id', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(makeAuction());
+
+    await expect(repository.findById('AUC-1')).resolves.toEqual(makeAuction());
+  });
+
+  it('finds auctions by user id', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(makeAuction({ id: 'AUC-1', userId: 'USR-1' }));
+    await repository.save(makeAuction({ id: 'AUC-2', userId: 'USR-2' }));
+
+    const mine = await repository.findByUserId('USR-1');
+    expect(mine).toEqual([makeAuction({ id: 'AUC-1', userId: 'USR-1' })]);
+  });
+
+  it('finds draft auctions whose publishAt has passed', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(makeAuction({ id: 'AUC-due', publishAt: '2026-01-01T00:00:00.000Z' }));
+    await repository.save(makeAuction({ id: 'AUC-future', publishAt: '2099-01-01T00:00:00.000Z' }));
+    await repository.save(makeAuction({ id: 'AUC-no-date', publishAt: null }));
+    await repository.save(
+      makeAuction({
+        id: 'AUC-already-published',
+        publishAt: '2026-01-01T00:00:00.000Z',
+        status: 'published',
+      }),
+    );
+
+    const due = await repository.findDueForPublish(new Date('2026-06-01T00:00:00.000Z'));
+
+    expect(due.map((auction) => auction.id)).toEqual(['AUC-due']);
+  });
+
+  it('updates an auction and bumps nothing itself (caller controls updatedAt)', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(makeAuction());
+
+    const updated = await repository.update('AUC-1', { status: 'published' });
+
+    expect(updated?.status).toBe('published');
+    await expect(repository.findById('AUC-1')).resolves.toMatchObject({ status: 'published' });
+  });
+
+  it('returns null when updating an auction that does not exist', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await expect(repository.update('missing', { status: 'published' })).resolves.toBeNull();
+  });
+
+  it('deletes an auction', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(makeAuction());
+
+    await repository.delete('AUC-1');
+
+    await expect(repository.findById('AUC-1')).resolves.toBeNull();
+  });
+
+  it('appends photo keys to an auction', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(makeAuction({ photoKeys: ['a.jpg'] }));
+
+    const updated = await repository.addPhotoKeys('AUC-1', ['b.jpg', 'c.jpg']);
+
+    expect(updated?.photoKeys).toEqual(['a.jpg', 'b.jpg', 'c.jpg']);
+  });
+
+  it('returns null adding photo keys to a missing auction', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await expect(repository.addPhotoKeys('missing', ['a.jpg'])).resolves.toBeNull();
+  });
+});
