@@ -6,7 +6,7 @@ import type { User } from '../models/user.js';
 import type { UserRepository } from '../repositories/user.repository.js';
 import { SESSION_COOKIE_NAME } from '../lib/cookies.js';
 import { signSessionToken } from '../lib/jwt.js';
-import { AuthService } from '../services/auth.service.js';
+import { createAuthService } from '../services/auth.service.js';
 import { createApp } from '../create-app.js';
 
 interface AuthResponseBody {
@@ -47,7 +47,7 @@ const registerBody = {
 
 function buildApp(): Express {
   const userRepository = new FakeUserRepository();
-  const authService = new AuthService(userRepository);
+  const authService = createAuthService(userRepository);
   return createApp(authService, userRepository);
 }
 
@@ -100,7 +100,7 @@ describe('auth routes', () => {
         findById: () => Promise.resolve(null),
         save: () => Promise.resolve(),
       };
-      const brokenApp = createApp(new AuthService(brokenRepository), brokenRepository);
+      const brokenApp = createApp(createAuthService(brokenRepository), brokenRepository);
 
       const response = await request(brokenApp).post('/api/auth/register').send(registerBody);
 

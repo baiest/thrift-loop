@@ -11,6 +11,7 @@ import type { User } from '../models/user.js';
 import type { UserRepository } from '../repositories/user.repository.js';
 import { signSessionToken } from '../lib/jwt.js';
 import { HTTP_STATUS } from '../lib/http-status.js';
+import { HttpError } from '../lib/http-error.js';
 
 const SALT_ROUNDS = 10;
 const GENERIC_LOGIN_ERROR = 'Phone number or password is incorrect';
@@ -21,17 +22,6 @@ const PASSWORD_RULE_MESSAGES: Record<PasswordRule, string> = {
   lowercase: 'Password must include a lowercase letter',
   digit: 'Password must include a digit',
 };
-
-export class AuthError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-    readonly fields?: Record<string, string>,
-  ) {
-    super(message);
-    this.name = 'AuthError';
-  }
-}
 
 export interface RegisterInput {
   phone: string;
@@ -50,6 +40,11 @@ export interface LoginInput {
 export interface AuthResult {
   user: PublicUser;
   token: string;
+}
+
+export interface AuthService {
+  register(input: RegisterInput): Promise<AuthResult>;
+  login(input: LoginInput): Promise<AuthResult>;
 }
 
 export function toPublicUser(user: User): PublicUser {
@@ -92,49 +87,55 @@ function validateRegisterInput(input: RegisterInput): Record<string, string> {
   return errors;
 }
 
-export class AuthService {
-  constructor(private readonly userRepository: UserRepository) {}
-
-  async register(input: RegisterInput): Promise<AuthResult> {
-    const errors = validateRegisterInput(input);
-    if (Object.keys(errors).length > 0) {
-      throw new AuthError('Validation failed', HTTP_STATUS.BAD_REQUEST, errors);
-    }
-
-    const existing = await this.userRepository.findByPhone(input.phone);
-    if (existing) {
-      throw new AuthError('Phone number already registered', HTTP_STATUS.CONFLICT, {
-        phone: 'This phone number is already registered',
-      });
-    }
-
-    const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
-    const user: User = {
-      id: randomUUID(),
-      phone: input.phone,
-      firstName: input.firstName.trim(),
-      lastName: input.lastName.trim(),
-      city: input.city,
-      country: 'CO',
-      passwordHash,
-      createdAt: new Date().toISOString(),
-    };
-    await this.userRepository.save(user);
-
-    return { user: toPublicUser(user), token: signSessionToken({ userId: user.id }) };
+async function registerUser(
+  userRepository: UserRepository,
+  input: RegisterInput,
+): Promise<AuthResult> {
+  const errors = validateRegisterInput(input);
+  if (Object.keys(errors).length > 0) {
+    throw new HttpError('Validation failed', HTTP_STATUS.BAD_REQUEST, errors);
   }
 
-  async login(input: LoginInput): Promise<AuthResult> {
-    const user = await this.userRepository.findByPhone(input.phone);
-    if (!user) {
-      throw new AuthError(GENERIC_LOGIN_ERROR, HTTP_STATUS.UNAUTHORIZED);
-    }
-
-    const passwordMatches = await bcrypt.compare(input.password, user.passwordHash);
-    if (!passwordMatches) {
-      throw new AuthError(GENERIC_LOGIN_ERROR, HTTP_STATUS.UNAUTHORIZED);
-    }
-
-    return { user: toPublicUser(user), token: signSessionToken({ userId: user.id }) };
+  const existing = await userRepository.findByPhone(input.phone);
+  if (existing) {
+    throw new HttpError('Phone number already registered', HTTP_STATUS.CONFLICT, {
+      phone: 'This phone number is already registered',
+    });
   }
+
+  const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+  const user: User = {
+    id: randomUUID(),
+    phone: input.phone,
+    firstName: input.firstName.trim(),
+    lastName: input.lastName.trim(),
+    city: input.city,
+    country: 'CO',
+    passwordHash,
+    createdAt: new Date().toISOString(),
+  };
+  await userRepository.save(user);
+
+  return { user: toPublicUser(user), token: signSessionToken({ userId: user.id }) };
+}
+
+async function loginUser(userRepository: UserRepository, input: LoginInput): Promise<AuthResult> {
+  const user = await userRepository.findByPhone(input.phone);
+  if (!user) {
+    throw new HttpError(GENERIC_LOGIN_ERROR, HTTP_STATUS.UNAUTHORIZED);
+  }
+
+  const passwordMatches = await bcrypt.compare(input.password, user.passwordHash);
+  if (!passwordMatches) {
+    throw new HttpError(GENERIC_LOGIN_ERROR, HTTP_STATUS.UNAUTHORIZED);
+  }
+
+  return { user: toPublicUser(user), token: signSessionToken({ userId: user.id }) };
+}
+
+export function createAuthService(userRepository: UserRepository): AuthService {
+  return {
+    register: (input) => registerUser(userRepository, input),
+    login: (input) => loginUser(userRepository, input),
+  };
 }
