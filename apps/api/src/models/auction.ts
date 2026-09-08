@@ -8,6 +8,7 @@ import type {
 export interface Auction {
   id: string;
   userId: string;
+  title: string;
   category: ItemCategory;
   condition: ItemCondition;
   priceCOP: number;

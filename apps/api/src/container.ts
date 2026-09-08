@@ -33,7 +33,7 @@ export function buildContainer(): Container {
 
   const auctionRepository = createJsonAuctionRepository(join(dataDir, 'auctions.json'));
   const photoStorage = createLocalPhotoStorage(uploadsDir);
-  const auctionService = createAuctionService(auctionRepository, photoStorage);
+  const auctionService = createAuctionService(auctionRepository, photoStorage, userRepository);
 
   const bidRepository = createJsonBidRepository(join(dataDir, 'bids.json'));
   const mutex = createKeyedMutex();

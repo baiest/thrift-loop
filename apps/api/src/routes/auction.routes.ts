@@ -13,12 +13,14 @@ import { HTTP_STATUS } from '../lib/http-status.js';
 import { HttpError } from '../lib/http-error.js';
 import { asyncHandler } from '../lib/async-handler.js';
 import { pickPresentStringFields, pickStringFields } from '../lib/request-body.js';
+import { pickQueryStrings } from '../lib/query-params.js';
 import { requireAuth } from '../middlewares/require-auth.js';
 import { requireCsrf } from '../middlewares/require-csrf.js';
 import { optionalAuth } from '../middlewares/optional-auth.js';
 import type { Auction } from '../models/auction.js';
 import type { UserRepository } from '../repositories/user.repository.js';
 import type {
+  AuctionSearchInput,
   AuctionService,
   CreateAuctionInput,
   UpdateAuctionInput,
@@ -26,6 +28,7 @@ import type {
 import type { BidService } from '../services/bid.service.js';
 
 const CREATE_FIELDS = [
+  'title',
   'category',
   'condition',
   'deliveryMethod',
@@ -37,6 +40,14 @@ const UPDATE_FIELDS = [
   ...CREATE_FIELDS,
   'status',
 ] as const satisfies readonly (keyof UpdateAuctionInput)[];
+
+const SEARCH_FIELDS = [
+  'search',
+  'category',
+  'city',
+  'minPriceCOP',
+  'maxPriceCOP',
+] as const satisfies readonly (keyof AuctionSearchInput)[];
 
 const INVALID_FILE_TYPE_MESSAGE = `Only ${ALLOWED_PHOTO_MIME_TYPES.join(', ')} files are allowed`;
 const BIDDING_NOT_AVAILABLE_MESSAGE = 'Bidding is not available';
@@ -61,6 +72,7 @@ async function toPublicAuction(
   return {
     id: auction.id,
     userId: auction.userId,
+    title: auction.title,
     category: auction.category,
     condition: auction.condition,
     priceCOP: auction.priceCOP,
@@ -112,8 +124,9 @@ export function createAuctionRouter(
 
   router.get(
     '/',
-    asyncHandler(async (_req, res) => {
-      const auctions = await auctionService.listPublishedAuctions();
+    asyncHandler(async (req, res) => {
+      const input = pickQueryStrings<AuctionSearchInput>(req.query, SEARCH_FIELDS);
+      const auctions = await auctionService.listPublishedAuctions(input);
       const publicAuctions = await Promise.all(
         auctions.map((auction) => toPublicAuction(auction, userRepository)),
       );

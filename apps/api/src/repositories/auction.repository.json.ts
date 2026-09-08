@@ -1,18 +1,42 @@
 import type { Auction } from '../models/auction.js';
 import { readJsonArray, writeJsonArrayAtomic } from '../lib/json-file-store.js';
-import type { AuctionPatch, AuctionRepository } from './auction.repository.js';
+import type { AuctionFilter, AuctionPatch, AuctionRepository } from './auction.repository.js';
 
-type LegacyAuction = Omit<Auction, 'currentBidCOP' | 'bidCount' | 'bidEndsAt' | 'winnerUserId'> &
-  Partial<Pick<Auction, 'currentBidCOP' | 'bidCount' | 'bidEndsAt' | 'winnerUserId'>>;
+type LegacyAuction = Omit<
+  Auction,
+  'title' | 'currentBidCOP' | 'bidCount' | 'bidEndsAt' | 'winnerUserId'
+> &
+  Partial<Pick<Auction, 'title' | 'currentBidCOP' | 'bidCount' | 'bidEndsAt' | 'winnerUserId'>>;
+
+function humanize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1).replace(/-/g, ' ');
+}
 
 function normalize(raw: LegacyAuction): Auction {
   return {
     ...raw,
+    title: raw.title ?? humanize(raw.category),
     currentBidCOP: raw.currentBidCOP ?? null,
     bidCount: raw.bidCount ?? 0,
     bidEndsAt: raw.bidEndsAt ?? null,
     winnerUserId: raw.winnerUserId ?? null,
   };
+}
+
+function matchesFilter(auction: Auction, filter: AuctionFilter): boolean {
+  if (filter.search && !auction.title.toLowerCase().includes(filter.search.toLowerCase())) {
+    return false;
+  }
+  if (filter.category && auction.category !== filter.category) {
+    return false;
+  }
+  if (filter.minPriceCOP !== undefined && auction.priceCOP < filter.minPriceCOP) {
+    return false;
+  }
+  if (filter.maxPriceCOP !== undefined && auction.priceCOP > filter.maxPriceCOP) {
+    return false;
+  }
+  return true;
 }
 
 async function readAll(filePath: string): Promise<Auction[]> {
@@ -56,10 +80,11 @@ export function createJsonAuctionRepository(filePath: string): AuctionRepository
       return auctions.filter((auction) => isDueForPublish(auction, before));
     },
 
-    async findAllPublished() {
+    async findAllPublished(filter = {}) {
       const auctions = await readAll(filePath);
       return auctions
         .filter((auction) => auction.status === 'published' || auction.status === 'sold')
+        .filter((auction) => matchesFilter(auction, filter))
         .sort(byNewestFirst);
     },
 
