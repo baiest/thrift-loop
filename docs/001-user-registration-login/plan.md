@@ -92,7 +92,10 @@ interface PublicUser {
 - **httpOnly cookie + separate dev ports (Vite on 5173, API on 3000)**: requires CORS with
   `credentials: true` and an explicit `CORS_ORIGIN`, and the frontend fetch wrapper must send
   `credentials: 'include'`. Documented in `.env.example` and `lib/api-client.ts`.
-- **Brute-force login attempts**: accepted as a non-goal (see spec.md), not mitigated here.
+- **Brute-force login attempts**: initially accepted as a non-goal, but CodeQL's default code
+  scanning flagged the unthrottled `/register`, `/login`, and `/me` handlers as a real high-severity
+  finding on the PR. Mitigated with `express-rate-limit` on the whole `/auth` router
+  (`middlewares/rate-limit.ts`, 20 requests / 15 min per IP by default, injectable for tests).
 
 ## Test strategy (TDD)
 
