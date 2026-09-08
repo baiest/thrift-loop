@@ -25,8 +25,6 @@ number + password account system, scoped to Colombia for now.
 - Email address, email verification, or any contact method besides phone.
 - Countries other than Colombia (the data model allows for it later, the UI/validation does not
   yet).
-- Rate limiting or brute-force throttling on login. **Deliberate scope cut, not an oversight** —
-  flagged per the project's security policy. Worth its own spec before this goes to real users.
 - Social login / OAuth.
 - Editing profile data after registration.
 - Admin/moderation of accounts.
@@ -35,38 +33,40 @@ number + password account system, scoped to Colombia for now.
 
 ### Registration
 
-- [ ] Given a phone number not already registered, valid names, a valid Colombian city, and a
+- [x] Given a phone number not already registered, valid names, a valid Colombian city, and a
       password meeting the policy with a matching confirmation, registration succeeds and the
       user is logged in immediately (session cookie set).
-- [ ] Phone number must be a Colombian mobile number: exactly 10 digits, starting with `3`.
+- [x] Phone number must be a Colombian mobile number: exactly 10 digits, starting with `3`.
       Invalid format is rejected with a specific error under the phone field.
-- [ ] First name and last name are required, non-empty after trimming.
-- [ ] City must be one of the fixed list of Colombian cities; anything else is rejected.
-- [ ] Password must be at least 8 characters and include at least one uppercase letter, one
+- [x] First name and last name are required, non-empty after trimming.
+- [x] City must be one of the fixed list of Colombian cities; anything else is rejected.
+- [x] Password must be at least 8 characters and include at least one uppercase letter, one
       lowercase letter, and one digit. Each unmet rule is reported individually.
-- [ ] Password confirmation must match the password exactly, or the registration is rejected
+- [x] Password confirmation must match the password exactly, or the registration is rejected
       with an error under the confirmation field.
-- [ ] Registering with a phone number that is already registered is rejected with a clear error
+- [x] Registering with a phone number that is already registered is rejected with a clear error
       under the phone field (no other account details are leaked).
-- [ ] The stored password is a bcrypt hash — never the plain text password.
-- [ ] The response body never includes the password hash.
+- [x] The stored password is a bcrypt hash — never the plain text password.
+- [x] The response body never includes the password hash.
 
 ### Login
 
-- [ ] Given a registered phone number and its correct password, login succeeds and a session
+- [x] Given a registered phone number and its correct password, login succeeds and a session
       cookie is set.
-- [ ] An unknown phone number or an incorrect password both return the same generic error
+- [x] An unknown phone number or an incorrect password both return the same generic error
       ("phone number or password is incorrect") — the UI cannot tell which one was wrong.
-- [ ] The session cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` when served over HTTPS.
+- [x] The session cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` when served over HTTPS.
+- [x] All `/auth` routes are rate-limited per IP (added after CodeQL flagged the missing
+      throttling on `/register`, `/login`, and `/me` — see plan.md).
 
 ### Frontend UX
 
-- [ ] Mobile-first layout: single column, large touch targets, usable at 360px width without
+- [x] Mobile-first layout: single column, large touch targets, usable at 360px width without
       horizontal scrolling.
-- [ ] Password field has a visibility toggle (eye icon) to show/hide the typed password.
-- [ ] Registration form shows a live password strength indicator as the user types.
-- [ ] Every field shows its specific error in red text directly under the input, not in a toast
+- [x] Password field has a visibility toggle (eye icon) to show/hide the typed password.
+- [x] Registration form shows a live password strength indicator as the user types.
+- [x] Every field shows its specific error in red text directly under the input, not in a toast
       or a summary block at the top of the form.
-- [ ] City is picked from a searchable list, not a long unfiltered dropdown.
-- [ ] The registration/login screens include a clothing-themed illustration to support a modern,
+- [x] City is picked from a searchable list, not a long unfiltered dropdown.
+- [x] The registration/login screens include a clothing-themed illustration to support a modern,
       on-brand look — bundled as a static asset, not loaded from an external image host.
