@@ -6,6 +6,7 @@ export interface User {
   city: string;
   country: 'CO';
   passwordHash: string;
+  address: string | null;
   createdAt: string;
   updatedAt: string;
 }

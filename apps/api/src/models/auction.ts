@@ -15,6 +15,10 @@ export interface Auction {
   status: AuctionStatus;
   deliveryMethod: DeliveryMethod;
   photoKeys: string[];
+  currentBidCOP: number | null;
+  bidCount: number;
+  bidEndsAt: string | null;
+  winnerUserId: string | null;
   createdAt: string;
   updatedAt: string;
 }
