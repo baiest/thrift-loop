@@ -43,46 +43,46 @@ assigns the winning item to the buyer once bidding closes.
 
 ### Browsing
 
-- [ ] `GET /api/auctions` (public) returns every `published`/`sold` auction, newest first.
-- [ ] `GET /api/auctions/:id` (public) returns full detail plus `serverTime` for clock-drift
+- [x] `GET /api/auctions` (public) returns every `published`/`sold` auction, newest first.
+- [x] `GET /api/auctions/:id` (public) returns full detail plus `serverTime` for clock-drift
       correction, or 404 if the auction is a draft or doesn't exist.
-- [ ] `GET /api/auctions/:id/bids` (public) returns the bid history, newest first.
+- [x] `GET /api/auctions/:id/bids` (public) returns the bid history, newest first.
 
 ### Bidding
 
-- [ ] `POST /api/auctions/:id/bids` (authenticated) with `amountCOP` at least the minimum next
+- [x] `POST /api/auctions/:id/bids` (authenticated) with `amountCOP` at least the minimum next
       bid succeeds: saves the bid, updates the auction's current bid/bidder, and (re)starts the
       30-minute window.
-- [ ] A bid below the minimum is rejected (400) with a field error naming the minimum.
-- [ ] The auction's own seller bidding is rejected (403).
-- [ ] A bid on a `draft` or already-`sold` auction is rejected (409/404 as appropriate).
-- [ ] A bid submitted after the window has elapsed is rejected (409), even before the scheduler
+- [x] A bid below the minimum is rejected (400) with a field error naming the minimum.
+- [x] The auction's own seller bidding is rejected (403).
+- [x] A bid on a `draft` or already-`sold` auction is rejected (409/404 as appropriate).
+- [x] A bid submitted after the window has elapsed is rejected (409), even before the scheduler
       has run.
-- [ ] Two bids at the same valid amount arriving concurrently: exactly one succeeds, the other is
+- [x] Two bids at the same valid amount arriving concurrently: exactly one succeeds, the other is
       rejected with a clear error — never a silently lost update.
-- [ ] `PATCH /api/auctions/:id` on an auction that already has at least one bid is rejected (409),
+- [x] `PATCH /api/auctions/:id` on an auction that already has at least one bid is rejected (409),
       even though its status is still `published`.
 
 ### Closing and purchases
 
-- [ ] A background scheduler closes auctions whose window has elapsed: sets `status: 'sold'` and
+- [x] A background scheduler closes auctions whose window has elapsed: sets `status: 'sold'` and
       assigns the winner from the highest bid, without any request triggering it.
-- [ ] `GET /api/purchases` (authenticated) lists the caller's won auctions with a resolved
-      shipping/pickup detail: their address if set and the auction allows delivery, otherwise the
-      seller's city for pickup.
+- [x] `GET /api/auctions/purchases` (authenticated) lists the caller's won auctions with a
+      resolved shipping/pickup detail: their address if set and the auction allows delivery,
+      otherwise the seller's city for pickup.
 
 ### Profile
 
-- [ ] `PATCH /api/auth/me` (authenticated) lets a user set or clear their address.
+- [x] `PATCH /api/auth/me` (authenticated) lets a user set or clear their address.
 
 ### Frontend
 
-- [ ] Sidebar gains "Auctions", "My purchases", and "My profile" entries.
-- [ ] The auction grid shows every published/sold auction (including the caller's own, marked
+- [x] Sidebar gains "Auctions", "My purchases", and "My profile" entries.
+- [x] The auction grid shows every published/sold auction (including the caller's own, marked
       "Yours"), is responsive, and handles auctions with no photos gracefully.
-- [ ] The detail page shows a live countdown, bid history, and (when eligible) a bid form with
+- [x] The detail page shows a live countdown, bid history, and (when eligible) a bid form with
       inline validation matching the backend's minimum.
-- [ ] The countdown is driven by server time, not the raw client clock.
+- [x] The countdown is driven by server time, not the raw client clock.
 
 ## Risks (explicit, not hidden)
 
