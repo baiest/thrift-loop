@@ -34,6 +34,19 @@ describe('api-client', () => {
     await expect(register({} as never)).resolves.toEqual(publicUser);
   });
 
+  it('register calls a relative /api path, not an absolute URL', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve({ user: publicUser }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await register({} as never);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/register', expect.anything());
+  });
+
   it('register throws ApiError with fields on validation failure', async () => {
     mockFetchOnce(400, { error: 'Validation failed', fields: { phone: 'Invalid' } });
 
@@ -64,6 +77,22 @@ describe('api-client', () => {
     await expect(fetchCurrentUser()).resolves.toBeNull();
   });
 
+  it('fetchCurrentUser calls a relative /api path, not an absolute URL', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ user: publicUser }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchCurrentUser();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/auth/me',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+  });
+
   it('logout calls the logout endpoint', async () => {
     const fetchMock = vi
       .fn()
@@ -73,7 +102,7 @@ describe('api-client', () => {
     await logout();
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/auth/logout'),
+      '/api/auth/logout',
       expect.objectContaining({ method: 'POST', credentials: 'include' }),
     );
   });

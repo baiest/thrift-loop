@@ -55,9 +55,21 @@ number + password account system, scoped to Colombia for now.
       cookie is set.
 - [x] An unknown phone number or an incorrect password both return the same generic error
       ("phone number or password is incorrect") — the UI cannot tell which one was wrong.
-- [x] The session cookie is `HttpOnly`, `SameSite=Lax`, and `Secure` when served over HTTPS.
-- [x] All `/auth` routes are rate-limited per IP (added after CodeQL flagged the missing
+- [x] The session cookie is `HttpOnly`, `SameSite=Strict`, and `Secure` when served over HTTPS.
+- [x] All `/api/auth` routes are rate-limited per IP (added after CodeQL flagged the missing
       throttling on `/register`, `/login`, and `/me` — see plan.md).
+
+### Deployment
+
+- [x] The frontend and API are served from the **same origin** in production: the API exposes
+      its routes under `/api/*` and serves the built frontend (static files + an SPA fallback to
+      `index.html` for client-side routes) for everything else. One deployable service, not two.
+      This isn't just simpler — it fixes a real bug: on two different origins, the session cookie
+      (`SameSite=Lax` at the time) would be set by login but **not sent back** on the next
+      `fetch('/auth/me', {credentials:'include'})`, because `Lax` cookies aren't sent on
+      cross-site `fetch`/XHR requests, only top-level GET navigation. Same-origin removes the
+      failure mode entirely and lets the cookie be `SameSite=Strict`. See plan.md for the
+      deployment shape.
 
 ### Frontend UX
 

@@ -9,7 +9,7 @@ const SESSION_COOKIE_DAYS = 7;
 export function getSessionCookieOptions(): CookieOptions {
   return {
     httpOnly: true,
-    sameSite: 'lax',
+    sameSite: 'strict',
     secure: process.env['NODE_ENV'] === 'production',
     maxAge: SESSION_COOKIE_DAYS * SECONDS_PER_DAY * MILLISECONDS_PER_SECOND,
     path: '/',

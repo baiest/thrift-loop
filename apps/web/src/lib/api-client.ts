@@ -1,8 +1,5 @@
 import type { PublicUser } from '@thrift-loop/shared';
 
-const DEFAULT_API_URL = 'http://localhost:3000';
-const API_URL = (import.meta.env['VITE_API_URL'] as string | undefined) ?? DEFAULT_API_URL;
-
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -21,7 +18,7 @@ interface AuthResponseBody {
 }
 
 async function postAuth(path: string, body: unknown): Promise<PublicUser> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -50,15 +47,15 @@ export interface LoginPayload {
 }
 
 export function register(payload: RegisterPayload): Promise<PublicUser> {
-  return postAuth('/auth/register', payload);
+  return postAuth('/api/auth/register', payload);
 }
 
 export function login(payload: LoginPayload): Promise<PublicUser> {
-  return postAuth('/auth/login', payload);
+  return postAuth('/api/auth/login', payload);
 }
 
 export async function fetchCurrentUser(): Promise<PublicUser | null> {
-  const response = await fetch(`${API_URL}/auth/me`, { credentials: 'include' });
+  const response = await fetch('/api/auth/me', { credentials: 'include' });
   if (!response.ok) {
     return null;
   }
@@ -67,5 +64,5 @@ export async function fetchCurrentUser(): Promise<PublicUser | null> {
 }
 
 export async function logout(): Promise<void> {
-  await fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
+  await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
 }
