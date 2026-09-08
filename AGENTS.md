@@ -39,6 +39,13 @@ src/bid/bid-service.test.ts
 
 Naming: `*.test.ts` / `*.test.tsx` for unit tests co-located with source.
 
+**This is non-negotiable, not a style preference.** Writing the implementation and its test in
+the same pass, even when the test passes and coverage looks fine, is not TDD and is not
+acceptable — the test must exist first, fail for the right reason, and only then get made to
+pass. This applies to every task from here on, without exception. If red-green-refactor was
+skipped on a past change, say so explicitly rather than letting it pass as if it had been
+followed.
+
 ## Stack
 
 - **Node.js v22** (see `.nvmrc`). Use `nvm use` before working.
