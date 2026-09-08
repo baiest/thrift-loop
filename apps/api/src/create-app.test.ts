@@ -6,7 +6,7 @@ import request from 'supertest';
 import type { Express } from 'express';
 import type { User } from './models/user.js';
 import type { UserRepository } from './repositories/user.repository.js';
-import { AuthService } from './services/auth.service.js';
+import { createAuthService } from './services/auth.service.js';
 import { createApp } from './create-app.js';
 import { createAuthRateLimiter } from './middlewares/rate-limit.js';
 
@@ -30,7 +30,7 @@ describe('GET /health', () => {
   beforeEach(() => {
     vi.stubEnv('JWT_SECRET', 'test-secret');
     const userRepository = new FakeUserRepository();
-    app = createApp(new AuthService(userRepository), userRepository);
+    app = createApp(createAuthService(userRepository), userRepository);
   });
 
   afterEach(() => {
@@ -49,7 +49,7 @@ describe('/api/auth rate limiting', () => {
   it('returns 429 once the configured limit is exceeded', async () => {
     const userRepository = new FakeUserRepository();
     const limitedApp = createApp(
-      new AuthService(userRepository),
+      createAuthService(userRepository),
       userRepository,
       createAuthRateLimiter({ windowMs: 60_000, max: 2 }),
     );
@@ -81,7 +81,7 @@ describe('single-origin static serving', () => {
   function buildAppWithDist(): Express {
     const userRepository = new FakeUserRepository();
     return createApp(
-      new AuthService(userRepository),
+      createAuthService(userRepository),
       userRepository,
       createAuthRateLimiter(),
       webDistPath,
@@ -104,7 +104,7 @@ describe('single-origin static serving', () => {
 
   it('does not serve static files when webDistPath is omitted', async () => {
     const userRepository = new FakeUserRepository();
-    const app = createApp(new AuthService(userRepository), userRepository);
+    const app = createApp(createAuthService(userRepository), userRepository);
 
     const response = await request(app).get('/register');
 

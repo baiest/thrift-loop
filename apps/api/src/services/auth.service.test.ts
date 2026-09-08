@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { User } from '../models/user.js';
 import type { UserRepository } from '../repositories/user.repository.js';
-import { AuthError, AuthService, type RegisterInput } from './auth.service.js';
+import { HttpError } from '../lib/http-error.js';
+import { createAuthService, type AuthService, type RegisterInput } from './auth.service.js';
 
 class FakeUserRepository implements UserRepository {
   private readonly users = new Map<string, User>();
@@ -29,33 +30,33 @@ const validInput: RegisterInput = {
   confirmPassword: 'Abcdefg1',
 };
 
-async function catchAuthError(promise: Promise<unknown>): Promise<AuthError> {
+async function catchHttpError(promise: Promise<unknown>): Promise<HttpError> {
   try {
     await promise;
-    throw new Error('Expected promise to reject with an AuthError');
+    throw new Error('Expected promise to reject with an HttpError');
   } catch (error) {
-    if (error instanceof AuthError) {
+    if (error instanceof HttpError) {
       return error;
     }
     throw error;
   }
 }
 
-async function expectAuthError(
+async function expectHttpError(
   promise: Promise<unknown>,
   status: number,
   fieldKey?: string,
 ): Promise<void> {
-  await expect(promise).rejects.toBeInstanceOf(AuthError);
+  await expect(promise).rejects.toBeInstanceOf(HttpError);
   try {
     await promise;
   } catch (error) {
-    const authError = error as AuthError;
-    expect(authError.status).toBe(status);
+    const httpError = error as HttpError;
+    expect(httpError.status).toBe(status);
     if (fieldKey) {
       // fieldKey is a literal test-fixture string, not attacker-controlled input.
       // eslint-disable-next-line security/detect-object-injection
-      expect(authError.fields?.[fieldKey]).toBeDefined();
+      expect(httpError.fields?.[fieldKey]).toBeDefined();
     }
   }
 }
@@ -67,7 +68,7 @@ describe('AuthService', () => {
   beforeEach(() => {
     vi.stubEnv('JWT_SECRET', 'test-secret');
     repository = new FakeUserRepository();
-    service = new AuthService(repository);
+    service = createAuthService(repository);
   });
 
   afterEach(() => {
@@ -98,27 +99,27 @@ describe('AuthService', () => {
 
     it('rejects a duplicate phone number', async () => {
       await service.register(validInput);
-      await expectAuthError(service.register(validInput), 409, 'phone');
+      await expectHttpError(service.register(validInput), 409, 'phone');
     });
 
     it('rejects an invalid phone number', async () => {
-      await expectAuthError(service.register({ ...validInput, phone: '123' }), 400, 'phone');
+      await expectHttpError(service.register({ ...validInput, phone: '123' }), 400, 'phone');
     });
 
     it('rejects an empty first name', async () => {
-      await expectAuthError(service.register({ ...validInput, firstName: '  ' }), 400, 'firstName');
+      await expectHttpError(service.register({ ...validInput, firstName: '  ' }), 400, 'firstName');
     });
 
     it('rejects an empty last name', async () => {
-      await expectAuthError(service.register({ ...validInput, lastName: '  ' }), 400, 'lastName');
+      await expectHttpError(service.register({ ...validInput, lastName: '  ' }), 400, 'lastName');
     });
 
     it('rejects a city outside the fixed list', async () => {
-      await expectAuthError(service.register({ ...validInput, city: 'Miami' }), 400, 'city');
+      await expectHttpError(service.register({ ...validInput, city: 'Miami' }), 400, 'city');
     });
 
     it('rejects a password that does not meet the policy', async () => {
-      await expectAuthError(
+      await expectHttpError(
         service.register({ ...validInput, password: 'weak', confirmPassword: 'weak' }),
         400,
         'password',
@@ -126,7 +127,7 @@ describe('AuthService', () => {
     });
 
     it('rejects a mismatched password confirmation', async () => {
-      await expectAuthError(
+      await expectHttpError(
         service.register({ ...validInput, confirmPassword: 'Different1' }),
         400,
         'confirmPassword',
@@ -148,13 +149,13 @@ describe('AuthService', () => {
     });
 
     it('rejects an unknown phone number with a generic error', async () => {
-      await expectAuthError(service.login({ phone: '3009999999', password: 'whatever1A' }), 401);
+      await expectHttpError(service.login({ phone: '3009999999', password: 'whatever1A' }), 401);
     });
 
     it('rejects an incorrect password with the same generic error', async () => {
       await service.register(validInput);
 
-      await expectAuthError(
+      await expectHttpError(
         service.login({ phone: validInput.phone, password: 'WrongPassword1' }),
         401,
       );
@@ -163,10 +164,10 @@ describe('AuthService', () => {
     it('uses the same error message for unknown phone and wrong password', async () => {
       await service.register(validInput);
 
-      const unknownPhoneError = await catchAuthError(
+      const unknownPhoneError = await catchHttpError(
         service.login({ phone: '3009999999', password: 'whatever1A' }),
       );
-      const wrongPasswordError = await catchAuthError(
+      const wrongPasswordError = await catchHttpError(
         service.login({ phone: validInput.phone, password: 'WrongPassword1' }),
       );
 
