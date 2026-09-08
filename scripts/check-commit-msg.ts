@@ -99,8 +99,10 @@ function validateMessage(message: string): string[] {
 
 function getMessagesFromGitLog(logArgs: string[]): string[] {
   // git is resolved from PATH deliberately: this script only runs in trusted local/CI shells.
+  // --no-merges: GitHub's PR checkout adds a synthetic "Merge X into Y" commit
+  // that never matches the template and isn't an authored commit to validate.
   // eslint-disable-next-line sonarjs/no-os-command-from-path
-  const output = execFileSync('git', ['log', ...logArgs, '--format=%B%x00'], {
+  const output = execFileSync('git', ['log', '--no-merges', ...logArgs, '--format=%B%x00'], {
     encoding: 'utf8',
   });
   return output
