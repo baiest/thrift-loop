@@ -21,9 +21,13 @@ jobs:
 
       - run: npm ci
 
-      - name: Commit message template
+      - name: Commit message template (PR commits)
         if: github.event_name == 'pull_request'
         run: npm run check:commits -- "origin/${{ github.base_ref }}..HEAD"
+
+      - name: Commit message template (last 50 on main)
+        if: github.event_name == 'push'
+        run: npm run check:commits:history
 
       - name: LF line endings
         run: npm run check:eol

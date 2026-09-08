@@ -67,6 +67,9 @@ Naming: `*.test.ts` / `*.test.tsx` for unit tests co-located with source.
   split it.
 - Line endings are always **LF**. Enforced by `.gitattributes`, `.editorconfig`, ESLint's
   `linebreak-style`, and `npm run check:eol` in CI.
+- **Module-level constants and variables go at the top of the file**, before any function or
+  class that uses them — they should be the first thing a reader sees, not discovered halfway
+  through the file. This is a manual review convention (no automated rule enforces ordering).
 
 ## Security
 
@@ -88,13 +91,35 @@ The pipeline backs this up automatically:
 Every commit message has exactly three lines, in this order, each value at most 50 characters:
 
 ```
-title: <no more than 50 chars>
+<Type>: <no more than 50 chars>
 what: <no more than 50 chars>
 why: <no more than 50 chars>
 ```
 
+`<Type>` is one of these reserved words:
+
+| Type       | Use for                                                 |
+| ---------- | ------------------------------------------------------- |
+| `Feat`     | New feature or capability                               |
+| `Fix`      | Bug fix                                                 |
+| `Docs`     | Documentation only                                      |
+| `Test`     | Adding or fixing tests, no production code change       |
+| `Refactor` | Code change that neither fixes a bug nor adds a feature |
+| `Style`    | Formatting, whitespace, no logic change                 |
+| `Perf`     | Performance improvement                                 |
+| `Chore`    | Tooling, config, dependency, or maintenance work        |
+| `Build`    | Build system or packaging changes                       |
+| `CI`       | CI/CD pipeline changes                                  |
+| `Revert`   | Reverts a previous commit                               |
+
+No Anthropic attribution lines (e.g. `Co-Authored-By: Claude ...`, `Claude-Session: ...` or any
+`anthropic.com` / `claude.ai/code` reference) are allowed in commit messages — this is a project
+policy applying to any AI-assisted commit, not only Claude's default attribution.
+
 Enforced locally by the `commit-msg` Husky hook and in CI by `npm run check:commits`
-(`scripts/check-commit-msg.ts`).
+(`scripts/check-commit-msg.ts`). CI also re-checks the last 50 commits on every push to `main`
+via `npm run check:commits:history`, so no bad commit message can sit unnoticed in recent
+history.
 
 ## Pipeline gates (CI, `.github/workflows/ci.yml`)
 

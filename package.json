@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "check:commits": "tsx scripts/check-commit-msg.ts --range",
+    "check:commits:history": "tsx scripts/check-commit-msg.ts --last 50",
     "check:eol": "tsx scripts/check-eol.ts",
     "typecheck": "tsx scripts/run-workspace-script.ts typecheck && tsc --noEmit",
     "lint": "eslint . --max-warnings=0",
