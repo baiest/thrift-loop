@@ -46,7 +46,7 @@ Naming: `*.test.ts` / `*.test.tsx` for unit tests co-located with source.
   `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`,
   `noFallthroughCasesInSwitch`, `verbatimModuleSyntax`. Every workspace's `tsconfig.json`
   extends it. Do not weaken these options in a workspace override.
-- **Frontend**: React, built with Vite.
+- **Frontend**: React, built with Vite, styled with Tailwind, global state with Zustand.
 - **Backend**: Node/TypeScript service(s) under `apps/`.
 - **Monorepo**: npm workspaces (`apps/*`, `packages/*`). Shared domain types live in
   `packages/shared`.
@@ -140,6 +140,72 @@ A pull request must pass all of the following before merge:
 For `apps/web`, run [react-doctor](https://github.com) locally (via the Claude Code skill)
 before opening a PR — it is not yet wired into CI as an npm script. CI enforces the React
 subset it can: `eslint-plugin-react-hooks` and `eslint-plugin-react-refresh`.
+
+## Architecture
+
+ThriftLoop is a monolith (one API, one frontend). Keep the architecture proportional to that:
+layered, not hexagonal/ports-and-adapters — that level of ceremony is not justified yet.
+
+### Backend (`apps/api`)
+
+Three layers, in one direction only: **routes → services → repositories**.
+
+```
+apps/api/src/
+  routes/
+    item.routes.ts            # HTTP endpoints, calls a service, returns the response
+  services/
+    item.service.ts           # business logic, testable with a fake repository
+    item.service.test.ts
+  repositories/
+    item.repository.ts        # interface: findAll(), findById(), save(), ...
+    item.repository.json.ts   # today's implementation, backed by a local JSON file
+    item.repository.json.test.ts
+  models/
+    item.ts                   # domain type/entity
+  container.ts                 # wires which repository implementation each service uses
+```
+
+Rules that keep storage swappable and business logic isolated:
+
+- `services/` never imports `express`, `fs`, a database driver, or anything from `routes/`. It
+  only depends on the repository **interface** declared in `repositories/*.repository.ts`.
+- `routes/` stays thin: parse the request, call a service, shape the response. No business logic
+  in a route handler.
+- The JSON file is an implementation detail behind `ItemRepository`. Moving to MongoDB later
+  means adding `item.repository.mongo.ts` that implements the same interface and switching one
+  line in `container.ts` — `services/` and `routes/` do not change.
+- Service tests use an in-memory fake repository, not the real JSON file — fast, no I/O,
+  no shared state between tests.
+
+### Frontend (`apps/web`)
+
+**Atomic Design, simplified to three component layers + pages** (no `templates/` layer — it
+rarely earns its keep in an app this size):
+
+```
+apps/web/src/
+  components/
+    atoms/        # smallest building blocks: Button, Input, Badge
+      button.tsx
+      button.test.tsx
+    molecules/     # small groups of atoms with one job: SearchField, PriceTag
+    organisms/     # composed sections: ItemCard, BidForm, NavBar
+  pages/           # compose organisms, read/write stores, own the route
+  stores/          # Zustand stores, one file per domain slice
+    item-store.ts
+  hooks/           # reusable non-visual logic (custom hooks)
+```
+
+- **Styling**: Tailwind utility classes directly in JSX. No separate CSS-in-JS or a parallel
+  design-token system unless a real need shows up.
+- **State**: [Zustand](https://github.com/pmndrs/zustand) for global/shared state — one small
+  store per domain slice (e.g. `item-store.ts`), no single giant store. Local component state
+  stays as `useState`/`useReducer`; reach for a Zustand store only when state is shared across
+  components that aren't parent/child.
+- **Component clarity**: an atom/molecule takes props and renders — no data fetching, no store
+  access. Only `organisms/` and `pages/` may read from a store or call an API. This keeps atoms
+  and molecules trivially reusable and testable in isolation.
 
 ## Getting started
 
