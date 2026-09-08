@@ -184,6 +184,10 @@ export function createAuctionService(
         publishAt,
         status: 'draft',
         photoKeys: [],
+        currentBidCOP: null,
+        bidCount: 0,
+        bidEndsAt: null,
+        winnerUserId: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -197,6 +201,9 @@ export function createAuctionService(
       patch: UpdateAuctionInput,
     ): Promise<Auction> {
       const auction = await getOwnedAuction(userId, auctionId);
+      // Bidding only ever happens on a 'published' auction, so 'draft' is already
+      // bid-free by construction — this guard alone also satisfies "no edits once
+      // an auction has a bid" without a separate bidCount check.
       if (auction.status !== 'draft') {
         throw new HttpError(CANNOT_EDIT_PUBLISHED_MESSAGE, HTTP_STATUS.CONFLICT);
       }
@@ -236,6 +243,23 @@ export function createAuctionService(
       const keys = await photoStorage.savePhotos(userId, auctionId, files);
       const updated = await auctionRepository.addPhotoKeys(auctionId, keys);
       return updated as Auction;
+    },
+
+    async listPublishedAuctions(): Promise<Auction[]> {
+      return auctionRepository.findAllPublished();
+    },
+
+    async getAuctionForViewer(viewerId: string | null, auctionId: string): Promise<Auction> {
+      const auction = await auctionRepository.findById(auctionId);
+      const isVisible = auction && (auction.status !== 'draft' || auction.userId === viewerId);
+      if (!isVisible) {
+        throw new HttpError(AUCTION_NOT_FOUND_MESSAGE, HTTP_STATUS.NOT_FOUND);
+      }
+      return auction;
+    },
+
+    async listMyPurchases(userId: string): Promise<Auction[]> {
+      return auctionRepository.findWonByUserId(userId);
     },
   };
 }

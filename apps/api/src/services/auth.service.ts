@@ -17,6 +17,8 @@ const USER_ID_PREFIX = 'USR';
 
 const SALT_ROUNDS = 10;
 const GENERIC_LOGIN_ERROR = 'Phone number or password is incorrect';
+const MAX_ADDRESS_LENGTH = 200;
+const USER_NOT_FOUND_MESSAGE = 'User not found';
 
 const PASSWORD_RULE_MESSAGES: Record<PasswordRule, string> = {
   minLength: 'Password must be at least 8 characters',
@@ -44,9 +46,14 @@ export interface AuthResult {
   token: string;
 }
 
+export interface UpdateProfileInput {
+  address: string;
+}
+
 export interface AuthService {
   register(input: RegisterInput): Promise<AuthResult>;
   login(input: LoginInput): Promise<AuthResult>;
+  updateProfile(userId: string, input: UpdateProfileInput): Promise<PublicUser>;
 }
 
 export function toPublicUser(user: User): PublicUser {
@@ -56,6 +63,7 @@ export function toPublicUser(user: User): PublicUser {
     lastName: user.lastName,
     city: user.city,
     country: user.country,
+    address: user.address,
   };
 }
 
@@ -115,6 +123,7 @@ async function registerUser(
     city: input.city,
     country: 'CO',
     passwordHash,
+    address: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -137,9 +146,31 @@ async function loginUser(userRepository: UserRepository, input: LoginInput): Pro
   return { user: toPublicUser(user), token: signSessionToken({ userId: user.id }) };
 }
 
+async function updateProfile(
+  userRepository: UserRepository,
+  userId: string,
+  input: UpdateProfileInput,
+): Promise<PublicUser> {
+  const trimmed = input.address.trim();
+  if (trimmed.length > MAX_ADDRESS_LENGTH) {
+    throw new HttpError('Validation failed', HTTP_STATUS.BAD_REQUEST, {
+      address: `Address must be at most ${MAX_ADDRESS_LENGTH} characters`,
+    });
+  }
+
+  const updated = await userRepository.update(userId, {
+    address: trimmed.length > 0 ? trimmed : null,
+  });
+  if (!updated) {
+    throw new HttpError(USER_NOT_FOUND_MESSAGE, HTTP_STATUS.NOT_FOUND);
+  }
+  return toPublicUser(updated);
+}
+
 export function createAuthService(userRepository: UserRepository): AuthService {
   return {
     register: (input) => registerUser(userRepository, input),
     login: (input) => loginUser(userRepository, input),
+    updateProfile: (userId, input) => updateProfile(userRepository, userId, input),
   };
 }

@@ -5,7 +5,9 @@ import {
   isAllowedPhotoMimeType,
   MAX_PHOTOS_PER_AUCTION,
   MAX_PHOTO_SIZE_BYTES,
+  resolveHandover,
   type PublicAuction,
+  type PublicPurchase,
 } from '@thrift-loop/shared';
 import { HTTP_STATUS } from '../lib/http-status.js';
 import { HttpError } from '../lib/http-error.js';
@@ -13,12 +15,15 @@ import { asyncHandler } from '../lib/async-handler.js';
 import { pickPresentStringFields, pickStringFields } from '../lib/request-body.js';
 import { requireAuth } from '../middlewares/require-auth.js';
 import { requireCsrf } from '../middlewares/require-csrf.js';
+import { optionalAuth } from '../middlewares/optional-auth.js';
 import type { Auction } from '../models/auction.js';
+import type { UserRepository } from '../repositories/user.repository.js';
 import type {
   AuctionService,
   CreateAuctionInput,
   UpdateAuctionInput,
 } from '../services/auction.service.js';
+import type { BidService } from '../services/bid.service.js';
 
 const CREATE_FIELDS = [
   'category',
@@ -34,6 +39,7 @@ const UPDATE_FIELDS = [
 ] as const satisfies readonly (keyof UpdateAuctionInput)[];
 
 const INVALID_FILE_TYPE_MESSAGE = `Only ${ALLOWED_PHOTO_MIME_TYPES.join(', ')} files are allowed`;
+const BIDDING_NOT_AVAILABLE_MESSAGE = 'Bidding is not available';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -47,7 +53,11 @@ const upload = multer({
   },
 });
 
-function toPublicAuction(auction: Auction): PublicAuction {
+async function toPublicAuction(
+  auction: Auction,
+  userRepository: UserRepository,
+): Promise<PublicAuction> {
+  const seller = await userRepository.findById(auction.userId);
   return {
     id: auction.id,
     userId: auction.userId,
@@ -58,6 +68,11 @@ function toPublicAuction(auction: Auction): PublicAuction {
     status: auction.status,
     deliveryMethod: auction.deliveryMethod,
     photoUrls: auction.photoKeys.map((key) => `/uploads/${key}`),
+    currentBidCOP: auction.currentBidCOP,
+    bidCount: auction.bidCount,
+    bidEndsAt: auction.bidEndsAt,
+    winnerUserId: auction.winnerUserId,
+    sellerCity: seller?.city ?? '',
     createdAt: auction.createdAt,
     updatedAt: auction.updatedAt,
   };
@@ -76,8 +91,35 @@ function runUpload(req: Request, res: Response): Promise<void> {
   });
 }
 
-export function createAuctionRouter(auctionService: AuctionService): Router {
+function getViewerId(res: Response): string | null {
+  const userId: unknown = res.locals['userId'];
+  return typeof userId === 'string' ? userId : null;
+}
+
+function requireBidService(bidService: BidService | undefined): BidService {
+  if (!bidService) {
+    throw new HttpError(BIDDING_NOT_AVAILABLE_MESSAGE, HTTP_STATUS.NOT_FOUND);
+  }
+  return bidService;
+}
+
+export function createAuctionRouter(
+  auctionService: AuctionService,
+  userRepository: UserRepository,
+  bidService?: BidService,
+): Router {
   const router = Router();
+
+  router.get(
+    '/',
+    asyncHandler(async (_req, res) => {
+      const auctions = await auctionService.listPublishedAuctions();
+      const publicAuctions = await Promise.all(
+        auctions.map((auction) => toPublicAuction(auction, userRepository)),
+      );
+      res.status(HTTP_STATUS.OK).json({ auctions: publicAuctions });
+    }),
+  );
 
   router.post(
     '/',
@@ -87,7 +129,9 @@ export function createAuctionRouter(auctionService: AuctionService): Router {
       const userId = res.locals['userId'] as string;
       const input = pickStringFields<CreateAuctionInput>(req.body, CREATE_FIELDS);
       const auction = await auctionService.createAuction(userId, input);
-      res.status(HTTP_STATUS.CREATED).json({ auction: toPublicAuction(auction) });
+      res
+        .status(HTTP_STATUS.CREATED)
+        .json({ auction: await toPublicAuction(auction, userRepository) });
     }),
   );
 
@@ -97,17 +141,77 @@ export function createAuctionRouter(auctionService: AuctionService): Router {
     asyncHandler(async (_req, res) => {
       const userId = res.locals['userId'] as string;
       const auctions = await auctionService.listMyAuctions(userId);
-      res.status(HTTP_STATUS.OK).json({ auctions: auctions.map(toPublicAuction) });
+      const publicAuctions = await Promise.all(
+        auctions.map((auction) => toPublicAuction(auction, userRepository)),
+      );
+      res.status(HTTP_STATUS.OK).json({ auctions: publicAuctions });
+    }),
+  );
+
+  router.get(
+    '/purchases',
+    requireAuth,
+    asyncHandler(async (_req, res) => {
+      const userId = res.locals['userId'] as string;
+      const buyer = await userRepository.findById(userId);
+      const auctions = await auctionService.listMyPurchases(userId);
+      const purchases: PublicPurchase[] = await Promise.all(
+        auctions.map(async (auction) => {
+          const publicAuction = await toPublicAuction(auction, userRepository);
+          const handover = resolveHandover(
+            buyer?.address ?? null,
+            auction.deliveryMethod,
+            publicAuction.sellerCity,
+          );
+          return { auction: publicAuction, handover };
+        }),
+      );
+      res.status(HTTP_STATUS.OK).json({ purchases });
     }),
   );
 
   router.get(
     '/:id',
+    optionalAuth,
+    asyncHandler(async (req, res) => {
+      const auction = await auctionService.getAuctionForViewer(
+        getViewerId(res),
+        req.params['id'] as string,
+      );
+      res.status(HTTP_STATUS.OK).json({
+        auction: await toPublicAuction(auction, userRepository),
+        serverTime: new Date().toISOString(),
+      });
+    }),
+  );
+
+  router.get(
+    '/:id/bids',
+    optionalAuth,
+    asyncHandler(async (req, res) => {
+      const auctionId = req.params['id'] as string;
+      await auctionService.getAuctionForViewer(getViewerId(res), auctionId);
+      const bids = await requireBidService(bidService).listBids(auctionId);
+      res.status(HTTP_STATUS.OK).json({ bids });
+    }),
+  );
+
+  router.post(
+    '/:id/bids',
     requireAuth,
+    requireCsrf,
     asyncHandler(async (req, res) => {
       const userId = res.locals['userId'] as string;
-      const auction = await auctionService.getAuction(userId, req.params['id'] as string);
-      res.status(HTTP_STATUS.OK).json({ auction: toPublicAuction(auction) });
+      const auctionId = req.params['id'] as string;
+      const amountCOP = pickStringFields<{ amountCOP: string }>(req.body, ['amountCOP']).amountCOP;
+      const { auction, bid } = await requireBidService(bidService).placeBid(
+        userId,
+        auctionId,
+        amountCOP,
+      );
+      res
+        .status(HTTP_STATUS.CREATED)
+        .json({ auction: await toPublicAuction(auction, userRepository), bid });
     }),
   );
 
@@ -119,7 +223,7 @@ export function createAuctionRouter(auctionService: AuctionService): Router {
       const userId = res.locals['userId'] as string;
       const patch = pickPresentStringFields<UpdateAuctionInput>(req.body, UPDATE_FIELDS);
       const auction = await auctionService.updateAuction(userId, req.params['id'] as string, patch);
-      res.status(HTTP_STATUS.OK).json({ auction: toPublicAuction(auction) });
+      res.status(HTTP_STATUS.OK).json({ auction: await toPublicAuction(auction, userRepository) });
     }),
   );
 
@@ -153,7 +257,7 @@ export function createAuctionRouter(auctionService: AuctionService): Router {
         req.params['id'] as string,
         files.map((file) => ({ originalName: file.originalname, buffer: file.buffer })),
       );
-      res.status(HTTP_STATUS.OK).json({ auction: toPublicAuction(auction) });
+      res.status(HTTP_STATUS.OK).json({ auction: await toPublicAuction(auction, userRepository) });
     }),
   );
 

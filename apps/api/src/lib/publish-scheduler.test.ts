@@ -1,7 +1,15 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Auction } from '../models/auction.js';
+import type { Bid } from '../models/bid.js';
 import type { AuctionPatch, AuctionRepository } from '../repositories/auction.repository.js';
-import { publishDueAuctions, startPublishScheduler } from './publish-scheduler.js';
+import type { BidRepository } from '../repositories/bid.repository.js';
+import { createKeyedMutex } from './keyed-mutex.js';
+import {
+  closeDueAuctions,
+  publishDueAuctions,
+  startAuctionScheduler,
+  startPublishScheduler,
+} from './publish-scheduler.js';
 
 function makeAuction(overrides: Partial<Auction> = {}): Auction {
   return {
@@ -14,28 +22,70 @@ function makeAuction(overrides: Partial<Auction> = {}): Auction {
     status: 'draft',
     deliveryMethod: 'pickup',
     photoKeys: [],
+    currentBidCOP: null,
+    bidCount: 0,
+    bidEndsAt: null,
+    winnerUserId: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
 }
 
-function makeFakeRepository(dueAuctions: Auction[]): AuctionRepository & {
+function makeFakeRepository(
+  dueAuctions: Auction[],
+  dueForClose: Auction[] = [],
+): AuctionRepository & {
   updateCalls: { id: string; patch: AuctionPatch }[];
+  auctions: Map<string, Auction>;
 } {
   const updateCalls: { id: string; patch: AuctionPatch }[] = [];
+  const auctions = new Map<string, Auction>();
+  for (const auction of [...dueAuctions, ...dueForClose]) {
+    auctions.set(auction.id, auction);
+  }
   return {
     updateCalls,
-    findById: () => Promise.resolve(null),
+    auctions,
+    findById: (id) => Promise.resolve(auctions.get(id) ?? null),
     findByUserId: () => Promise.resolve([]),
     findDueForPublish: () => Promise.resolve(dueAuctions),
+    findAllPublished: () => Promise.resolve([]),
+    findDueForClose: () => Promise.resolve(dueForClose),
+    findWonByUserId: () => Promise.resolve([]),
     save: () => Promise.resolve(),
     update: (id, patch) => {
       updateCalls.push({ id, patch });
-      return Promise.resolve(null);
+      const existing = auctions.get(id);
+      if (!existing) {
+        return Promise.resolve(null);
+      }
+      const updated = { ...existing, ...patch };
+      auctions.set(id, updated);
+      return Promise.resolve(updated);
     },
     delete: () => Promise.resolve(),
     addPhotoKeys: () => Promise.resolve(null),
+  };
+}
+
+function makeFakeBidRepository(bidsByAuction: Record<string, Bid[]>): BidRepository {
+  return {
+    // auctionId is a test fixture key, not attacker-controlled input.
+    // eslint-disable-next-line security/detect-object-injection
+    findByAuctionId: (auctionId) => Promise.resolve(bidsByAuction[auctionId] ?? []),
+    save: () => Promise.resolve(),
+  };
+}
+
+function makeBid(overrides: Partial<Bid> = {}): Bid {
+  return {
+    id: 'BID-1',
+    auctionId: 'AUC-1',
+    userId: 'USR-bidder',
+    amountCOP: 60_000,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
   };
 }
 
@@ -75,6 +125,73 @@ describe('startPublishScheduler', () => {
     await vi.advanceTimersByTimeAsync(intervalMs * 5);
     expect(repository.updateCalls).toHaveLength(2);
 
+    vi.useRealTimers();
+  });
+});
+
+describe('closeDueAuctions', () => {
+  it('closes an auction whose bid window elapsed, assigning the highest bidder as winner', async () => {
+    const due = makeAuction({
+      id: 'AUC-1',
+      status: 'published',
+      currentBidCOP: 60_000,
+      bidCount: 1,
+      bidEndsAt: '2026-01-01T00:00:00.000Z',
+    });
+    const repository = makeFakeRepository([], [due]);
+    const bidRepository = makeFakeBidRepository({
+      'AUC-1': [makeBid({ userId: 'USR-winner', amountCOP: 60_000 })],
+    });
+
+    await closeDueAuctions(
+      repository,
+      bidRepository,
+      createKeyedMutex(),
+      new Date('2026-02-01T00:00:00.000Z'),
+    );
+
+    expect(repository.updateCalls).toEqual([
+      { id: 'AUC-1', patch: { status: 'sold', winnerUserId: 'USR-winner' } },
+    ]);
+  });
+
+  it('does nothing when there are no auctions due to close', async () => {
+    const repository = makeFakeRepository([], []);
+    const bidRepository = makeFakeBidRepository({});
+
+    await closeDueAuctions(repository, bidRepository, createKeyedMutex(), new Date());
+
+    expect(repository.updateCalls).toEqual([]);
+  });
+});
+
+describe('startAuctionScheduler', () => {
+  it('runs both publish and close on an interval and can be stopped', async () => {
+    vi.useFakeTimers();
+    const due = makeAuction({
+      id: 'AUC-due-close',
+      status: 'published',
+      currentBidCOP: 60_000,
+      bidCount: 1,
+      bidEndsAt: '2020-01-01T00:00:00.000Z',
+    });
+    const repository = makeFakeRepository([makeAuction({ id: 'AUC-due-publish' })], [due]);
+    const bidRepository = makeFakeBidRepository({
+      'AUC-due-close': [makeBid({ auctionId: 'AUC-due-close', userId: 'USR-winner' })],
+    });
+    const intervalMs = 1000;
+
+    const stop = startAuctionScheduler(repository, bidRepository, createKeyedMutex(), intervalMs);
+    await vi.advanceTimersByTimeAsync(intervalMs);
+
+    expect(repository.updateCalls).toEqual(
+      expect.arrayContaining([
+        { id: 'AUC-due-publish', patch: { status: 'published' } },
+        { id: 'AUC-due-close', patch: { status: 'sold', winnerUserId: 'USR-winner' } },
+      ]),
+    );
+
+    stop();
     vi.useRealTimers();
   });
 });

@@ -3,7 +3,7 @@ import request, { type Response } from 'supertest';
 import type { Express } from 'express';
 import type { PublicUser } from '@thrift-loop/shared';
 import type { User } from '../models/user.js';
-import type { UserRepository } from '../repositories/user.repository.js';
+import type { UserPatch, UserRepository } from '../repositories/user.repository.js';
 import { SESSION_COOKIE_NAME } from '../lib/cookies.js';
 import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '../lib/csrf.js';
 import { signSessionToken } from '../lib/jwt.js';
@@ -42,6 +42,16 @@ class FakeUserRepository implements UserRepository {
     this.users.set(user.phone, user);
     return Promise.resolve();
   }
+
+  async update(id: string, patch: UserPatch): Promise<User | null> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      return null;
+    }
+    const updated = { ...existing, ...patch, updatedAt: new Date().toISOString() };
+    this.users.set(updated.phone, updated);
+    return updated;
+  }
 }
 
 const registerBody = {
@@ -56,7 +66,7 @@ const registerBody = {
 function buildApp(): Express {
   const userRepository = new FakeUserRepository();
   const authService = createAuthService(userRepository);
-  return createApp(authService, userRepository);
+  return createApp({ authService, userRepository });
 }
 
 describe('auth routes', () => {
@@ -119,8 +129,12 @@ describe('auth routes', () => {
         findByPhone: () => Promise.reject(new Error('database is down')),
         findById: () => Promise.resolve(null),
         save: () => Promise.resolve(),
+        update: () => Promise.resolve(null),
       };
-      const brokenApp = createApp(createAuthService(brokenRepository), brokenRepository);
+      const brokenApp = createApp({
+        authService: createAuthService(brokenRepository),
+        userRepository: brokenRepository,
+      });
 
       const response = await request(brokenApp).post('/api/auth/register').send(registerBody);
 
@@ -197,6 +211,36 @@ describe('auth routes', () => {
       await agent.post('/api/auth/register').send(registerBody);
 
       const response = await agent.post('/api/auth/logout');
+
+      expect(response.status).toBe(403);
+    });
+  });
+
+  describe('PATCH /api/auth/me', () => {
+    it('sets the address with a valid session and CSRF token', async () => {
+      const agent = request.agent(app);
+      const registerResponse = await agent.post('/api/auth/register').send(registerBody);
+      const csrfToken = extractCsrfToken(registerResponse);
+
+      const response = await agent
+        .patch('/api/auth/me')
+        .set(CSRF_HEADER_NAME, csrfToken)
+        .send({ address: 'Calle 1' });
+
+      expect(response.status).toBe(200);
+      expect(body(response).user?.address).toBe('Calle 1');
+    });
+
+    it('returns 401 without a session cookie', async () => {
+      const response = await request(app).patch('/api/auth/me').send({ address: 'Calle 1' });
+      expect(response.status).toBe(401);
+    });
+
+    it('rejects without a matching CSRF token', async () => {
+      const agent = request.agent(app);
+      await agent.post('/api/auth/register').send(registerBody);
+
+      const response = await agent.patch('/api/auth/me').send({ address: 'Calle 1' });
 
       expect(response.status).toBe(403);
     });
