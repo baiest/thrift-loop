@@ -1,0 +1,32 @@
+<svg viewBox="0 0 400 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Illustration of clothes on a rack">
+  <rect x="0" y="0" width="400" height="260" rx="24" fill="#ECFDF5" />
+  <line x1="40" y1="60" x2="360" y2="60" stroke="#059669" stroke-width="6" stroke-linecap="round" />
+  <line x1="60" y1="60" x2="60" y2="40" stroke="#059669" stroke-width="6" stroke-linecap="round" />
+  <line x1="340" y1="60" x2="340" y2="40" stroke="#059669" stroke-width="6" stroke-linecap="round" />
+
+  <!-- Hanger 1: t-shirt -->
+  <g transform="translate(70,60)">
+    <path d="M20 0 L20 -10" stroke="#065F46" stroke-width="3" />
+    <path d="M0 10 L20 -8 L40 10" stroke="#065F46" stroke-width="3" fill="none" />
+    <path d="M4 18 L20 6 L36 18 L36 30 L28 26 L28 70 L12 70 L12 26 L4 30 Z" fill="#34D399" />
+  </g>
+
+  <!-- Hanger 2: dress -->
+  <g transform="translate(160,60)">
+    <path d="M20 0 L20 -10" stroke="#065F46" stroke-width="3" />
+    <path d="M0 10 L20 -8 L40 10" stroke="#065F46" stroke-width="3" fill="none" />
+    <path d="M10 18 L30 18 L38 90 L2 90 Z" fill="#10B981" />
+    <rect x="14" y="18" width="12" height="14" fill="#ECFDF5" />
+  </g>
+
+  <!-- Hanger 3: jacket -->
+  <g transform="translate(260,60)">
+    <path d="M20 0 L20 -10" stroke="#065F46" stroke-width="3" />
+    <path d="M0 10 L20 -8 L40 10" stroke="#065F46" stroke-width="3" fill="none" />
+    <path d="M6 18 L20 8 L34 18 L40 34 L30 40 L30 80 L10 80 L10 40 L0 34 Z" fill="#047857" />
+  </g>
+
+  <circle cx="200" cy="210" r="4" fill="#A7F3D0" />
+  <circle cx="140" cy="220" r="3" fill="#A7F3D0" />
+  <circle cx="260" cy="220" r="3" fill="#A7F3D0" />
+</svg>

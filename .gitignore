@@ -10,4 +10,5 @@ coverage/
 .vscode/*
 !.vscode/extensions.json
 .husky/_
+apps/api/data/
 

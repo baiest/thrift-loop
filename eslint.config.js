@@ -48,6 +48,9 @@ export default [
       ...security.configs.recommended.rules,
       ...prettierConfig.rules,
       'prettier/prettier': 'error',
+      // TypeScript's own checker already catches undefined names; no-undef produces
+      // false positives on ambient/global types (e.g. NodeJS.ErrnoException).
+      'no-undef': 'off',
       complexity: ['error', MAX_COMPLEXITY],
       'sonarjs/cognitive-complexity': ['error', MAX_COMPLEXITY],
       'no-secrets/no-secrets': 'error',
@@ -78,6 +81,10 @@ export default [
     rules: {
       '@typescript-eslint/no-magic-numbers': 'off',
       'sonarjs/no-duplicate-string': 'off',
+      // Test fixtures legitimately hardcode literal password strings, and mocked
+      // methods (vi.fn()) trigger false positives for unbound-method.
+      'sonarjs/no-hardcoded-passwords': 'off',
+      '@typescript-eslint/unbound-method': 'off',
     },
   },
 ];
