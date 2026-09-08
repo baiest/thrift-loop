@@ -1,5 +1,19 @@
 import type { PublicAuction, PublicUser } from '@thrift-loop/shared';
 
+const CSRF_COOKIE_NAME = 'csrf_token';
+const CSRF_HEADER_NAME = 'x-csrf-token';
+
+function readCsrfToken(): string {
+  const match = document.cookie
+    .split('; ')
+    .find((entry) => entry.startsWith(`${CSRF_COOKIE_NAME}=`));
+  return match ? decodeURIComponent(match.slice(CSRF_COOKIE_NAME.length + 1)) : '';
+}
+
+function csrfHeaders(): Record<string, string> {
+  return { [CSRF_HEADER_NAME]: readCsrfToken() };
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -64,7 +78,11 @@ export async function fetchCurrentUser(): Promise<PublicUser | null> {
 }
 
 export async function logout(): Promise<void> {
-  await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+  await fetch('/api/auth/logout', {
+    method: 'POST',
+    credentials: 'include',
+    headers: csrfHeaders(),
+  });
 }
 
 interface AuctionResponseBody {
@@ -91,7 +109,7 @@ async function requestAuction(
 ): Promise<PublicAuction> {
   const response = await fetch(path, {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
     credentials: 'include',
     body: JSON.stringify(body),
   });
@@ -112,7 +130,11 @@ export function updateAuction(id: string, payload: UpdateAuctionPayload): Promis
 }
 
 export async function deleteAuction(id: string): Promise<void> {
-  await fetch(`/api/auctions/${id}`, { method: 'DELETE', credentials: 'include' });
+  await fetch(`/api/auctions/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: csrfHeaders(),
+  });
 }
 
 export async function fetchMyAuctions(): Promise<PublicAuction[]> {
@@ -139,6 +161,7 @@ export async function uploadAuctionPhotos(id: string, files: File[]): Promise<Pu
   const response = await fetch(`/api/auctions/${id}/photos`, {
     method: 'POST',
     credentials: 'include',
+    headers: csrfHeaders(),
     body: formData,
   });
 

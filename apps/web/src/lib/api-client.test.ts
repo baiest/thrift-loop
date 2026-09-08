@@ -35,6 +35,11 @@ const publicUser = {
   country: 'CO' as const,
 };
 
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest's objectContaining typing widens to `any`
+const csrfHeaderMatcher: Record<string, string> = expect.objectContaining({
+  'x-csrf-token': 'test-csrf-token',
+});
+
 function mockFetchOnce(status: number, body: unknown): void {
   vi.stubGlobal(
     'fetch',
@@ -49,10 +54,12 @@ function mockFetchOnce(status: number, body: unknown): void {
 describe('api-client', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
+    document.cookie = 'csrf_token=test-csrf-token';
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    document.cookie = 'csrf_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
   });
 
   it('register resolves with the public user on success', async () => {
@@ -129,7 +136,11 @@ describe('api-client', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auth/logout',
-      expect.objectContaining({ method: 'POST', credentials: 'include' }),
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        headers: csrfHeaderMatcher,
+      }),
     );
   });
 
@@ -144,7 +155,11 @@ describe('api-client', () => {
     await expect(createAuction({} as never)).resolves.toEqual(publicAuction);
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auctions',
-      expect.objectContaining({ method: 'POST', credentials: 'include' }),
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        headers: csrfHeaderMatcher,
+      }),
     );
   });
 
@@ -168,7 +183,11 @@ describe('api-client', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auctions/AUC-1',
-      expect.objectContaining({ method: 'PATCH', credentials: 'include' }),
+      expect.objectContaining({
+        method: 'PATCH',
+        credentials: 'include',
+        headers: csrfHeaderMatcher,
+      }),
     );
   });
 
@@ -182,7 +201,11 @@ describe('api-client', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auctions/AUC-1',
-      expect.objectContaining({ method: 'DELETE', credentials: 'include' }),
+      expect.objectContaining({
+        method: 'DELETE',
+        credentials: 'include',
+        headers: csrfHeaderMatcher,
+      }),
     );
   });
 
@@ -212,8 +235,8 @@ describe('api-client', () => {
     expect(options.method).toBe('POST');
     expect(options.credentials).toBe('include');
     expect(options.body).toBeInstanceOf(FormData);
-    expect(
-      (options.headers as Record<string, string> | undefined)?.['Content-Type'],
-    ).toBeUndefined();
+    const headers = options.headers as Record<string, string> | undefined;
+    expect(headers?.['Content-Type']).toBeUndefined();
+    expect(headers?.['x-csrf-token']).toBe('test-csrf-token');
   });
 });
