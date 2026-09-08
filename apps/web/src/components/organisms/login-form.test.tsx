@@ -17,6 +17,7 @@ const validUser = {
   lastName: 'Gómez',
   city: 'Bogotá D.C.',
   country: 'CO' as const,
+  address: null,
 };
 
 describe('LoginForm', () => {

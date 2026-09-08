@@ -1,4 +1,4 @@
-import type { PublicAuction, PublicUser } from '@thrift-loop/shared';
+import type { PublicAuction, PublicBid, PublicPurchase, PublicUser } from '@thrift-loop/shared';
 
 const CSRF_COOKIE_NAME = 'csrf_token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
@@ -150,6 +150,95 @@ export async function fetchAuction(id: string): Promise<PublicAuction | null> {
   }
   const data = (await response.json()) as AuctionResponseBody;
   return data.auction ?? null;
+}
+
+export async function fetchAuctions(): Promise<PublicAuction[]> {
+  const response = await fetch('/api/auctions', { credentials: 'include' });
+  const data = (await response.json()) as AuctionResponseBody;
+  return data.auctions ?? [];
+}
+
+interface AuctionDetailResponseBody {
+  auction?: PublicAuction;
+  serverTime?: string;
+}
+
+export async function fetchAuctionDetail(
+  id: string,
+): Promise<{ auction: PublicAuction; serverTime: string } | null> {
+  const response = await fetch(`/api/auctions/${id}`, { credentials: 'include' });
+  if (!response.ok) {
+    return null;
+  }
+  const data = (await response.json()) as AuctionDetailResponseBody;
+  if (!data.auction || !data.serverTime) {
+    return null;
+  }
+  return { auction: data.auction, serverTime: data.serverTime };
+}
+
+interface BidsResponseBody {
+  bids?: PublicBid[];
+}
+
+export async function fetchBids(id: string): Promise<PublicBid[]> {
+  const response = await fetch(`/api/auctions/${id}/bids`, { credentials: 'include' });
+  const data = (await response.json()) as BidsResponseBody;
+  return data.bids ?? [];
+}
+
+interface PlaceBidResponseBody {
+  auction?: PublicAuction;
+  bid?: PublicBid;
+  error?: string;
+  fields?: Record<string, string>;
+}
+
+export async function placeBid(
+  id: string,
+  amountCOP: number,
+): Promise<{ auction: PublicAuction; bid: PublicBid }> {
+  const response = await fetch(`/api/auctions/${id}/bids`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+    credentials: 'include',
+    body: JSON.stringify({ amountCOP: String(amountCOP) }),
+  });
+
+  const data = (await response.json()) as PlaceBidResponseBody;
+  if (!response.ok || !data.auction || !data.bid) {
+    throw new ApiError(data.error ?? 'Request failed', response.status, data.fields);
+  }
+  return { auction: data.auction, bid: data.bid };
+}
+
+interface PurchasesResponseBody {
+  purchases?: PublicPurchase[];
+}
+
+export async function fetchMyPurchases(): Promise<PublicPurchase[]> {
+  const response = await fetch('/api/auctions/purchases', { credentials: 'include' });
+  const data = (await response.json()) as PurchasesResponseBody;
+  return data.purchases ?? [];
+}
+
+export interface UpdateProfilePayload {
+  address: string;
+}
+
+export async function updateProfile(payload: UpdateProfilePayload): Promise<PublicUser> {
+  const response = await fetch('/api/auth/me', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+
+  const data = (await response.json()) as AuthResponseBody;
+  if (!response.ok || !data.user) {
+    throw new ApiError(data.error ?? 'Request failed', response.status, data.fields);
+  }
+  return data.user;
 }
 
 export async function uploadAuctionPhotos(id: string, files: File[]): Promise<PublicAuction> {

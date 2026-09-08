@@ -6,7 +6,12 @@ interface NavItem {
   readonly to: string;
 }
 
-const NAV_ITEMS: readonly NavItem[] = [{ label: 'Create auction', to: '/auctions/new' }];
+const NAV_ITEMS: readonly NavItem[] = [
+  { label: 'Create auction', to: '/auctions/new' },
+  { label: 'Auctions', to: '/auctions' },
+  { label: 'My purchases', to: '/purchases' },
+  { label: 'My profile', to: '/profile' },
+];
 
 export function SidebarNav(): React.JSX.Element {
   const [isOpen, setIsOpen] = useState(false);

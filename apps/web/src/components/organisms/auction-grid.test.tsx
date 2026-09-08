@@ -1,0 +1,67 @@
+import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import type { PublicAuction } from '@thrift-loop/shared';
+import { AuctionGrid } from './auction-grid.js';
+
+function makeAuction(overrides: Partial<PublicAuction> = {}): PublicAuction {
+  return {
+    id: 'AUC-1',
+    userId: 'USR-1',
+    category: 'jeans',
+    condition: 'good',
+    priceCOP: 50_000,
+    publishAt: null,
+    status: 'published',
+    deliveryMethod: 'pickup',
+    photoUrls: [],
+    currentBidCOP: null,
+    bidCount: 0,
+    bidEndsAt: null,
+    winnerUserId: null,
+    sellerCity: 'Bogotá D.C.',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function renderGrid(props: Partial<React.ComponentProps<typeof AuctionGrid>> = {}): void {
+  render(
+    <MemoryRouter>
+      <AuctionGrid auctions={[]} isLoading={false} error={null} currentUserId={null} {...props} />
+    </MemoryRouter>,
+  );
+}
+
+describe('AuctionGrid', () => {
+  it('shows a loading state', () => {
+    renderGrid({ isLoading: true });
+    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+  });
+
+  it('shows an error state', () => {
+    renderGrid({ error: 'Something went wrong' });
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument();
+  });
+
+  it('shows an empty state', () => {
+    renderGrid({ auctions: [] });
+    expect(screen.getByText(/no auctions/i)).toBeInTheDocument();
+  });
+
+  it('renders one card per auction', () => {
+    renderGrid({
+      auctions: [makeAuction({ id: 'AUC-1' }), makeAuction({ id: 'AUC-2' })],
+    });
+    expect(screen.getAllByRole('link')).toHaveLength(2);
+  });
+
+  it('marks the caller own auctions', () => {
+    renderGrid({
+      auctions: [makeAuction({ id: 'AUC-1', userId: 'USR-1' })],
+      currentUserId: 'USR-1',
+    });
+    expect(screen.getByText('Yours')).toBeInTheDocument();
+  });
+});

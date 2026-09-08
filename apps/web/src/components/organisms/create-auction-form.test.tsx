@@ -20,6 +20,11 @@ const createdAuction = {
   status: 'draft' as const,
   deliveryMethod: 'pickup' as const,
   photoUrls: [],
+  currentBidCOP: null,
+  bidCount: 0,
+  bidEndsAt: null,
+  winnerUserId: null,
+  sellerCity: 'Bogotá D.C.',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
