@@ -1,36 +1,23 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
 import type { Auction } from '../models/auction.js';
+import { readJsonArray, writeJsonArrayAtomic } from '../lib/json-file-store.js';
 import type { AuctionPatch, AuctionRepository } from './auction.repository.js';
 
-const JSON_INDENT = 2;
+type LegacyAuction = Omit<Auction, 'currentBidCOP' | 'bidCount' | 'bidEndsAt' | 'winnerUserId'> &
+  Partial<Pick<Auction, 'currentBidCOP' | 'bidCount' | 'bidEndsAt' | 'winnerUserId'>>;
 
-function isFileNotFoundError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    (error as NodeJS.ErrnoException).code === 'ENOENT'
-  );
+function normalize(raw: LegacyAuction): Auction {
+  return {
+    ...raw,
+    currentBidCOP: raw.currentBidCOP ?? null,
+    bidCount: raw.bidCount ?? 0,
+    bidEndsAt: raw.bidEndsAt ?? null,
+    winnerUserId: raw.winnerUserId ?? null,
+  };
 }
 
 async function readAll(filePath: string): Promise<Auction[]> {
-  try {
-    // eslint-disable-next-line security/detect-non-literal-fs-filename
-    const raw = await readFile(filePath, 'utf8');
-    return JSON.parse(raw) as Auction[];
-  } catch (error) {
-    if (isFileNotFoundError(error)) {
-      return [];
-    }
-    throw error;
-  }
-}
-
-async function writeAll(filePath: string, auctions: Auction[]): Promise<void> {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
-  await mkdir(dirname(filePath), { recursive: true });
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
-  await writeFile(filePath, JSON.stringify(auctions, null, JSON_INDENT), 'utf8');
+  const raw = await readJsonArray<LegacyAuction>(filePath);
+  return raw.map(normalize);
 }
 
 function isDueForPublish(auction: Auction, before: Date): boolean {
@@ -38,6 +25,17 @@ function isDueForPublish(auction: Auction, before: Date): boolean {
     return false;
   }
   return new Date(auction.publishAt).getTime() <= before.getTime();
+}
+
+function isDueForClose(auction: Auction, before: Date): boolean {
+  if (auction.status !== 'published' || !auction.bidEndsAt) {
+    return false;
+  }
+  return new Date(auction.bidEndsAt).getTime() <= before.getTime();
+}
+
+function byNewestFirst(a: Auction, b: Auction): number {
+  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 }
 
 // filePath is trusted app configuration (from container.ts), never user input.
@@ -58,10 +56,29 @@ export function createJsonAuctionRepository(filePath: string): AuctionRepository
       return auctions.filter((auction) => isDueForPublish(auction, before));
     },
 
+    async findAllPublished() {
+      const auctions = await readAll(filePath);
+      return auctions
+        .filter((auction) => auction.status === 'published' || auction.status === 'sold')
+        .sort(byNewestFirst);
+    },
+
+    async findDueForClose(before) {
+      const auctions = await readAll(filePath);
+      return auctions.filter((auction) => isDueForClose(auction, before));
+    },
+
+    async findWonByUserId(userId) {
+      const auctions = await readAll(filePath);
+      return auctions
+        .filter((auction) => auction.status === 'sold' && auction.winnerUserId === userId)
+        .sort(byNewestFirst);
+    },
+
     async save(auction) {
       const auctions = await readAll(filePath);
       auctions.push(auction);
-      await writeAll(filePath, auctions);
+      await writeJsonArrayAtomic(filePath, auctions);
     },
 
     async update(id, patch: AuctionPatch) {
@@ -76,13 +93,13 @@ export function createJsonAuctionRepository(filePath: string): AuctionRepository
       const updated: Auction = { ...existing, ...patch, updatedAt: new Date().toISOString() };
       // eslint-disable-next-line security/detect-object-injection
       auctions[index] = updated;
-      await writeAll(filePath, auctions);
+      await writeJsonArrayAtomic(filePath, auctions);
       return updated;
     },
 
     async delete(id) {
       const auctions = await readAll(filePath);
-      await writeAll(
+      await writeJsonArrayAtomic(
         filePath,
         auctions.filter((auction) => auction.id !== id),
       );
@@ -104,7 +121,7 @@ export function createJsonAuctionRepository(filePath: string): AuctionRepository
       };
       // eslint-disable-next-line security/detect-object-injection
       auctions[index] = updated;
-      await writeAll(filePath, auctions);
+      await writeJsonArrayAtomic(filePath, auctions);
       return updated;
     },
   };

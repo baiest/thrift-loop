@@ -13,6 +13,7 @@ const sampleUser: User = {
   city: 'Bogotá D.C.',
   country: 'CO',
   passwordHash: 'hashed',
+  address: null,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -70,6 +71,22 @@ describe('createJsonUserRepository', () => {
 
     const repository = createJsonUserRepository(filePath);
     await expect(repository.findByPhone(sampleUser.phone)).rejects.toThrow();
+  });
+
+  it('returns null when updating a user that does not exist', async () => {
+    const repository = createJsonUserRepository(filePath);
+    await expect(repository.update('missing-id', { address: 'Calle 1' })).resolves.toBeNull();
+  });
+
+  it('patches the address and bumps updatedAt', async () => {
+    const repository = createJsonUserRepository(filePath);
+    await repository.save(sampleUser);
+
+    const updated = await repository.update(sampleUser.id, { address: 'Calle 1' });
+
+    expect(updated?.address).toBe('Calle 1');
+    expect(updated?.updatedAt).not.toBe(sampleUser.updatedAt);
+    await expect(repository.findById(sampleUser.id)).resolves.toEqual(updated);
   });
 
   it('persists multiple users across repository instances', async () => {

@@ -6,11 +6,11 @@ import request from 'supertest';
 import type { Express } from 'express';
 import type { User } from './models/user.js';
 import type { Auction } from './models/auction.js';
-import type { UserRepository } from './repositories/user.repository.js';
-import type { AuctionRepository } from './repositories/auction.repository.js';
+import type { UserPatch, UserRepository } from './repositories/user.repository.js';
+import type { AuctionPatch, AuctionRepository } from './repositories/auction.repository.js';
 import { createAuthService } from './services/auth.service.js';
 import { createAuctionService } from './services/auction.service.js';
-import { createApp } from './create-app.js';
+import { createApp, type CreateAppOptions } from './create-app.js';
 import { createRateLimiter } from './middlewares/rate-limit.js';
 import { signSessionToken } from './lib/jwt.js';
 import { SESSION_COOKIE_NAME } from './lib/cookies.js';
@@ -26,6 +26,10 @@ class FakeUserRepository implements UserRepository {
 
   save(): Promise<void> {
     return Promise.resolve();
+  }
+
+  update(_id: string, _patch: UserPatch): Promise<User | null> {
+    return Promise.resolve(null);
   }
 }
 
@@ -44,12 +48,24 @@ class FakeAuctionRepository implements AuctionRepository {
     return Promise.resolve([]);
   }
 
+  findAllPublished(): Promise<Auction[]> {
+    return Promise.resolve([]);
+  }
+
+  findDueForClose(): Promise<Auction[]> {
+    return Promise.resolve([]);
+  }
+
+  findWonByUserId(): Promise<Auction[]> {
+    return Promise.resolve([]);
+  }
+
   save(auction: Auction): Promise<void> {
     this.auctions.set(auction.id, auction);
     return Promise.resolve();
   }
 
-  update(): Promise<Auction | null> {
+  update(_id: string, _patch: AuctionPatch): Promise<Auction | null> {
     return Promise.resolve(null);
   }
 
@@ -72,13 +88,16 @@ class NoopPhotoStorage {
   }
 }
 
+function baseOptions(userRepository: UserRepository): CreateAppOptions {
+  return { authService: createAuthService(userRepository), userRepository };
+}
+
 describe('GET /health', () => {
   let app: Express;
 
   beforeEach(() => {
     vi.stubEnv('JWT_SECRET', 'test-secret');
-    const userRepository = new FakeUserRepository();
-    app = createApp(createAuthService(userRepository), userRepository);
+    app = createApp(baseOptions(new FakeUserRepository()));
   });
 
   afterEach(() => {
@@ -95,12 +114,10 @@ describe('GET /health', () => {
 
 describe('/api/auth rate limiting', () => {
   it('returns 429 once the configured limit is exceeded', async () => {
-    const userRepository = new FakeUserRepository();
-    const limitedApp = createApp(
-      createAuthService(userRepository),
-      userRepository,
-      createRateLimiter({ windowMs: 60_000, max: 2 }),
-    );
+    const limitedApp = createApp({
+      ...baseOptions(new FakeUserRepository()),
+      authRateLimiter: createRateLimiter({ windowMs: 60_000, max: 2 }),
+    });
 
     await request(limitedApp).post('/api/auth/login').send({});
     await request(limitedApp).post('/api/auth/login').send({});
@@ -127,13 +144,7 @@ describe('single-origin static serving', () => {
   });
 
   function buildAppWithDist(): Express {
-    const userRepository = new FakeUserRepository();
-    return createApp(
-      createAuthService(userRepository),
-      userRepository,
-      createRateLimiter(),
-      webDistPath,
-    );
+    return createApp({ ...baseOptions(new FakeUserRepository()), webDistPath });
   }
 
   it('serves the app shell for a non-API GET route', async () => {
@@ -151,8 +162,7 @@ describe('single-origin static serving', () => {
   });
 
   it('does not serve static files when webDistPath is omitted', async () => {
-    const userRepository = new FakeUserRepository();
-    const app = createApp(createAuthService(userRepository), userRepository);
+    const app = createApp(baseOptions(new FakeUserRepository()));
 
     const response = await request(app).get('/register');
 
@@ -173,13 +183,7 @@ describe('auction wiring', () => {
     const userRepository = new FakeUserRepository();
     const auctionRepository = new FakeAuctionRepository();
     const auctionService = createAuctionService(auctionRepository, new NoopPhotoStorage());
-    const app = createApp(
-      createAuthService(userRepository),
-      userRepository,
-      createRateLimiter(),
-      undefined,
-      auctionService,
-    );
+    const app = createApp({ ...baseOptions(userRepository), auctionService });
 
     const cookie = `${SESSION_COOKIE_NAME}=${signSessionToken({ userId: 'USR-1' })}`;
     const response = await request(app).get('/api/auctions/mine').set('Cookie', cookie);
@@ -188,8 +192,7 @@ describe('auction wiring', () => {
   });
 
   it('does not mount /api/auctions when no auction service is provided', async () => {
-    const userRepository = new FakeUserRepository();
-    const app = createApp(createAuthService(userRepository), userRepository);
+    const app = createApp(baseOptions(new FakeUserRepository()));
 
     const response = await request(app).get('/api/auctions/mine');
 
@@ -207,14 +210,7 @@ describe('auction wiring', () => {
     const userRepository = new FakeUserRepository();
     const auctionRepository = new FakeAuctionRepository();
     const auctionService = createAuctionService(auctionRepository, new NoopPhotoStorage());
-    const app = createApp(
-      createAuthService(userRepository),
-      userRepository,
-      createRateLimiter(),
-      undefined,
-      auctionService,
-      uploadsDir,
-    );
+    const app = createApp({ ...baseOptions(userRepository), auctionService, uploadsDir });
 
     const response = await request(app).get('/uploads/USR-1/AUC-1/photo.jpg');
 

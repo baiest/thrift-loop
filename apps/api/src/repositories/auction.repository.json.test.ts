@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -16,6 +16,10 @@ function makeAuction(overrides: Partial<Auction> = {}): Auction {
     status: 'draft',
     deliveryMethod: 'pickup',
     photoKeys: [],
+    currentBidCOP: null,
+    bidCount: 0,
+    bidEndsAt: null,
+    winnerUserId: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -110,5 +114,86 @@ describe('createJsonAuctionRepository', () => {
   it('returns null adding photo keys to a missing auction', async () => {
     const repository = createJsonAuctionRepository(filePath);
     await expect(repository.addPhotoKeys('missing', ['a.jpg'])).resolves.toBeNull();
+  });
+
+  it('normalizes legacy rows written before the bid fields existed', async () => {
+    const legacyRow = {
+      id: 'AUC-legacy',
+      userId: 'USR-1',
+      category: 'jeans',
+      condition: 'good',
+      priceCOP: 50_000,
+      publishAt: null,
+      status: 'published',
+      deliveryMethod: 'pickup',
+      photoKeys: [],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    // filePath is built from mkdtemp's own return value, not attacker-controlled input.
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    await writeFile(filePath, JSON.stringify([legacyRow]), 'utf8');
+
+    const repository = createJsonAuctionRepository(filePath);
+    await expect(repository.findById('AUC-legacy')).resolves.toEqual({
+      ...legacyRow,
+      currentBidCOP: null,
+      bidCount: 0,
+      bidEndsAt: null,
+      winnerUserId: null,
+    });
+  });
+
+  it('finds published and sold auctions, newest first', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(makeAuction({ id: 'AUC-draft', status: 'draft' }));
+    await repository.save(
+      makeAuction({
+        id: 'AUC-published',
+        status: 'published',
+        createdAt: '2026-01-02T00:00:00.000Z',
+      }),
+    );
+    await repository.save(
+      makeAuction({ id: 'AUC-sold', status: 'sold', createdAt: '2026-01-03T00:00:00.000Z' }),
+    );
+
+    const published = await repository.findAllPublished();
+
+    expect(published.map((auction) => auction.id)).toEqual(['AUC-sold', 'AUC-published']);
+  });
+
+  it('finds published auctions whose bid window has elapsed', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(
+      makeAuction({
+        id: 'AUC-due',
+        status: 'published',
+        bidEndsAt: '2026-01-01T00:00:00.000Z',
+      }),
+    );
+    await repository.save(
+      makeAuction({
+        id: 'AUC-not-due',
+        status: 'published',
+        bidEndsAt: '2099-01-01T00:00:00.000Z',
+      }),
+    );
+    await repository.save(makeAuction({ id: 'AUC-no-bids', status: 'published', bidEndsAt: null }));
+
+    const due = await repository.findDueForClose(new Date('2026-06-01T00:00:00.000Z'));
+
+    expect(due.map((auction) => auction.id)).toEqual(['AUC-due']);
+  });
+
+  it('finds auctions won by a user', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(makeAuction({ id: 'AUC-1', status: 'sold', winnerUserId: 'USR-1' }));
+    await repository.save(makeAuction({ id: 'AUC-2', status: 'sold', winnerUserId: 'USR-2' }));
+    await repository.save(makeAuction({ id: 'AUC-3', status: 'published', winnerUserId: null }));
+
+    const won = await repository.findWonByUserId('USR-1');
+
+    expect(won.map((auction) => auction.id)).toEqual(['AUC-1']);
   });
 });
