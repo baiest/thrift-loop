@@ -65,10 +65,17 @@ jobs:
   gitleaks:
     name: Secret scan
     runs-on: ubuntu-latest
+    container:
+      image: zricethezav/gitleaks:latest
+      options: --entrypoint ""
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Trust checkout directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Scan full repository history
+        # Runs the gitleaks CLI directly against the whole history instead of
+        # gitleaks-action's before/after push diffing, which breaks with a
+        # git "unrelated histories" error after any force-push or rebase.
+        run: gitleaks detect --source . --redact --exit-code 2 --verbose
