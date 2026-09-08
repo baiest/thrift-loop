@@ -9,4 +9,5 @@ export * from './phone.js';
 export * from './photo.js';
 export * from './price.js';
 export * from './purchase.js';
+export * from './title.js';
 export * from './user.js';
