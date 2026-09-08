@@ -32,6 +32,9 @@ jobs:
       - name: LF line endings
         run: npm run check:eol
 
+      - name: Build shared package
+        run: npm run build:shared
+
       - name: Typecheck
         run: npm run typecheck
 
