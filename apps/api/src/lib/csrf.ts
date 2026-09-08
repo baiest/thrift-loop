@@ -1,26 +1,56 @@
-import { randomBytes } from 'node:crypto';
-import type { CookieOptions } from 'express';
+import type { NextFunction, Request, Response } from 'express';
+import { doubleCsrf } from 'csrf-csrf';
+import { HTTP_STATUS } from './http-status.js';
+
+const CSRF_ERROR_MESSAGE = 'Invalid or missing CSRF token';
 
 export const CSRF_COOKIE_NAME = 'csrf_token';
 export const CSRF_HEADER_NAME = 'x-csrf-token';
 
-const CSRF_TOKEN_BYTES = 32;
-const MILLISECONDS_PER_SECOND = 1000;
-const SECONDS_PER_DAY = 86_400;
-const CSRF_COOKIE_DAYS = 7;
+const SESSION_COOKIE_NAME = 'session';
 
-export function generateCsrfToken(): string {
-  return randomBytes(CSRF_TOKEN_BYTES).toString('hex');
+function getCsrfSecret(): string {
+  return process.env['JWT_SECRET'] ?? '';
 }
 
-export function getCsrfCookieOptions(): CookieOptions {
-  return {
-    // Not httpOnly: the frontend must be able to read this value to send it
-    // back as a header (double-submit cookie pattern).
+function getSessionIdentifier(req: Request): string {
+  const cookies = req.cookies as Record<string, unknown> | undefined;
+  // eslint-disable-next-line security/detect-object-injection -- constant key, not user input
+  const session = cookies?.[SESSION_COOKIE_NAME];
+  return typeof session === 'string' ? session : '';
+}
+
+const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
+  getSecret: getCsrfSecret,
+  getSessionIdentifier,
+  cookieName: CSRF_COOKIE_NAME,
+  cookieOptions: {
     httpOnly: false,
     sameSite: 'strict',
     secure: process.env['NODE_ENV'] === 'production',
-    maxAge: CSRF_COOKIE_DAYS * SECONDS_PER_DAY * MILLISECONDS_PER_SECOND,
     path: '/',
-  };
+  },
+  getCsrfTokenFromRequest: (req: Request) => req.get(CSRF_HEADER_NAME),
+});
+
+/**
+ * Issues a CSRF cookie tied to the given session token, e.g. right after a
+ * session cookie is set on register/login. The request's own cookies are
+ * patched with the session value first so the token is generated against the
+ * same session identifier that will be used to validate it on later requests.
+ */
+export function attachCsrfCookie(req: Request, res: Response, sessionToken: string): void {
+  const cookies = (req.cookies as Record<string, unknown> | undefined) ?? {};
+  req.cookies = { ...cookies, [SESSION_COOKIE_NAME]: sessionToken };
+  generateCsrfToken(req, res);
+}
+
+export function csrfProtection(req: Request, res: Response, next: NextFunction): void {
+  doubleCsrfProtection(req, res, (error?: unknown) => {
+    if (error) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({ error: CSRF_ERROR_MESSAGE });
+      return;
+    }
+    next();
+  });
 }

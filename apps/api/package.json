@@ -16,6 +16,7 @@
     "@thrift-loop/shared": "*",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
+    "csrf-csrf": "^4.0.3",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "express-rate-limit": "^8.7.0",
