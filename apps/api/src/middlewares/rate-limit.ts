@@ -9,7 +9,7 @@ const DEFAULT_WINDOW_MS = WINDOW_MINUTES * SECONDS_PER_MINUTE * MILLISECONDS_PER
 const DEFAULT_MAX_REQUESTS = 20;
 const TOO_MANY_REQUESTS_MESSAGE = 'Too many requests, try again later';
 
-export function createAuthRateLimiter(options: Partial<Options> = {}): RequestHandler {
+export function createRateLimiter(options: Partial<Options> = {}): RequestHandler {
   return rateLimit({
     windowMs: DEFAULT_WINDOW_MS,
     max: DEFAULT_MAX_REQUESTS,

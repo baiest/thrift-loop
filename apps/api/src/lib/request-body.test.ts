@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pickStringFields } from './request-body.js';
+import { pickPresentStringFields, pickStringFields } from './request-body.js';
 
 interface LoginBody {
   phone: string;
@@ -49,5 +49,35 @@ describe('pickStringFields', () => {
     );
 
     expect(result).toEqual({ phone: '3001234567', password: 'secret' });
+  });
+});
+
+describe('pickPresentStringFields', () => {
+  it('includes only fields actually present in the body', () => {
+    const result = pickPresentStringFields<LoginBody>({ phone: '3001234567' }, [
+      'phone',
+      'password',
+    ]);
+
+    expect(result).toEqual({ phone: '3001234567' });
+  });
+
+  it('returns an empty object when no requested fields are present', () => {
+    expect(pickPresentStringFields<LoginBody>({}, ['phone', 'password'])).toEqual({});
+  });
+
+  it('handles a null or undefined body without throwing', () => {
+    expect(pickPresentStringFields<LoginBody>(null, ['phone', 'password'])).toEqual({});
+    expect(pickPresentStringFields<LoginBody>(undefined, ['phone', 'password'])).toEqual({});
+  });
+
+  it('coerces a present but non-string value to an empty string', () => {
+    const result = pickPresentStringFields<LoginBody>({ phone: 12345 }, ['phone', 'password']);
+    expect(result).toEqual({ phone: '' });
+  });
+
+  it('includes a present field even when its value is an empty string', () => {
+    const result = pickPresentStringFields<LoginBody>({ phone: '' }, ['phone', 'password']);
+    expect(result).toEqual({ phone: '' });
   });
 });

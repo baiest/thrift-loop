@@ -89,6 +89,19 @@ describe('AuthService', () => {
       expect(typeof result.token).toBe('string');
     });
 
+    it('gives the new user a USR-prefixed id', async () => {
+      const result = await service.register(validInput);
+      expect(result.user.id.startsWith('USR-')).toBe(true);
+    });
+
+    it('sets createdAt and updatedAt to the same timestamp on creation', async () => {
+      await service.register(validInput);
+      const stored = await repository.findByPhone(validInput.phone);
+
+      expect(stored?.createdAt).toBeDefined();
+      expect(stored?.updatedAt).toBe(stored?.createdAt);
+    });
+
     it('stores a bcrypt hash, never the plain password', async () => {
       await service.register(validInput);
       const stored = await repository.findByPhone(validInput.phone);

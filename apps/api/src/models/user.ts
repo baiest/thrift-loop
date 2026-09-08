@@ -7,4 +7,5 @@ export interface User {
   country: 'CO';
   passwordHash: string;
   createdAt: string;
+  updatedAt: string;
 }
