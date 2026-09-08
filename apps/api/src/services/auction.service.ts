@@ -1,13 +1,24 @@
 import {
+  isColombiaCity,
   isDeliveryMethod,
   isItemCategory,
   isItemCondition,
   isValidCopPrice,
+  isValidTitle,
   MAX_PHOTOS_PER_AUCTION,
+  MAX_PRICE_COP,
+  MAX_TITLE_LENGTH,
+  MIN_PRICE_COP,
+  TITLE_PATTERN,
 } from '@thrift-loop/shared';
 import type { Auction } from '../models/auction.js';
-import type { AuctionPatch, AuctionRepository } from '../repositories/auction.repository.js';
+import type {
+  AuctionFilter,
+  AuctionPatch,
+  AuctionRepository,
+} from '../repositories/auction.repository.js';
 import type { PhotoStorage, UploadedFile } from '../lib/photo-storage.js';
+import type { UserRepository } from '../repositories/user.repository.js';
 import { createPrefixedId } from '../lib/prefixed-id.js';
 import { HttpError } from '../lib/http-error.js';
 import { HTTP_STATUS } from '../lib/http-status.js';
@@ -16,13 +27,23 @@ const AUCTION_ID_PREFIX = 'AUC';
 const AUCTION_NOT_FOUND_MESSAGE = 'Auction not found';
 const CANNOT_EDIT_PUBLISHED_MESSAGE = 'Cannot edit a published auction';
 const TOO_MANY_PHOTOS_MESSAGE = `An auction can have at most ${MAX_PHOTOS_PER_AUCTION} photos`;
+const TITLE_ERROR_MESSAGE = 'Enter a title up to 80 characters, letters and numbers only';
 
 export interface CreateAuctionInput {
+  title: string;
   category: string;
   condition: string;
   deliveryMethod: string;
   priceCOP: string;
   publishAt: string;
+}
+
+export interface AuctionSearchInput {
+  search?: string;
+  category?: string;
+  city?: string;
+  minPriceCOP?: string;
+  maxPriceCOP?: string;
 }
 
 export type UpdateAuctionInput = Partial<CreateAuctionInput> & { status?: string };
@@ -59,6 +80,9 @@ function validateCreateInput(input: CreateAuctionInput): {
 } {
   const errors: Record<string, string> = {};
 
+  if (!isValidTitle(input.title)) {
+    errors['title'] = TITLE_ERROR_MESSAGE;
+  }
   if (!isItemCategory(input.category)) {
     errors['category'] = 'Select a valid category';
   }
@@ -110,6 +134,18 @@ function applyDeliveryMethodPatch(
   }
 }
 
+function applyTitlePatch(
+  value: string,
+  repoPatch: AuctionPatch,
+  errors: Record<string, string>,
+): void {
+  if (isValidTitle(value)) {
+    repoPatch.title = value;
+  } else {
+    errors['title'] = TITLE_ERROR_MESSAGE;
+  }
+}
+
 function applyStatusPatch(
   value: string,
   repoPatch: AuctionPatch,
@@ -129,6 +165,9 @@ function validateUpdatePatch(patch: UpdateAuctionInput): {
   const errors: Record<string, string> = {};
   const repoPatch: AuctionPatch = {};
 
+  if (patch.title !== undefined) {
+    applyTitlePatch(patch.title, repoPatch, errors);
+  }
   if (patch.category !== undefined) {
     applyCategoryPatch(patch.category, repoPatch, errors);
   }
@@ -154,9 +193,56 @@ function validateUpdatePatch(patch: UpdateAuctionInput): {
   return { errors, repoPatch };
 }
 
+/**
+ * Sanitizes (never rejects) a free-text search term: trims, strips anything
+ * outside the title whitelist, and truncates to the same max length titles
+ * allow. A browse endpoint degrades gracefully instead of 400ing on a stray
+ * character.
+ */
+function sanitizeSearch(value: string): string {
+  const stripped = [...value].filter((char) => TITLE_PATTERN.test(char)).join('');
+  return stripped.trim().slice(0, MAX_TITLE_LENGTH);
+}
+
+function parseFilterPrice(value: string | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= MIN_PRICE_COP && parsed <= MAX_PRICE_COP
+    ? parsed
+    : undefined;
+}
+
+function resolvePriceRange(input: AuctionSearchInput): {
+  minPriceCOP: number | undefined;
+  maxPriceCOP: number | undefined;
+} {
+  const minPriceCOP = parseFilterPrice(input.minPriceCOP);
+  const maxPriceCOP = parseFilterPrice(input.maxPriceCOP);
+  const isInverted =
+    minPriceCOP !== undefined && maxPriceCOP !== undefined && minPriceCOP > maxPriceCOP;
+  return isInverted
+    ? { minPriceCOP: undefined, maxPriceCOP: undefined }
+    : { minPriceCOP, maxPriceCOP };
+}
+
+function buildAuctionFilter(input: AuctionSearchInput): AuctionFilter {
+  const search = input.search ? sanitizeSearch(input.search) : undefined;
+  const category = input.category && isItemCategory(input.category) ? input.category : undefined;
+  const { minPriceCOP, maxPriceCOP } = resolvePriceRange(input);
+  return {
+    ...(search && { search }),
+    ...(category && { category }),
+    ...(minPriceCOP !== undefined && { minPriceCOP }),
+    ...(maxPriceCOP !== undefined && { maxPriceCOP }),
+  };
+}
+
 export function createAuctionService(
   auctionRepository: AuctionRepository,
   photoStorage: PhotoStorage,
+  userRepository: UserRepository,
 ) {
   async function getOwnedAuction(userId: string, auctionId: string): Promise<Auction> {
     const auction = await auctionRepository.findById(auctionId);
@@ -177,6 +263,7 @@ export function createAuctionService(
       const auction: Auction = {
         id: createPrefixedId(AUCTION_ID_PREFIX),
         userId,
+        title: input.title.trim(),
         category: input.category as Auction['category'],
         condition: input.condition as Auction['condition'],
         deliveryMethod: input.deliveryMethod as Auction['deliveryMethod'],
@@ -245,8 +332,23 @@ export function createAuctionService(
       return updated as Auction;
     },
 
-    async listPublishedAuctions(): Promise<Auction[]> {
-      return auctionRepository.findAllPublished();
+    async listPublishedAuctions(input: AuctionSearchInput = {}): Promise<Auction[]> {
+      const auctions = await auctionRepository.findAllPublished(buildAuctionFilter(input));
+
+      const city = input.city && isColombiaCity(input.city) ? input.city : undefined;
+      if (!city) {
+        return auctions;
+      }
+
+      const withSellerCity = await Promise.all(
+        auctions.map(async (auction) => ({
+          auction,
+          sellerCity: (await userRepository.findById(auction.userId))?.city,
+        })),
+      );
+      return withSellerCity
+        .filter((entry) => entry.sellerCity === city)
+        .map((entry) => entry.auction);
     },
 
     async getAuctionForViewer(viewerId: string | null, auctionId: string): Promise<Auction> {

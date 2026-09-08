@@ -182,7 +182,11 @@ describe('auction wiring', () => {
   it('mounts /api/auctions when an auction service is provided', async () => {
     const userRepository = new FakeUserRepository();
     const auctionRepository = new FakeAuctionRepository();
-    const auctionService = createAuctionService(auctionRepository, new NoopPhotoStorage());
+    const auctionService = createAuctionService(
+      auctionRepository,
+      new NoopPhotoStorage(),
+      userRepository,
+    );
     const app = createApp({ ...baseOptions(userRepository), auctionService });
 
     const cookie = `${SESSION_COOKIE_NAME}=${signSessionToken({ userId: 'USR-1' })}`;
@@ -209,7 +213,11 @@ describe('auction wiring', () => {
 
     const userRepository = new FakeUserRepository();
     const auctionRepository = new FakeAuctionRepository();
-    const auctionService = createAuctionService(auctionRepository, new NoopPhotoStorage());
+    const auctionService = createAuctionService(
+      auctionRepository,
+      new NoopPhotoStorage(),
+      userRepository,
+    );
     const app = createApp({ ...baseOptions(userRepository), auctionService, uploadsDir });
 
     const response = await request(app).get('/uploads/USR-1/AUC-1/photo.jpg');

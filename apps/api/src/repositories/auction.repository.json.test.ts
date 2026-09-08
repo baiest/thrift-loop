@@ -9,6 +9,7 @@ function makeAuction(overrides: Partial<Auction> = {}): Auction {
   return {
     id: 'AUC-1',
     userId: 'USR-1',
+    title: 'Chaqueta de cuero',
     category: 'jeans',
     condition: 'good',
     priceCOP: 50_000,
@@ -137,6 +138,7 @@ describe('createJsonAuctionRepository', () => {
     const repository = createJsonAuctionRepository(filePath);
     await expect(repository.findById('AUC-legacy')).resolves.toEqual({
       ...legacyRow,
+      title: 'Jeans',
       currentBidCOP: null,
       bidCount: 0,
       bidEndsAt: null,
@@ -161,6 +163,67 @@ describe('createJsonAuctionRepository', () => {
     const published = await repository.findAllPublished();
 
     expect(published.map((auction) => auction.id)).toEqual(['AUC-sold', 'AUC-published']);
+  });
+
+  it('filters published auctions by a case-insensitive title search', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(
+      makeAuction({ id: 'AUC-match', status: 'published', title: 'Chaqueta de cuero' }),
+    );
+    await repository.save(
+      makeAuction({ id: 'AUC-nomatch', status: 'published', title: 'Botas de invierno' }),
+    );
+
+    const found = await repository.findAllPublished({ search: 'CHAQUETA' });
+
+    expect(found.map((auction) => auction.id)).toEqual(['AUC-match']);
+  });
+
+  it('filters published auctions by category', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(makeAuction({ id: 'AUC-jeans', status: 'published', category: 'jeans' }));
+    await repository.save(makeAuction({ id: 'AUC-boots', status: 'published', category: 'boots' }));
+
+    const found = await repository.findAllPublished({ category: 'boots' });
+
+    expect(found.map((auction) => auction.id)).toEqual(['AUC-boots']);
+  });
+
+  it('filters published auctions by a price range', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(makeAuction({ id: 'AUC-low', status: 'published', priceCOP: 10_000 }));
+    await repository.save(makeAuction({ id: 'AUC-mid', status: 'published', priceCOP: 50_000 }));
+    await repository.save(makeAuction({ id: 'AUC-high', status: 'published', priceCOP: 90_000 }));
+
+    const found = await repository.findAllPublished({ minPriceCOP: 20_000, maxPriceCOP: 60_000 });
+
+    expect(found.map((auction) => auction.id)).toEqual(['AUC-mid']);
+  });
+
+  it('combines multiple filters', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(
+      makeAuction({
+        id: 'AUC-match',
+        status: 'published',
+        title: 'Chaqueta de cuero',
+        category: 'jackets',
+        priceCOP: 50_000,
+      }),
+    );
+    await repository.save(
+      makeAuction({
+        id: 'AUC-wrong-category',
+        status: 'published',
+        title: 'Chaqueta de cuero',
+        category: 'jeans',
+        priceCOP: 50_000,
+      }),
+    );
+
+    const found = await repository.findAllPublished({ search: 'chaqueta', category: 'jackets' });
+
+    expect(found.map((auction) => auction.id)).toEqual(['AUC-match']);
   });
 
   it('finds published auctions whose bid window has elapsed', async () => {

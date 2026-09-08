@@ -35,6 +35,7 @@ function body(response: SupertestResponse): AuctionResponseBody {
 }
 
 const validBody = {
+  title: 'Chaqueta de cuero',
   category: 'jeans',
   condition: 'good',
   deliveryMethod: 'pickup',
@@ -136,10 +137,10 @@ describe('auction routes', () => {
     const auctionRepository = createJsonAuctionRepository(join(dataDir, 'auctions.json'));
     const bidRepository = createJsonBidRepository(join(dataDir, 'bids.json'));
     const photoStorage = createLocalPhotoStorage(join(dataDir, 'uploads'));
-    const auctionService = createAuctionService(auctionRepository, photoStorage);
     userRepository = new FakeUserRepository();
     userRepository.seed(makeUser({ id: 'USR-1' }));
     userRepository.seed(makeUser({ id: 'USR-2', phone: '3000000001' }));
+    const auctionService = createAuctionService(auctionRepository, photoStorage, userRepository);
     const bidService = createBidService(
       auctionRepository,
       bidRepository,
