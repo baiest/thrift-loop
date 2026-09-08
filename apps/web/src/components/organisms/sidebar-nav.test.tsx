@@ -36,6 +36,18 @@ describe('SidebarNav', () => {
     expect(links[0]).toHaveAttribute('href', '/auctions/new');
   });
 
+  it('links to auctions, purchases, and profile', async () => {
+    renderNav();
+    await userEvent.click(screen.getByRole('button', { name: /menu/i }));
+
+    expect(screen.getByRole('link', { name: /^auctions$/i })).toHaveAttribute('href', '/auctions');
+    expect(screen.getByRole('link', { name: /my purchases/i })).toHaveAttribute(
+      'href',
+      '/purchases',
+    );
+    expect(screen.getByRole('link', { name: /my profile/i })).toHaveAttribute('href', '/profile');
+  });
+
   it('closes the drawer after a nav link is clicked', async () => {
     renderNav();
     await userEvent.click(screen.getByRole('button', { name: /menu/i }));

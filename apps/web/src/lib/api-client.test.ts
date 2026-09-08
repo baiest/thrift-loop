@@ -4,12 +4,18 @@ import {
   createAuction,
   deleteAuction,
   fetchAuction,
+  fetchAuctionDetail,
+  fetchAuctions,
+  fetchBids,
   fetchCurrentUser,
   fetchMyAuctions,
+  fetchMyPurchases,
   login,
   logout,
+  placeBid,
   register,
   updateAuction,
+  updateProfile,
   uploadAuctionPhotos,
 } from './api-client.js';
 
@@ -23,6 +29,11 @@ const publicAuction = {
   status: 'draft' as const,
   deliveryMethod: 'pickup' as const,
   photoUrls: [],
+  currentBidCOP: null,
+  bidCount: 0,
+  bidEndsAt: null,
+  winnerUserId: null,
+  sellerCity: 'Bogotá D.C.',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -33,6 +44,21 @@ const publicUser = {
   lastName: 'Gómez',
   city: 'Bogotá D.C.',
   country: 'CO' as const,
+  address: null,
+};
+
+const publicBid = {
+  id: 'BID-1',
+  auctionId: 'AUC-1',
+  bidderId: 'USR-2',
+  bidderFirstName: 'Ana',
+  amountCOP: 50_000,
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
+
+const publicPurchase = {
+  auction: publicAuction,
+  handover: { mode: 'pickup' as const, city: 'Bogotá D.C.' },
 };
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest's objectContaining typing widens to `any`
@@ -238,5 +264,103 @@ describe('api-client', () => {
     const headers = options.headers as Record<string, string> | undefined;
     expect(headers?.['Content-Type']).toBeUndefined();
     expect(headers?.['x-csrf-token']).toBe('test-csrf-token');
+  });
+
+  it('fetchAuctions resolves with the list of published auctions', async () => {
+    mockFetchOnce(200, { auctions: [publicAuction] });
+    await expect(fetchAuctions()).resolves.toEqual([publicAuction]);
+  });
+
+  it('fetchAuctions calls a relative /api path with no session required', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ auctions: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchAuctions();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/auctions',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+  });
+
+  it('fetchAuctionDetail resolves with the auction and serverTime', async () => {
+    mockFetchOnce(200, { auction: publicAuction, serverTime: '2026-01-01T00:00:05.000Z' });
+
+    await expect(fetchAuctionDetail('AUC-1')).resolves.toEqual({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:05.000Z',
+    });
+  });
+
+  it('fetchAuctionDetail resolves with null when the auction is not found', async () => {
+    mockFetchOnce(404, { error: 'Auction not found' });
+    await expect(fetchAuctionDetail('AUC-missing')).resolves.toBeNull();
+  });
+
+  it('fetchBids resolves with the bid history', async () => {
+    mockFetchOnce(200, { bids: [publicBid] });
+    await expect(fetchBids('AUC-1')).resolves.toEqual([publicBid]);
+  });
+
+  it('placeBid posts to /api/auctions/:id/bids with the CSRF header', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: () => Promise.resolve({ auction: publicAuction, bid: publicBid }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(placeBid('AUC-1', 50_000)).resolves.toEqual({
+      auction: publicAuction,
+      bid: publicBid,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/auctions/AUC-1/bids',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        headers: csrfHeaderMatcher,
+        body: JSON.stringify({ amountCOP: '50000' }),
+      }),
+    );
+  });
+
+  it('placeBid throws ApiError with fields on an invalid amount', async () => {
+    mockFetchOnce(400, { error: 'Validation failed', fields: { amountCOP: 'Too low' } });
+    await expect(placeBid('AUC-1', 1)).rejects.toMatchObject({
+      status: 400,
+      fields: { amountCOP: 'Too low' },
+    });
+  });
+
+  it('fetchMyPurchases resolves with the caller purchases', async () => {
+    mockFetchOnce(200, { purchases: [publicPurchase] });
+    await expect(fetchMyPurchases()).resolves.toEqual([publicPurchase]);
+  });
+
+  it('updateProfile patches /api/auth/me with the CSRF header', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ user: { ...publicUser, address: 'Calle 1' } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(updateProfile({ address: 'Calle 1' })).resolves.toEqual({
+      ...publicUser,
+      address: 'Calle 1',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/auth/me',
+      expect.objectContaining({
+        method: 'PATCH',
+        credentials: 'include',
+        headers: csrfHeaderMatcher,
+      }),
+    );
   });
 });

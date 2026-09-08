@@ -11,6 +11,7 @@ const sampleUser = {
   lastName: 'Gómez',
   city: 'Bogotá D.C.',
   country: 'CO' as const,
+  address: null,
 };
 
 function renderHome(): void {
