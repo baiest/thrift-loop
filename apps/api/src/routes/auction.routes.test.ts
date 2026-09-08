@@ -2,13 +2,13 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import request, { type Response } from 'supertest';
-import express, { type Express } from 'express';
+import request, { type Response as SupertestResponse } from 'supertest';
+import express, { type Express, type Request, type Response } from 'express';
 import cookieParser from 'cookie-parser';
 import type { PublicAuction } from '@thrift-loop/shared';
 import { signSessionToken } from '../lib/jwt.js';
 import { SESSION_COOKIE_NAME } from '../lib/cookies.js';
-import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '../lib/csrf.js';
+import { attachCsrfCookie, CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '../lib/csrf.js';
 import { createJsonAuctionRepository } from '../repositories/auction.repository.json.js';
 import { createLocalPhotoStorage } from '../lib/photo-storage.js';
 import { createAuctionService } from '../services/auction.service.js';
@@ -21,7 +21,7 @@ interface AuctionResponseBody {
   fields?: Record<string, string>;
 }
 
-function body(response: Response): AuctionResponseBody {
+function body(response: SupertestResponse): AuctionResponseBody {
   return response.body as AuctionResponseBody;
 }
 
@@ -33,17 +33,36 @@ const validBody = {
   publishAt: '',
 };
 
-const CSRF_TOKEN = 'test-csrf-token';
+/** Mints a CSRF token tied to the given session token, the same way
+ * `attachCsrfCookie` does when a real login/register response sets it. */
+function mintCsrfToken(sessionToken: string): string {
+  let issuedToken = '';
+  const res = {
+    cookie: (_name: string, value: string) => {
+      issuedToken = value;
+      return res;
+    },
+  } as unknown as Response;
+  const req = { cookies: {} } as unknown as Request;
 
-function authAndCsrfCookies(userId = 'USR-1'): string {
-  const token = signSessionToken({ userId });
-  return `${SESSION_COOKIE_NAME}=${token}; ${CSRF_COOKIE_NAME}=${CSRF_TOKEN}`;
+  attachCsrfCookie(req, res, sessionToken);
+  return issuedToken;
+}
+
+function authAndCsrfCookies(userId = 'USR-1'): { cookieHeader: string; csrfToken: string } {
+  const sessionToken = signSessionToken({ userId });
+  const csrfToken = mintCsrfToken(sessionToken);
+  return {
+    cookieHeader: `${SESSION_COOKIE_NAME}=${sessionToken}; ${CSRF_COOKIE_NAME}=${csrfToken}`,
+    csrfToken,
+  };
 }
 
 /** Adds both the session+CSRF cookies and the matching CSRF header a real
  * browser would echo back for a state-changing request. */
 function withAuth(req: request.Test, userId = 'USR-1'): request.Test {
-  return req.set('Cookie', authAndCsrfCookies(userId)).set(CSRF_HEADER_NAME, CSRF_TOKEN);
+  const { cookieHeader, csrfToken } = authAndCsrfCookies(userId);
+  return req.set('Cookie', cookieHeader).set(CSRF_HEADER_NAME, csrfToken);
 }
 
 describe('auction routes', () => {
@@ -136,7 +155,7 @@ describe('auction routes', () => {
 
     const getResponse = await request(app)
       .get(`/api/auctions/${id}`)
-      .set('Cookie', authAndCsrfCookies());
+      .set('Cookie', authAndCsrfCookies().cookieHeader);
     expect(getResponse.status).toBe(404);
   });
 
@@ -146,7 +165,7 @@ describe('auction routes', () => {
 
     const response = await request(app)
       .get('/api/auctions/mine')
-      .set('Cookie', authAndCsrfCookies());
+      .set('Cookie', authAndCsrfCookies().cookieHeader);
 
     expect(body(response).auctions).toHaveLength(1);
   });
