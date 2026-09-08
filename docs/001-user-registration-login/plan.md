@@ -18,8 +18,9 @@ are imported by both `apps/api` and `apps/web`, so there is one source of truth.
   hardcoded fallback secret would itself be the kind of security issue `AGENTS.md` says to stop
   and flag — so it's simply not an option here.
 - **Storage: JSON file** (`apps/api/data/users.json`, gitignored), behind a `UserRepository`
-  interface. Swapping to MongoDB later means a new class implementing the same interface and a
-  one-line change in `container.ts` — `services/` never changes.
+  interface. Swapping to MongoDB later means a new `createMongoUserRepository(...)` factory
+  function satisfying the same interface and a one-line change in `container.ts` — `services/`
+  never changes. (Repositories and services are factory functions, not classes — see AGENTS.md.)
 - **City list**: a fixed, curated `COLOMBIA_CITIES` array in `packages/shared` (32 department
   capitals + Bogotá D.C.). Validated identically on both ends. Extending to another country later
   means adding another list and a `country` field the schema already carries.
