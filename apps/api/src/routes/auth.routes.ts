@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { getSessionCookieOptions, SESSION_COOKIE_NAME } from '../lib/cookies.js';
+import { CSRF_COOKIE_NAME, generateCsrfToken, getCsrfCookieOptions } from '../lib/csrf.js';
 import { HTTP_STATUS } from '../lib/http-status.js';
 import { HttpError } from '../lib/http-error.js';
 import { asyncHandler } from '../lib/async-handler.js';
 import { pickStringFields } from '../lib/request-body.js';
 import { requireAuth } from '../middlewares/require-auth.js';
+import { requireCsrf } from '../middlewares/require-csrf.js';
+import type { Response } from 'express';
 import type { UserRepository } from '../repositories/user.repository.js';
 import {
   toPublicUser,
@@ -26,6 +29,11 @@ const REGISTER_FIELDS = [
 
 const LOGIN_FIELDS = ['phone', 'password'] as const satisfies readonly (keyof LoginInput)[];
 
+function setSessionCookies(res: Response, token: string): void {
+  res.cookie(SESSION_COOKIE_NAME, token, getSessionCookieOptions());
+  res.cookie(CSRF_COOKIE_NAME, generateCsrfToken(), getCsrfCookieOptions());
+}
+
 export function createAuthRouter(authService: AuthService, userRepository: UserRepository): Router {
   const router = Router();
 
@@ -34,7 +42,7 @@ export function createAuthRouter(authService: AuthService, userRepository: UserR
     asyncHandler(async (req, res) => {
       const input = pickStringFields<RegisterInput>(req.body, REGISTER_FIELDS);
       const { user, token } = await authService.register(input);
-      res.cookie(SESSION_COOKIE_NAME, token, getSessionCookieOptions());
+      setSessionCookies(res, token);
       res.status(HTTP_STATUS.CREATED).json({ user });
     }),
   );
@@ -44,13 +52,14 @@ export function createAuthRouter(authService: AuthService, userRepository: UserR
     asyncHandler(async (req, res) => {
       const input = pickStringFields<LoginInput>(req.body, LOGIN_FIELDS);
       const { user, token } = await authService.login(input);
-      res.cookie(SESSION_COOKIE_NAME, token, getSessionCookieOptions());
+      setSessionCookies(res, token);
       res.status(HTTP_STATUS.OK).json({ user });
     }),
   );
 
-  router.post('/logout', (_req, res) => {
+  router.post('/logout', requireCsrf, (_req, res) => {
     res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
+    res.clearCookie(CSRF_COOKIE_NAME, { path: '/' });
     res.status(HTTP_STATUS.NO_CONTENT).end();
   });
 

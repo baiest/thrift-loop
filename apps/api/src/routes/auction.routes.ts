@@ -12,6 +12,7 @@ import { HttpError } from '../lib/http-error.js';
 import { asyncHandler } from '../lib/async-handler.js';
 import { pickPresentStringFields, pickStringFields } from '../lib/request-body.js';
 import { requireAuth } from '../middlewares/require-auth.js';
+import { requireCsrf } from '../middlewares/require-csrf.js';
 import type { Auction } from '../models/auction.js';
 import type {
   AuctionService,
@@ -81,6 +82,7 @@ export function createAuctionRouter(auctionService: AuctionService): Router {
   router.post(
     '/',
     requireAuth,
+    requireCsrf,
     asyncHandler(async (req, res) => {
       const userId = res.locals['userId'] as string;
       const input = pickStringFields<CreateAuctionInput>(req.body, CREATE_FIELDS);
@@ -112,6 +114,7 @@ export function createAuctionRouter(auctionService: AuctionService): Router {
   router.patch(
     '/:id',
     requireAuth,
+    requireCsrf,
     asyncHandler(async (req, res) => {
       const userId = res.locals['userId'] as string;
       const patch = pickPresentStringFields<UpdateAuctionInput>(req.body, UPDATE_FIELDS);
@@ -123,6 +126,7 @@ export function createAuctionRouter(auctionService: AuctionService): Router {
   router.delete(
     '/:id',
     requireAuth,
+    requireCsrf,
     asyncHandler(async (req, res) => {
       const userId = res.locals['userId'] as string;
       await auctionService.deleteAuction(userId, req.params['id'] as string);
@@ -133,6 +137,7 @@ export function createAuctionRouter(auctionService: AuctionService): Router {
   router.post(
     '/:id/photos',
     requireAuth,
+    requireCsrf,
     asyncHandler(async (req, res) => {
       try {
         await runUpload(req, res);

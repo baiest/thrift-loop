@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 import type { PublicAuction } from '@thrift-loop/shared';
 import { signSessionToken } from '../lib/jwt.js';
 import { SESSION_COOKIE_NAME } from '../lib/cookies.js';
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '../lib/csrf.js';
 import { createJsonAuctionRepository } from '../repositories/auction.repository.json.js';
 import { createLocalPhotoStorage } from '../lib/photo-storage.js';
 import { createAuctionService } from '../services/auction.service.js';
@@ -32,9 +33,17 @@ const validBody = {
   publishAt: '',
 };
 
-function authCookie(): string {
-  const token = signSessionToken({ userId: 'USR-1' });
-  return `${SESSION_COOKIE_NAME}=${token}`;
+const CSRF_TOKEN = 'test-csrf-token';
+
+function authAndCsrfCookies(userId = 'USR-1'): string {
+  const token = signSessionToken({ userId });
+  return `${SESSION_COOKIE_NAME}=${token}; ${CSRF_COOKIE_NAME}=${CSRF_TOKEN}`;
+}
+
+/** Adds both the session+CSRF cookies and the matching CSRF header a real
+ * browser would echo back for a state-changing request. */
+function withAuth(req: request.Test, userId = 'USR-1'): request.Test {
+  return req.set('Cookie', authAndCsrfCookies(userId)).set(CSRF_HEADER_NAME, CSRF_TOKEN);
 }
 
 describe('auction routes', () => {
@@ -64,37 +73,39 @@ describe('auction routes', () => {
     expect(response.status).toBe(401);
   });
 
-  it('creates a draft auction for the authenticated user', async () => {
+  it('rejects a create request with a valid session but no CSRF token', async () => {
     const response = await request(app)
       .post('/api/auctions')
-      .set('Cookie', authCookie())
+      .set('Cookie', `${SESSION_COOKIE_NAME}=${signSessionToken({ userId: 'USR-1' })}`)
       .send(validBody);
+
+    expect(response.status).toBe(403);
+  });
+
+  it('creates a draft auction for the authenticated user', async () => {
+    const response = await withAuth(request(app).post('/api/auctions')).send(validBody);
 
     expect(response.status).toBe(201);
     expect(body(response).auction).toMatchObject({ status: 'draft', category: 'jeans' });
   });
 
   it('returns 400 with field errors for an invalid submission', async () => {
-    const response = await request(app)
-      .post('/api/auctions')
-      .set('Cookie', authCookie())
-      .send({ ...validBody, category: 'hats' });
+    const response = await withAuth(request(app).post('/api/auctions')).send({
+      ...validBody,
+      category: 'hats',
+    });
 
     expect(response.status).toBe(400);
     expect(body(response).fields?.['category']).toEqual(expect.any(String));
   });
 
   it('patches a draft auction with only the given fields', async () => {
-    const created = await request(app)
-      .post('/api/auctions')
-      .set('Cookie', authCookie())
-      .send(validBody);
+    const created = await withAuth(request(app).post('/api/auctions')).send(validBody);
     const createdId = body(created).auction?.id;
 
-    const response = await request(app)
-      .patch(`/api/auctions/${createdId}`)
-      .set('Cookie', authCookie())
-      .send({ priceCOP: '75000' });
+    const response = await withAuth(request(app).patch(`/api/auctions/${createdId}`)).send({
+      priceCOP: '75000',
+    });
 
     expect(response.status).toBe(200);
     expect(body(response).auction?.priceCOP).toBe(75_000);
@@ -102,64 +113,53 @@ describe('auction routes', () => {
   });
 
   it('publishes via PATCH and then rejects further edits', async () => {
-    const created = await request(app)
-      .post('/api/auctions')
-      .set('Cookie', authCookie())
-      .send(validBody);
+    const created = await withAuth(request(app).post('/api/auctions')).send(validBody);
     const id = body(created).auction?.id as string;
 
-    const published = await request(app)
-      .patch(`/api/auctions/${id}`)
-      .set('Cookie', authCookie())
-      .send({ status: 'published' });
+    const published = await withAuth(request(app).patch(`/api/auctions/${id}`)).send({
+      status: 'published',
+    });
     expect(body(published).auction?.status).toBe('published');
 
-    const secondEdit = await request(app)
-      .patch(`/api/auctions/${id}`)
-      .set('Cookie', authCookie())
-      .send({ priceCOP: '1' });
+    const secondEdit = await withAuth(request(app).patch(`/api/auctions/${id}`)).send({
+      priceCOP: '1',
+    });
     expect(secondEdit.status).toBe(409);
   });
 
   it('deletes an auction', async () => {
-    const created = await request(app)
-      .post('/api/auctions')
-      .set('Cookie', authCookie())
-      .send(validBody);
+    const created = await withAuth(request(app).post('/api/auctions')).send(validBody);
     const id = body(created).auction?.id as string;
 
-    const response = await request(app).delete(`/api/auctions/${id}`).set('Cookie', authCookie());
+    const response = await withAuth(request(app).delete(`/api/auctions/${id}`));
     expect(response.status).toBe(204);
 
-    const getResponse = await request(app).get(`/api/auctions/${id}`).set('Cookie', authCookie());
+    const getResponse = await request(app)
+      .get(`/api/auctions/${id}`)
+      .set('Cookie', authAndCsrfCookies());
     expect(getResponse.status).toBe(404);
   });
 
   it('lists only the caller own auctions', async () => {
-    await request(app).post('/api/auctions').set('Cookie', authCookie()).send(validBody);
+    await withAuth(request(app).post('/api/auctions')).send(validBody);
+    await withAuth(request(app).post('/api/auctions'), 'USR-2').send(validBody);
 
-    const otherCookie = `${SESSION_COOKIE_NAME}=${signSessionToken({ userId: 'USR-2' })}`;
-    await request(app).post('/api/auctions').set('Cookie', otherCookie).send(validBody);
-
-    const response = await request(app).get('/api/auctions/mine').set('Cookie', authCookie());
+    const response = await request(app)
+      .get('/api/auctions/mine')
+      .set('Cookie', authAndCsrfCookies());
 
     expect(body(response).auctions).toHaveLength(1);
   });
 
   it('uploads photos and returns their urls on the auction', async () => {
-    const created = await request(app)
-      .post('/api/auctions')
-      .set('Cookie', authCookie())
-      .send(validBody);
+    const created = await withAuth(request(app).post('/api/auctions')).send(validBody);
     const id = body(created).auction?.id as string;
 
-    const response = await request(app)
-      .post(`/api/auctions/${id}/photos`)
-      .set('Cookie', authCookie())
-      .attach('photos', Buffer.from('fake-jpeg-bytes'), {
-        filename: 'front.jpg',
-        contentType: 'image/jpeg',
-      });
+    const response = await withAuth(request(app).post(`/api/auctions/${id}/photos`)).attach(
+      'photos',
+      Buffer.from('fake-jpeg-bytes'),
+      { filename: 'front.jpg', contentType: 'image/jpeg' },
+    );
 
     expect(response.status).toBe(200);
     expect(body(response).auction?.photoUrls).toHaveLength(1);
@@ -167,19 +167,14 @@ describe('auction routes', () => {
   });
 
   it('rejects a disallowed file type', async () => {
-    const created = await request(app)
-      .post('/api/auctions')
-      .set('Cookie', authCookie())
-      .send(validBody);
+    const created = await withAuth(request(app).post('/api/auctions')).send(validBody);
     const id = body(created).auction?.id as string;
 
-    const response = await request(app)
-      .post(`/api/auctions/${id}/photos`)
-      .set('Cookie', authCookie())
-      .attach('photos', Buffer.from('not-an-image'), {
-        filename: 'notes.txt',
-        contentType: 'text/plain',
-      });
+    const response = await withAuth(request(app).post(`/api/auctions/${id}/photos`)).attach(
+      'photos',
+      Buffer.from('not-an-image'),
+      { filename: 'notes.txt', contentType: 'text/plain' },
+    );
 
     expect(response.status).toBe(400);
   });
