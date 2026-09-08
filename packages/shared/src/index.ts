@@ -1,4 +1,5 @@
 export * from './auction.js';
+export * from './bid.js';
 export * from './colombia-cities.js';
 export * from './delivery-method.js';
 export * from './item-category.js';
@@ -7,4 +8,5 @@ export * from './password-policy.js';
 export * from './phone.js';
 export * from './photo.js';
 export * from './price.js';
+export * from './purchase.js';
 export * from './user.js';

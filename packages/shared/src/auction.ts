@@ -2,7 +2,7 @@ import type { ItemCategory } from './item-category.js';
 import type { ItemCondition } from './item-condition.js';
 import type { DeliveryMethod } from './delivery-method.js';
 
-export type AuctionStatus = 'draft' | 'published';
+export type AuctionStatus = 'draft' | 'published' | 'sold';
 
 export interface PublicAuction {
   id: string;
@@ -14,6 +14,11 @@ export interface PublicAuction {
   status: AuctionStatus;
   deliveryMethod: DeliveryMethod;
   photoUrls: string[];
+  currentBidCOP: number | null;
+  bidCount: number;
+  bidEndsAt: string | null;
+  winnerUserId: string | null;
+  sellerCity: string;
   createdAt: string;
   updatedAt: string;
 }
