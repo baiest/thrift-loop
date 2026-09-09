@@ -48,7 +48,7 @@ export function NotificationBell(): React.JSX.Element | null {
         <UnreadBadge count={unreadCount} />
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-2 w-80 rounded-lg border border-hairline bg-white p-2 shadow-lg">
+        <div className="absolute bottom-full left-0 z-20 mb-2 w-80 rounded-lg border border-hairline bg-white p-2 shadow-lg">
           <div className="mb-1 flex items-center justify-between px-1">
             <p className="text-sm font-semibold text-ink">Notifications</p>
             <Link

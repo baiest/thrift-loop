@@ -57,10 +57,11 @@ function DesktopUserBlock(): React.JSX.Element | null {
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linen text-sm font-semibold text-ink">
           {initials(user.firstName, user.lastName)}
         </span>
-        <div>
-          <p className="text-sm font-semibold text-ink">{`${user.firstName} ${user.lastName}`}</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-ink">{`${user.firstName} ${user.lastName}`}</p>
           <p className="text-xs text-ink-soft">{user.city}</p>
         </div>
+        <NotificationBell />
       </div>
       <button
         type="button"
@@ -117,7 +118,6 @@ function DesktopSidebar(): React.JSX.Element {
           </li>
         ))}
       </ul>
-      <NotificationBell />
       <DesktopUserBlock />
     </nav>
   );
