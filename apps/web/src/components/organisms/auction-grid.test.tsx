@@ -37,9 +37,10 @@ function renderGrid(props: Partial<React.ComponentProps<typeof AuctionGrid>> = {
 }
 
 describe('AuctionGrid', () => {
-  it('shows a loading state', () => {
+  it('shows skeleton placeholders instead of a "Loading" string', () => {
     renderGrid({ isLoading: true });
-    expect(screen.getByText(/loading/i)).toBeInTheDocument();
+    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText('Loading auction').length).toBeGreaterThan(0);
   });
 
   it('shows an error state', () => {

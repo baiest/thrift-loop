@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import type { PublicAuction } from '@thrift-loop/shared';
-import { formatCOP } from '../../lib/format.js';
+import { formatCOP, formatTimeLeft } from '../../lib/format.js';
+import { useNow } from '../../hooks/use-now.js';
 import { Badge } from '../atoms/badge.js';
+
+const START_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
 
 export interface AuctionCardProps {
   readonly auction: PublicAuction;
@@ -16,7 +19,7 @@ function PhotoPlaceholder(): React.JSX.Element {
   return (
     <div
       aria-label="No photo"
-      className="flex aspect-square items-center justify-center rounded-lg bg-gray-100"
+      className="flex aspect-[4/5] items-center justify-center rounded-lg bg-gray-100"
     >
       <svg
         viewBox="0 0 24 24"
@@ -35,31 +38,46 @@ function PhotoPlaceholder(): React.JSX.Element {
 export function AuctionCard({ auction, isOwn }: AuctionCardProps): React.JSX.Element {
   const priceLabel = auction.currentBidCOP === null ? 'Starting at' : 'Current bid';
   const priceValue = auction.currentBidCOP ?? auction.priceCOP;
+  const now = useNow();
+  const timeLeft = formatTimeLeft(auction.bidEndsAt, now);
+  const startedOn = START_DATE_FORMATTER.format(new Date(auction.createdAt));
 
   return (
     <Link
       to={`/auctions/${auction.id}`}
-      className="block overflow-hidden rounded-lg border border-gray-200 shadow-sm hover:shadow-md"
+      className="block overflow-hidden rounded-lg border border-hairline bg-white shadow-sm hover:shadow-md"
     >
       {auction.photoUrls[0] ? (
         <img
           src={auction.photoUrls[0]}
           alt={auction.category}
-          className="aspect-square w-full object-cover"
+          className="aspect-[4/5] w-full object-cover"
         />
       ) : (
         <PhotoPlaceholder />
       )}
       <div className="p-3">
         <div className="mb-1 flex items-center gap-2">
-          <Badge tone="neutral">{humanizeCondition(auction.condition)}</Badge>
-          {isOwn && <Badge tone="emerald">Yours</Badge>}
-          {auction.status === 'sold' && <Badge tone="amber">Sold</Badge>}
-          {auction.status === 'draft' && <Badge tone="amber">Draft</Badge>}
+          <Badge tone="condition">{humanizeCondition(auction.condition)}</Badge>
+          {isOwn && <Badge tone="own">Yours</Badge>}
+          {auction.status === 'sold' && <Badge tone="ended">Sold</Badge>}
+          {auction.status === 'draft' && <Badge tone="draft">Draft</Badge>}
         </div>
         <p className="truncate text-sm font-medium text-gray-900">{auction.title}</p>
-        <p className="text-xs text-gray-500">{priceLabel}</p>
-        <p className="text-lg font-semibold text-gray-900">{formatCOP(priceValue)}</p>
+        <div className="mt-1 flex items-end justify-between gap-2">
+          <div>
+            <p className="text-xs text-gray-500">{priceLabel}</p>
+            <p className="font-display text-lg font-semibold text-ink">{formatCOP(priceValue)}</p>
+          </div>
+          <p
+            className={`text-xs font-medium ${timeLeft.isUrgent ? 'text-brand-600' : 'text-gray-500'}`}
+          >
+            {timeLeft.label}
+          </p>
+        </div>
+        <p className="mt-2 text-[11px] text-gray-400">
+          Started {startedOn} · {auction.location}
+        </p>
       </div>
     </Link>
   );
