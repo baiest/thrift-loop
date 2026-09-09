@@ -22,6 +22,7 @@ import {
 const publicAuction = {
   id: 'AUC-1',
   userId: 'USR-1',
+  title: 'Chaqueta de cuero',
   category: 'jeans' as const,
   condition: 'good' as const,
   priceCOP: 50_000,
@@ -280,6 +281,48 @@ describe('api-client', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await fetchAuctions();
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/auctions',
+      expect.objectContaining({ credentials: 'include' }),
+    );
+  });
+
+  it('fetchAuctions builds a query string from non-empty filters', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ auctions: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchAuctions({
+      search: 'chaqueta',
+      category: 'jeans',
+      city: '',
+      minPriceCOP: '10000',
+      maxPriceCOP: '',
+    });
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    const params = new URLSearchParams(url.split('?')[1]);
+    expect(url.startsWith('/api/auctions?')).toBe(true);
+    expect(params.get('search')).toBe('chaqueta');
+    expect(params.get('category')).toBe('jeans');
+    expect(params.get('minPriceCOP')).toBe('10000');
+    expect(params.has('city')).toBe(false);
+    expect(params.has('maxPriceCOP')).toBe(false);
+  });
+
+  it('fetchAuctions hits the plain path when all filters are empty', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ auctions: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchAuctions({ search: '', category: '', city: '', minPriceCOP: '', maxPriceCOP: '' });
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auctions',

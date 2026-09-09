@@ -56,6 +56,7 @@ export function AuctionCard({ auction, isOwn }: AuctionCardProps): React.JSX.Ele
           {isOwn && <Badge tone="emerald">Yours</Badge>}
           {auction.status === 'sold' && <Badge tone="amber">Sold</Badge>}
         </div>
+        <p className="truncate text-sm font-medium text-gray-900">{auction.title}</p>
         <p className="text-xs text-gray-500">{priceLabel}</p>
         <p className="text-lg font-semibold text-gray-900">{formatCOP(priceValue)}</p>
       </div>

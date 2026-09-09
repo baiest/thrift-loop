@@ -3,10 +3,12 @@ import {
   DELIVERY_METHODS,
   ITEM_CATEGORIES,
   ITEM_CONDITIONS,
+  MAX_TITLE_LENGTH,
   isDeliveryMethod,
   isItemCategory,
   isItemCondition,
   isValidCopPrice,
+  isValidTitle,
 } from '@thrift-loop/shared';
 import {
   ApiError,
@@ -36,12 +38,19 @@ type FormValues = CreateAuctionPayload;
 type FormErrors = Partial<Record<keyof FormValues, string>>;
 
 const EMPTY_VALUES: FormValues = {
+  title: '',
   category: '',
   condition: '',
   deliveryMethod: '',
   priceCOP: '',
   publishAt: '',
 };
+
+function validateTitle(values: FormValues): string | undefined {
+  return isValidTitle(values.title)
+    ? undefined
+    : `Enter a title up to ${MAX_TITLE_LENGTH} characters, letters and numbers only`;
+}
 
 function validateCategory(values: FormValues): string | undefined {
   return isItemCategory(values.category) ? undefined : 'Select a category';
@@ -66,6 +75,7 @@ const REQUIRED_FIELD_VALIDATORS: Record<
   Exclude<keyof FormValues, 'publishAt'>,
   (values: FormValues) => string | undefined
 > = {
+  title: validateTitle,
   category: validateCategory,
   condition: validateCondition,
   deliveryMethod: validateDeliveryMethod,
@@ -135,6 +145,18 @@ export function CreateAuctionForm({ onSuccess }: CreateAuctionFormProps): React.
 
   return (
     <form onSubmit={(event) => void handleSubmit(event)} noValidate>
+      <FormField id="title" label="Title" error={errors.title}>
+        <TextInput
+          id="title"
+          value={values.title}
+          invalid={Boolean(errors.title)}
+          onChange={(value) => updateField('title', value)}
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          {values.title.length}/{MAX_TITLE_LENGTH} characters
+        </p>
+      </FormField>
+
       <FormField id="category" label="Category" error={errors.category}>
         <Select
           id="category"

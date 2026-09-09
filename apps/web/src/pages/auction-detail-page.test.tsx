@@ -19,6 +19,7 @@ const { fetchAuctionDetail, fetchBids, fetchCurrentUser } = await import('../lib
 const publicAuction = {
   id: 'AUC-1',
   userId: 'USR-seller',
+  title: 'Chaqueta de cuero',
   category: 'jeans' as const,
   condition: 'good' as const,
   priceCOP: 50_000,
@@ -78,6 +79,7 @@ describe('AuctionDetailPage', () => {
 
     expect(await screen.findByText(/50\.000/)).toBeInTheDocument();
     expect(screen.getByText('No bids yet — be the first.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: publicAuction.title })).toBeInTheDocument();
   });
 
   it('shows a 404 message when the auction does not exist', async () => {
