@@ -71,4 +71,4 @@ that work starts, per `plan.md`'s phasing.
       no socket/console errors appear. The outbid/won/bid-on-listing event → notification wiring
       itself is covered by `notification.service.test.ts`'s full preference matrix rather than a
       manual two-browser bid session.
-- [ ] Open PR, confirm CI is green, leave merge to the user
+- [x] Open PR, confirm CI is green, leave merge to the user (PR #13)
