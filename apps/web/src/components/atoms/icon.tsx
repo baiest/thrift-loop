@@ -12,7 +12,8 @@ export type IconName =
   | 'chevron-right'
   | 'chevron-down'
   | 'grip'
-  | 'gavel';
+  | 'gavel'
+  | 'bell';
 
 const ICON_PATHS: Record<IconName, string> = {
   compass: 'M12 2a10 10 0 100 20 10 10 0 000-20zm3.5 6.5l-2 5-5 2 2-5 5-2z',
@@ -29,6 +30,7 @@ const ICON_PATHS: Record<IconName, string> = {
   'chevron-down': 'M6 9l6 6 6-6',
   grip: 'M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01',
   gavel: 'M3 14l6-6 4 4-6 6zM13 4l7 7M2 20h8',
+  bell: 'M18 8a6 6 0 10-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M13.7 21a2 2 0 01-3.4 0',
 };
 
 export interface IconProps {

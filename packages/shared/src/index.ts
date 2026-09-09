@@ -6,6 +6,7 @@ export * from './delivery-method.js';
 export * from './description.js';
 export * from './item-category.js';
 export * from './item-condition.js';
+export * from './notification.js';
 export * from './password-policy.js';
 export * from './phone.js';
 export * from './photo.js';

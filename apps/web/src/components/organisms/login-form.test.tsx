@@ -19,6 +19,7 @@ const validUser = {
   country: 'CO' as const,
   address: null,
   categoryPreference: null,
+  notificationPreferences: { outbid: true, auctionWon: true, bidOnMyListing: true },
 };
 
 describe('LoginForm', () => {

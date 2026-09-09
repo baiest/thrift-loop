@@ -1,9 +1,16 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { PublicUser } from '@thrift-loop/shared';
 import { SidebarNav } from './sidebar-nav.js';
 import { useAuthStore } from '../../stores/auth-store.js';
+
+vi.mock('../../lib/api-client.js', async () => {
+  const actual = await vi.importActual('../../lib/api-client.js');
+  return { ...actual, fetchNotifications: vi.fn() };
+});
+
+const { fetchNotifications } = await import('../../lib/api-client.js');
 
 const SAMPLE_USER: PublicUser = {
   id: 'USR-1',
@@ -13,6 +20,7 @@ const SAMPLE_USER: PublicUser = {
   country: 'CO',
   address: null,
   categoryPreference: null,
+  notificationPreferences: { outbid: true, auctionWon: true, bidOnMyListing: true },
 };
 
 function renderNav(initialEntries: string[] = ['/']): void {
@@ -24,6 +32,11 @@ function renderNav(initialEntries: string[] = ['/']): void {
 }
 
 describe('SidebarNav', () => {
+  beforeEach(() => {
+    vi.mocked(fetchNotifications).mockReset();
+    vi.mocked(fetchNotifications).mockResolvedValue({ notifications: [], unreadCount: 0 });
+  });
+
   afterEach(() => {
     useAuthStore.getState().clearUser();
   });
@@ -124,6 +137,22 @@ describe('SidebarNav', () => {
 
       expect(within(desktopNav()).getByText('JB')).toHaveClass('shrink-0');
     });
+
+    it('shows the notification bell when signed in', () => {
+      useAuthStore.getState().setUser(SAMPLE_USER);
+      renderNav();
+
+      expect(
+        within(desktopNav()).getByRole('button', { name: /notifications/i }),
+      ).toBeInTheDocument();
+    });
+
+    it('does not show the notification bell when signed out', () => {
+      renderNav();
+      expect(
+        within(desktopNav()).queryByRole('button', { name: /notifications/i }),
+      ).not.toBeInTheDocument();
+    });
   });
 
   describe('tablet icon rail (md..lg)', () => {
@@ -160,6 +189,14 @@ describe('SidebarNav', () => {
       useAuthStore.getState().setUser(SAMPLE_USER);
       renderNav();
       expect(within(tabletNav()).getByRole('button', { name: /log out/i })).toBeInTheDocument();
+    });
+
+    it('shows the notification bell when signed in', () => {
+      useAuthStore.getState().setUser(SAMPLE_USER);
+      renderNav();
+      expect(
+        within(tabletNav()).getByRole('button', { name: /notifications/i }),
+      ).toBeInTheDocument();
     });
   });
 

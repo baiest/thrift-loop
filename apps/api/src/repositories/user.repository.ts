@@ -1,7 +1,10 @@
 import type { User } from '../models/user.js';
 
 export type UserPatch = Partial<
-  Pick<User, 'address' | 'categoryPreference' | 'firstName' | 'lastName' | 'city'>
+  Pick<
+    User,
+    'address' | 'categoryPreference' | 'firstName' | 'lastName' | 'city' | 'notificationPreferences'
+  >
 >;
 
 export interface UserRepository {

@@ -1,7 +1,9 @@
 import type {
+  NotificationPreferences,
   PublicAuction,
   PublicBid,
   PublicMyBid,
+  PublicNotification,
   PublicPurchase,
   PublicUser,
 } from '@thrift-loop/shared';
@@ -273,6 +275,71 @@ export async function updateProfile(payload: UpdateProfilePayload): Promise<Publ
     headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
     credentials: 'include',
     body: JSON.stringify(payload),
+  });
+
+  const data = (await response.json()) as AuthResponseBody;
+  if (!response.ok || !data.user) {
+    throw new ApiError(data.error ?? 'Request failed', response.status, data.fields);
+  }
+  return data.user;
+}
+
+interface NotificationsResponseBody {
+  notifications?: PublicNotification[];
+  unreadCount?: number;
+}
+
+export async function fetchNotifications(): Promise<{
+  notifications: PublicNotification[];
+  unreadCount: number;
+}> {
+  const response = await fetch('/api/notifications', { credentials: 'include' });
+  const data = (await response.json()) as NotificationsResponseBody;
+  return { notifications: data.notifications ?? [], unreadCount: data.unreadCount ?? 0 };
+}
+
+interface MarkNotificationReadResponseBody {
+  notification?: PublicNotification;
+  error?: string;
+  fields?: Record<string, string>;
+}
+
+export async function markNotificationRead(id: string): Promise<PublicNotification> {
+  const response = await fetch(`/api/notifications/${id}/read`, {
+    method: 'POST',
+    headers: csrfHeaders(),
+    credentials: 'include',
+  });
+
+  const data = (await response.json()) as MarkNotificationReadResponseBody;
+  if (!response.ok || !data.notification) {
+    throw new ApiError(data.error ?? 'Request failed', response.status, data.fields);
+  }
+  return data.notification;
+}
+
+interface MarkAllNotificationsReadResponseBody {
+  updated?: number;
+}
+
+export async function markAllNotificationsRead(): Promise<number> {
+  const response = await fetch('/api/notifications/read-all', {
+    method: 'POST',
+    headers: csrfHeaders(),
+    credentials: 'include',
+  });
+  const data = (await response.json()) as MarkAllNotificationsReadResponseBody;
+  return data.updated ?? 0;
+}
+
+export async function updateNotificationPreferences(
+  patch: Partial<NotificationPreferences>,
+): Promise<PublicUser> {
+  const response = await fetch('/api/notifications/preferences', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...csrfHeaders() },
+    credentials: 'include',
+    body: JSON.stringify(patch),
   });
 
   const data = (await response.json()) as AuthResponseBody;

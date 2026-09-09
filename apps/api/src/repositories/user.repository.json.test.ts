@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { DEFAULT_NOTIFICATION_PREFERENCES } from '@thrift-loop/shared';
 import type { User } from '../models/user.js';
 import { createJsonUserRepository } from './user.repository.json.js';
 
@@ -15,6 +16,7 @@ const sampleUser: User = {
   passwordHash: 'hashed',
   address: null,
   categoryPreference: null,
+  notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -88,6 +90,19 @@ describe('createJsonUserRepository', () => {
     expect(updated?.address).toBe('Calle 1');
     expect(updated?.updatedAt).not.toBe(sampleUser.updatedAt);
     await expect(repository.findById(sampleUser.id)).resolves.toEqual(updated);
+  });
+
+  it('normalizes a legacy user without notificationPreferences to the default', async () => {
+    const legacyUser: Record<string, unknown> = { ...sampleUser };
+    delete legacyUser['notificationPreferences'];
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    await mkdir(join(tempDir, 'nested'), { recursive: true });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    await writeFile(filePath, JSON.stringify([legacyUser]), 'utf8');
+
+    const repository = createJsonUserRepository(filePath);
+
+    await expect(repository.findById(sampleUser.id)).resolves.toEqual(sampleUser);
   });
 
   it('persists multiple users across repository instances', async () => {

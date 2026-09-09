@@ -5,7 +5,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request, { type Response as SupertestResponse } from 'supertest';
 import express, { type Express, type Request, type Response } from 'express';
 import cookieParser from 'cookie-parser';
-import type { PublicAuction, PublicBid, PublicMyBid, PublicPurchase } from '@thrift-loop/shared';
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  type PublicAuction,
+  type PublicBid,
+  type PublicMyBid,
+  type PublicPurchase,
+} from '@thrift-loop/shared';
 import { signSessionToken } from '../lib/jwt.js';
 import { SESSION_COOKIE_NAME } from '../lib/cookies.js';
 import { attachCsrfCookie, CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '../lib/csrf.js';
@@ -17,6 +23,7 @@ import type { UserPatch, UserRepository } from '../repositories/user.repository.
 import { createLocalPhotoStorage } from '../lib/photo-storage.js';
 import { createAuctionService } from '../services/auction.service.js';
 import { createBidService } from '../services/bid.service.js';
+import { createEventBus } from '../lib/event-bus.js';
 import { createAuctionRouter } from './auction.routes.js';
 
 interface AuctionResponseBody {
@@ -88,6 +95,7 @@ function makeUser(overrides: Partial<User> = {}): User {
     passwordHash: 'x',
     address: null,
     categoryPreference: null,
+    notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -150,6 +158,7 @@ describe('auction routes', () => {
       bidRepository,
       userRepository,
       createKeyedMutex(),
+      createEventBus(),
     );
 
     app = express();

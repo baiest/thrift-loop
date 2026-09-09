@@ -4,12 +4,14 @@ import cookieParser from 'cookie-parser';
 import express, { type Express, type RequestHandler } from 'express';
 import { createAuthRouter } from './routes/auth.routes.js';
 import { createAuctionRouter } from './routes/auction.routes.js';
+import { createNotificationRouter } from './routes/notification.routes.js';
 import { HTTP_STATUS } from './lib/http-status.js';
 import { createRateLimiter } from './middlewares/rate-limit.js';
 import type { UserRepository } from './repositories/user.repository.js';
 import type { AuthService } from './services/auth.service.js';
 import type { AuctionService } from './services/auction.service.js';
 import type { BidService } from './services/bid.service.js';
+import type { NotificationService } from './services/notification.service.js';
 
 const API_PREFIX = '/api';
 const INDEX_HTML = 'index.html';
@@ -22,8 +24,10 @@ export interface CreateAppOptions {
   webDistPath?: string;
   auctionService?: AuctionService;
   bidService?: BidService;
+  notificationService?: NotificationService;
   uploadsDir?: string;
   auctionRateLimiter?: RequestHandler;
+  notificationRateLimiter?: RequestHandler;
 }
 
 function mountSpaFallback(app: Express, webDistPath: string): void {
@@ -55,8 +59,10 @@ export function createApp(options: CreateAppOptions): Express {
     webDistPath,
     auctionService,
     bidService,
+    notificationService,
     uploadsDir,
     auctionRateLimiter = createRateLimiter(),
+    notificationRateLimiter = createRateLimiter(),
   } = options;
 
   const app = express();
@@ -75,6 +81,14 @@ export function createApp(options: CreateAppOptions): Express {
       `${API_PREFIX}/auctions`,
       auctionRateLimiter,
       createAuctionRouter(auctionService, userRepository, bidService),
+    );
+  }
+
+  if (notificationService) {
+    app.use(
+      `${API_PREFIX}/notifications`,
+      notificationRateLimiter,
+      createNotificationRouter(notificationService),
     );
   }
 

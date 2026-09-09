@@ -4,6 +4,7 @@ import type { Bid } from '../models/bid.js';
 import type { AuctionPatch, AuctionRepository } from '../repositories/auction.repository.js';
 import type { BidRepository } from '../repositories/bid.repository.js';
 import { createKeyedMutex } from './keyed-mutex.js';
+import { createEventBus, type DomainEvent } from './event-bus.js';
 import {
   closeDueAuctions,
   publishDueAuctions,
@@ -151,6 +152,7 @@ describe('closeDueAuctions', () => {
       repository,
       bidRepository,
       createKeyedMutex(),
+      createEventBus(),
       new Date('2026-02-01T00:00:00.000Z'),
     );
 
@@ -163,9 +165,72 @@ describe('closeDueAuctions', () => {
     const repository = makeFakeRepository([], []);
     const bidRepository = makeFakeBidRepository({});
 
-    await closeDueAuctions(repository, bidRepository, createKeyedMutex(), new Date());
+    await closeDueAuctions(
+      repository,
+      bidRepository,
+      createKeyedMutex(),
+      createEventBus(),
+      new Date(),
+    );
 
     expect(repository.updateCalls).toEqual([]);
+  });
+
+  it('publishes auction-closed with the winner when an auction closes', async () => {
+    const due = makeAuction({
+      id: 'AUC-1',
+      status: 'published',
+      currentBidCOP: 60_000,
+      bidCount: 1,
+      bidEndsAt: '2026-01-01T00:00:00.000Z',
+    });
+    const repository = makeFakeRepository([], [due]);
+    const bidRepository = makeFakeBidRepository({
+      'AUC-1': [makeBid({ userId: 'USR-winner', amountCOP: 60_000 })],
+    });
+    const eventBus = createEventBus();
+    const published: DomainEvent[] = [];
+    eventBus.subscribe((event) => published.push(event));
+
+    await closeDueAuctions(
+      repository,
+      bidRepository,
+      createKeyedMutex(),
+      eventBus,
+      new Date('2026-02-01T00:00:00.000Z'),
+    );
+
+    expect(published).toEqual([
+      expect.objectContaining({
+        type: 'auction-closed',
+        auctionId: 'AUC-1',
+        winnerUserId: 'USR-winner',
+        finalPriceCOP: 60_000,
+      }),
+    ]);
+  });
+
+  it('does not publish when an auction has no bids to close with', async () => {
+    const due = makeAuction({
+      id: 'AUC-1',
+      status: 'published',
+      bidEndsAt: '2026-01-01T00:00:00.000Z',
+    });
+    const repository = makeFakeRepository([], [due]);
+    const bidRepository = makeFakeBidRepository({});
+    const eventBus = createEventBus();
+    const published: DomainEvent[] = [];
+    eventBus.subscribe((event) => published.push(event));
+
+    await closeDueAuctions(
+      repository,
+      bidRepository,
+      createKeyedMutex(),
+      eventBus,
+      new Date('2026-02-01T00:00:00.000Z'),
+    );
+
+    expect(published).toEqual([]);
   });
 });
 
@@ -185,7 +250,13 @@ describe('startAuctionScheduler', () => {
     });
     const intervalMs = 1000;
 
-    const stop = startAuctionScheduler(repository, bidRepository, createKeyedMutex(), intervalMs);
+    const stop = startAuctionScheduler(
+      repository,
+      bidRepository,
+      createKeyedMutex(),
+      createEventBus(),
+      intervalMs,
+    );
     await vi.advanceTimersByTimeAsync(intervalMs);
 
     expect(repository.updateCalls).toEqual(
