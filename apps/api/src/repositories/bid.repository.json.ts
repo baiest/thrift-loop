@@ -14,6 +14,11 @@ export function createJsonBidRepository(filePath: string): BidRepository {
       return bids.filter((bid) => bid.auctionId === auctionId).sort(byNewestFirst);
     },
 
+    async findByUserId(userId) {
+      const bids = await readJsonArray<Bid>(filePath);
+      return bids.filter((bid) => bid.userId === userId).sort(byNewestFirst);
+    },
+
     async save(bid) {
       const bids = await readJsonArray<Bid>(filePath);
       bids.push(bid);

@@ -82,6 +82,14 @@ class FakeBidRepository implements BidRepository {
     );
   }
 
+  findByUserId(userId: string): Promise<Bid[]> {
+    return Promise.resolve(
+      this.bids
+        .filter((bid) => bid.userId === userId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    );
+  }
+
   save(bid: Bid): Promise<void> {
     this.bids.push(bid);
     return Promise.resolve();
@@ -319,6 +327,69 @@ describe('BidService', () => {
           amountCOP: 50_000,
         }),
       ]);
+    });
+  });
+
+  describe('listMyBids', () => {
+    it('returns an empty list when the user has never bid', async () => {
+      const myBids = await service.listMyBids('USR-bidder');
+      expect(myBids).toEqual([]);
+    });
+
+    it('marks the user as winning when their bid is the current one', async () => {
+      auctionRepository.seed(makeAuction());
+      await service.placeBid('USR-bidder', 'AUC-1', '50000');
+
+      const myBids = await service.listMyBids('USR-bidder');
+
+      expect(myBids).toEqual([expect.objectContaining({ myBidCOP: 50_000, isWinning: true })]);
+    });
+
+    it('marks the user as outbid once someone else raises the bid', async () => {
+      auctionRepository.seed(makeAuction());
+      await service.placeBid('USR-bidder', 'AUC-1', '50000');
+      await service.placeBid('USR-other', 'AUC-1', '51000');
+
+      const myBids = await service.listMyBids('USR-bidder');
+
+      expect(myBids).toEqual([expect.objectContaining({ myBidCOP: 50_000, isWinning: false })]);
+    });
+
+    it('collapses multiple bids on the same auction to the highest one', async () => {
+      auctionRepository.seed(makeAuction());
+      await service.placeBid('USR-bidder', 'AUC-1', '50000');
+      await service.placeBid('USR-other', 'AUC-1', '51000');
+      await service.placeBid('USR-bidder', 'AUC-1', '52000');
+
+      const myBids = await service.listMyBids('USR-bidder');
+
+      expect(myBids).toHaveLength(1);
+      expect(myBids[0]).toEqual(expect.objectContaining({ myBidCOP: 52_000, isWinning: true }));
+    });
+
+    it('lists one entry per auction the user has bid on, newest bid first', async () => {
+      auctionRepository.seed(makeAuction({ id: 'AUC-1' }));
+      auctionRepository.seed(makeAuction({ id: 'AUC-2' }));
+      await service.placeBid('USR-bidder', 'AUC-1', '50000');
+      vi.setSystemTime(new Date('2026-01-01T00:05:00.000Z'));
+      await service.placeBid('USR-bidder', 'AUC-2', '50000');
+
+      const myBids = await service.listMyBids('USR-bidder');
+
+      expect(myBids.map((entry) => entry.auction.id)).toEqual(['AUC-2', 'AUC-1']);
+    });
+
+    it('is not winning once the auction sells to someone else, even at the same amount', async () => {
+      auctionRepository.seed(makeAuction());
+      await service.placeBid('USR-bidder', 'AUC-1', '50000');
+      await auctionRepository.update('AUC-1', {
+        status: 'sold',
+        winnerUserId: 'USR-bidder',
+      });
+
+      const myBids = await service.listMyBids('USR-bidder');
+
+      expect(myBids).toEqual([expect.objectContaining({ myBidCOP: 50_000, isWinning: false })]);
     });
   });
 });

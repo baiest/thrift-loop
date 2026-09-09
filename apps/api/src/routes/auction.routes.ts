@@ -7,6 +7,7 @@ import {
   MAX_PHOTO_SIZE_BYTES,
   resolveHandover,
   type PublicAuction,
+  type PublicMyBid,
   type PublicPurchase,
 } from '@thrift-loop/shared';
 import { HTTP_STATUS } from '../lib/http-status.js';
@@ -172,6 +173,21 @@ export function createAuctionRouter(
         return { auction: publicAuction, handover };
       });
       res.status(HTTP_STATUS.OK).json({ purchases });
+    }),
+  );
+
+  router.get(
+    '/my-bids',
+    requireAuth,
+    asyncHandler(async (_req, res) => {
+      const userId = res.locals['userId'] as string;
+      const entries = await requireBidService(bidService).listMyBids(userId);
+      const myBids: PublicMyBid[] = entries.map((entry) => ({
+        auction: toPublicAuction(entry.auction),
+        myBidCOP: entry.myBidCOP,
+        isWinning: entry.isWinning,
+      }));
+      res.status(HTTP_STATUS.OK).json({ myBids });
     }),
   );
 

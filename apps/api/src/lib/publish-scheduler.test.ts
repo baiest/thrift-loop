@@ -77,6 +77,7 @@ function makeFakeBidRepository(bidsByAuction: Record<string, Bid[]>): BidReposit
     // auctionId is a test fixture key, not attacker-controlled input.
     // eslint-disable-next-line security/detect-object-injection
     findByAuctionId: (auctionId) => Promise.resolve(bidsByAuction[auctionId] ?? []),
+    findByUserId: () => Promise.resolve([]),
     save: () => Promise.resolve(),
   };
 }

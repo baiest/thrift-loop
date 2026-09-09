@@ -82,6 +82,42 @@ export function createBidService(
       });
     },
 
+    async listMyBids(
+      userId: string,
+    ): Promise<{ auction: Auction; myBidCOP: number; isWinning: boolean }[]> {
+      const myBids = await bidRepository.findByUserId(userId);
+
+      // A user's own bids on one auction only ever increase (validateBid requires
+      // beating the current bid), so the highest amount is their "real" bid on it —
+      // safer than trusting bid order, which can tie on createdAt.
+      const bestBidByAuction = new Map<string, Bid>();
+      for (const bid of myBids) {
+        const existing = bestBidByAuction.get(bid.auctionId);
+        if (!existing || bid.amountCOP > existing.amountCOP) {
+          bestBidByAuction.set(bid.auctionId, bid);
+        }
+      }
+
+      const bestBids = [...bestBidByAuction.values()].sort((a, b) =>
+        b.createdAt.localeCompare(a.createdAt),
+      );
+
+      const entries: { auction: Auction; myBidCOP: number; isWinning: boolean }[] = [];
+      for (const bid of bestBids) {
+        const auction = await auctionRepository.findById(bid.auctionId);
+        if (!auction) {
+          continue;
+        }
+        entries.push({
+          auction,
+          myBidCOP: bid.amountCOP,
+          isWinning: auction.status === 'published' && auction.currentBidCOP === bid.amountCOP,
+        });
+      }
+
+      return entries;
+    },
+
     async listBids(auctionId: string): Promise<PublicBid[]> {
       const bids = await bidRepository.findByAuctionId(auctionId);
       return Promise.all(
