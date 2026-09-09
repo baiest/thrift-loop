@@ -2,12 +2,13 @@ import bcrypt from 'bcryptjs';
 import {
   isColombiaCity,
   isColombianMobilePhone,
+  isItemCategory,
   validatePassword,
   type PasswordRule,
   type PublicUser,
 } from '@thrift-loop/shared';
 import type { User } from '../models/user.js';
-import type { UserRepository } from '../repositories/user.repository.js';
+import type { UserPatch, UserRepository } from '../repositories/user.repository.js';
 import { signSessionToken } from '../lib/jwt.js';
 import { HTTP_STATUS } from '../lib/http-status.js';
 import { HttpError } from '../lib/http-error.js';
@@ -19,6 +20,7 @@ const SALT_ROUNDS = 10;
 const GENERIC_LOGIN_ERROR = 'Phone number or password is incorrect';
 const MAX_ADDRESS_LENGTH = 200;
 const USER_NOT_FOUND_MESSAGE = 'User not found';
+const CATEGORY_PREFERENCE_ERROR_MESSAGE = 'Select a valid category';
 
 const PASSWORD_RULE_MESSAGES: Record<PasswordRule, string> = {
   minLength: 'Password must be at least 8 characters',
@@ -34,6 +36,7 @@ export interface RegisterInput {
   city: string;
   password: string;
   confirmPassword: string;
+  categoryPreference: string;
 }
 
 export interface LoginInput {
@@ -47,7 +50,8 @@ export interface AuthResult {
 }
 
 export interface UpdateProfileInput {
-  address: string;
+  address?: string;
+  categoryPreference?: string;
 }
 
 export interface AuthService {
@@ -64,12 +68,28 @@ export function toPublicUser(user: User): PublicUser {
     city: user.city,
     country: user.country,
     address: user.address,
+    categoryPreference: user.categoryPreference,
   };
+}
+
+function parseCategoryPreference(
+  value: string,
+  errors: Record<string, string>,
+): User['categoryPreference'] | undefined {
+  if (value.length === 0) {
+    return null;
+  }
+  if (isItemCategory(value)) {
+    return value;
+  }
+  errors['categoryPreference'] = CATEGORY_PREFERENCE_ERROR_MESSAGE;
+  return undefined;
 }
 
 function validateRegisterInput(input: RegisterInput): Record<string, string> {
   const errors: Record<string, string> = {};
 
+  parseCategoryPreference(input.categoryPreference, errors);
   if (!isColombianMobilePhone(input.phone)) {
     errors['phone'] = 'Enter a valid Colombian mobile number (10 digits, starts with 3)';
   }
@@ -124,6 +144,7 @@ async function registerUser(
     country: 'CO',
     passwordHash,
     address: null,
+    categoryPreference: parseCategoryPreference(input.categoryPreference, {}) ?? null,
     createdAt: now,
     updatedAt: now,
   };
@@ -146,21 +167,37 @@ async function loginUser(userRepository: UserRepository, input: LoginInput): Pro
   return { user: toPublicUser(user), token: signSessionToken({ userId: user.id }) };
 }
 
+function buildProfilePatch(input: UpdateProfileInput, errors: Record<string, string>): UserPatch {
+  const patch: UserPatch = {};
+  if (input.address !== undefined) {
+    const trimmed = input.address.trim();
+    if (trimmed.length > MAX_ADDRESS_LENGTH) {
+      errors['address'] = `Address must be at most ${MAX_ADDRESS_LENGTH} characters`;
+    } else {
+      patch.address = trimmed.length > 0 ? trimmed : null;
+    }
+  }
+  if (input.categoryPreference !== undefined) {
+    const categoryPreference = parseCategoryPreference(input.categoryPreference, errors);
+    if (categoryPreference !== undefined) {
+      patch.categoryPreference = categoryPreference;
+    }
+  }
+  return patch;
+}
+
 async function updateProfile(
   userRepository: UserRepository,
   userId: string,
   input: UpdateProfileInput,
 ): Promise<PublicUser> {
-  const trimmed = input.address.trim();
-  if (trimmed.length > MAX_ADDRESS_LENGTH) {
-    throw new HttpError('Validation failed', HTTP_STATUS.BAD_REQUEST, {
-      address: `Address must be at most ${MAX_ADDRESS_LENGTH} characters`,
-    });
+  const errors: Record<string, string> = {};
+  const patch = buildProfilePatch(input, errors);
+  if (Object.keys(errors).length > 0) {
+    throw new HttpError('Validation failed', HTTP_STATUS.BAD_REQUEST, errors);
   }
 
-  const updated = await userRepository.update(userId, {
-    address: trimmed.length > 0 ? trimmed : null,
-  });
+  const updated = await userRepository.update(userId, patch);
   if (!updated) {
     throw new HttpError(USER_NOT_FOUND_MESSAGE, HTTP_STATUS.NOT_FOUND);
   }

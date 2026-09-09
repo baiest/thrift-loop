@@ -20,7 +20,10 @@ class FakeUserRepository implements UserRepository {
     return Promise.resolve();
   }
 
-  async update(id: string, patch: Partial<Pick<User, 'address'>>): Promise<User | null> {
+  async update(
+    id: string,
+    patch: Partial<Pick<User, 'address' | 'categoryPreference'>>,
+  ): Promise<User | null> {
     const existing = await this.findById(id);
     if (!existing) {
       return null;
@@ -38,6 +41,7 @@ const validInput: RegisterInput = {
   city: 'Bogotá D.C.',
   password: 'Abcdefg1',
   confirmPassword: 'Abcdefg1',
+  categoryPreference: '',
 };
 
 async function catchHttpError(promise: Promise<unknown>): Promise<HttpError> {
@@ -156,6 +160,24 @@ describe('AuthService', () => {
         'confirmPassword',
       );
     });
+
+    it('registers successfully with no category preference', async () => {
+      const result = await service.register(validInput);
+      expect(result.user.categoryPreference).toBeNull();
+    });
+
+    it('registers with a valid category preference', async () => {
+      const result = await service.register({ ...validInput, categoryPreference: 'jeans' });
+      expect(result.user.categoryPreference).toBe('jeans');
+    });
+
+    it('rejects an invalid category preference', async () => {
+      await expectHttpError(
+        service.register({ ...validInput, categoryPreference: 'hats' }),
+        400,
+        'categoryPreference',
+      );
+    });
   });
 
   describe('login', () => {
@@ -234,6 +256,44 @@ describe('AuthService', () => {
 
     it('404s a user that no longer exists', async () => {
       await expectHttpError(service.updateProfile('USR-missing', { address: 'Calle 1' }), 404);
+    });
+
+    it('sets the category preference', async () => {
+      const registered = await service.register(validInput);
+      const updated = await service.updateProfile(registered.user.id, {
+        categoryPreference: 'jeans',
+      });
+
+      expect(updated.categoryPreference).toBe('jeans');
+    });
+
+    it('treats an empty category preference as clearing it', async () => {
+      const registered = await service.register(validInput);
+      await service.updateProfile(registered.user.id, { categoryPreference: 'jeans' });
+      const cleared = await service.updateProfile(registered.user.id, {
+        categoryPreference: '',
+      });
+
+      expect(cleared.categoryPreference).toBeNull();
+    });
+
+    it('rejects an invalid category preference', async () => {
+      const registered = await service.register(validInput);
+      await expectHttpError(
+        service.updateProfile(registered.user.id, { categoryPreference: 'hats' }),
+        400,
+        'categoryPreference',
+      );
+    });
+
+    it('leaves the address untouched when only updating the category preference', async () => {
+      const registered = await service.register(validInput);
+      await service.updateProfile(registered.user.id, { address: 'Calle 1' });
+      const updated = await service.updateProfile(registered.user.id, {
+        categoryPreference: 'jeans',
+      });
+
+      expect(updated.address).toBe('Calle 1');
     });
   });
 });

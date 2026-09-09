@@ -1,3 +1,5 @@
+import type { ItemCategory } from '@thrift-loop/shared';
+
 export interface User {
   id: string;
   phone: string;
@@ -7,6 +9,7 @@ export interface User {
   country: 'CO';
   passwordHash: string;
   address: string | null;
+  categoryPreference: ItemCategory | null;
   createdAt: string;
   updatedAt: string;
 }

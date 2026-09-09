@@ -4,7 +4,7 @@ import { attachCsrfCookie, CSRF_COOKIE_NAME } from '../lib/csrf.js';
 import { HTTP_STATUS } from '../lib/http-status.js';
 import { HttpError } from '../lib/http-error.js';
 import { asyncHandler } from '../lib/async-handler.js';
-import { pickStringFields } from '../lib/request-body.js';
+import { pickPresentStringFields, pickStringFields } from '../lib/request-body.js';
 import { requireAuth } from '../middlewares/require-auth.js';
 import { requireCsrf } from '../middlewares/require-csrf.js';
 import type { Request, Response } from 'express';
@@ -26,9 +26,15 @@ const REGISTER_FIELDS = [
   'city',
   'password',
   'confirmPassword',
+  'categoryPreference',
 ] as const satisfies readonly (keyof RegisterInput)[];
 
 const LOGIN_FIELDS = ['phone', 'password'] as const satisfies readonly (keyof LoginInput)[];
+
+const UPDATE_PROFILE_FIELDS = [
+  'address',
+  'categoryPreference',
+] as const satisfies readonly (keyof UpdateProfileInput)[];
 
 function setSessionCookies(req: Request, res: Response, token: string): void {
   res.cookie(SESSION_COOKIE_NAME, token, getSessionCookieOptions());
@@ -83,7 +89,7 @@ export function createAuthRouter(authService: AuthService, userRepository: UserR
     requireCsrf,
     asyncHandler(async (req, res) => {
       const userId = res.locals['userId'] as string;
-      const input = pickStringFields<UpdateProfileInput>(req.body, ['address']);
+      const input = pickPresentStringFields<UpdateProfileInput>(req.body, UPDATE_PROFILE_FIELDS);
       const user = await authService.updateProfile(userId, input);
       res.status(HTTP_STATUS.OK).json({ user });
     }),

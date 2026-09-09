@@ -29,11 +29,13 @@ import type { BidService } from '../services/bid.service.js';
 
 const CREATE_FIELDS = [
   'title',
+  'description',
   'category',
   'condition',
   'deliveryMethod',
   'priceCOP',
   'publishAt',
+  'location',
 ] as const satisfies readonly (keyof CreateAuctionInput)[];
 
 const UPDATE_FIELDS = [
@@ -64,15 +66,12 @@ const upload = multer({
   },
 });
 
-async function toPublicAuction(
-  auction: Auction,
-  userRepository: UserRepository,
-): Promise<PublicAuction> {
-  const seller = await userRepository.findById(auction.userId);
+function toPublicAuction(auction: Auction): PublicAuction {
   return {
     id: auction.id,
     userId: auction.userId,
     title: auction.title,
+    description: auction.description,
     category: auction.category,
     condition: auction.condition,
     priceCOP: auction.priceCOP,
@@ -84,7 +83,7 @@ async function toPublicAuction(
     bidCount: auction.bidCount,
     bidEndsAt: auction.bidEndsAt,
     winnerUserId: auction.winnerUserId,
-    sellerCity: seller?.city ?? '',
+    location: auction.location,
     createdAt: auction.createdAt,
     updatedAt: auction.updatedAt,
   };
@@ -127,9 +126,7 @@ export function createAuctionRouter(
     asyncHandler(async (req, res) => {
       const input = pickQueryStrings<AuctionSearchInput>(req.query, SEARCH_FIELDS);
       const auctions = await auctionService.listPublishedAuctions(input);
-      const publicAuctions = await Promise.all(
-        auctions.map((auction) => toPublicAuction(auction, userRepository)),
-      );
+      const publicAuctions = auctions.map(toPublicAuction);
       res.status(HTTP_STATUS.OK).json({ auctions: publicAuctions });
     }),
   );
@@ -142,9 +139,7 @@ export function createAuctionRouter(
       const userId = res.locals['userId'] as string;
       const input = pickStringFields<CreateAuctionInput>(req.body, CREATE_FIELDS);
       const auction = await auctionService.createAuction(userId, input);
-      res
-        .status(HTTP_STATUS.CREATED)
-        .json({ auction: await toPublicAuction(auction, userRepository) });
+      res.status(HTTP_STATUS.CREATED).json({ auction: toPublicAuction(auction) });
     }),
   );
 
@@ -154,9 +149,7 @@ export function createAuctionRouter(
     asyncHandler(async (_req, res) => {
       const userId = res.locals['userId'] as string;
       const auctions = await auctionService.listMyAuctions(userId);
-      const publicAuctions = await Promise.all(
-        auctions.map((auction) => toPublicAuction(auction, userRepository)),
-      );
+      const publicAuctions = auctions.map(toPublicAuction);
       res.status(HTTP_STATUS.OK).json({ auctions: publicAuctions });
     }),
   );
@@ -168,17 +161,15 @@ export function createAuctionRouter(
       const userId = res.locals['userId'] as string;
       const buyer = await userRepository.findById(userId);
       const auctions = await auctionService.listMyPurchases(userId);
-      const purchases: PublicPurchase[] = await Promise.all(
-        auctions.map(async (auction) => {
-          const publicAuction = await toPublicAuction(auction, userRepository);
-          const handover = resolveHandover(
-            buyer?.address ?? null,
-            auction.deliveryMethod,
-            publicAuction.sellerCity,
-          );
-          return { auction: publicAuction, handover };
-        }),
-      );
+      const purchases: PublicPurchase[] = auctions.map((auction) => {
+        const publicAuction = toPublicAuction(auction);
+        const handover = resolveHandover(
+          buyer?.address ?? null,
+          auction.deliveryMethod,
+          publicAuction.location,
+        );
+        return { auction: publicAuction, handover };
+      });
       res.status(HTTP_STATUS.OK).json({ purchases });
     }),
   );
@@ -192,7 +183,7 @@ export function createAuctionRouter(
         req.params['id'] as string,
       );
       res.status(HTTP_STATUS.OK).json({
-        auction: await toPublicAuction(auction, userRepository),
+        auction: toPublicAuction(auction),
         serverTime: new Date().toISOString(),
       });
     }),
@@ -222,9 +213,7 @@ export function createAuctionRouter(
         auctionId,
         amountCOP,
       );
-      res
-        .status(HTTP_STATUS.CREATED)
-        .json({ auction: await toPublicAuction(auction, userRepository), bid });
+      res.status(HTTP_STATUS.CREATED).json({ auction: toPublicAuction(auction), bid });
     }),
   );
 
@@ -236,7 +225,7 @@ export function createAuctionRouter(
       const userId = res.locals['userId'] as string;
       const patch = pickPresentStringFields<UpdateAuctionInput>(req.body, UPDATE_FIELDS);
       const auction = await auctionService.updateAuction(userId, req.params['id'] as string, patch);
-      res.status(HTTP_STATUS.OK).json({ auction: await toPublicAuction(auction, userRepository) });
+      res.status(HTTP_STATUS.OK).json({ auction: toPublicAuction(auction) });
     }),
   );
 
@@ -270,7 +259,7 @@ export function createAuctionRouter(
         req.params['id'] as string,
         files.map((file) => ({ originalName: file.originalname, buffer: file.buffer })),
       );
-      res.status(HTTP_STATUS.OK).json({ auction: await toPublicAuction(auction, userRepository) });
+      res.status(HTTP_STATUS.OK).json({ auction: toPublicAuction(auction) });
     }),
   );
 

@@ -5,6 +5,8 @@ export type AuctionPatch = Partial<
   Pick<
     Auction,
     | 'title'
+    | 'description'
+    | 'location'
     | 'category'
     | 'condition'
     | 'priceCOP'
@@ -28,6 +30,7 @@ export type AuctionPatch = Partial<
 export interface AuctionFilter {
   search?: string;
   category?: ItemCategory;
+  location?: string;
   minPriceCOP?: number;
   maxPriceCOP?: number;
 }

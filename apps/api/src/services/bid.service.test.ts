@@ -118,6 +118,7 @@ function makeAuction(overrides: Partial<Auction> = {}): Auction {
     id: 'AUC-1',
     userId: 'USR-seller',
     title: 'Chaqueta de cuero',
+    description: 'Chaqueta de cuero en excelente estado.',
     category: 'jeans',
     condition: 'good',
     priceCOP: 50_000,
@@ -129,6 +130,7 @@ function makeAuction(overrides: Partial<Auction> = {}): Auction {
     bidCount: 0,
     bidEndsAt: null,
     winnerUserId: null,
+    location: 'Cali',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -301,6 +303,7 @@ describe('BidService', () => {
         country: 'CO',
         passwordHash: 'x',
         address: null,
+        categoryPreference: null,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       });
