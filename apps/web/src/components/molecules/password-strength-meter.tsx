@@ -7,7 +7,7 @@ const STRENGTH_COLORS = [
   'bg-red-500',
   'bg-orange-500',
   'bg-yellow-500',
-  'bg-emerald-500',
+  'bg-brand-500',
 ] as const;
 
 export interface PasswordStrengthMeterProps {

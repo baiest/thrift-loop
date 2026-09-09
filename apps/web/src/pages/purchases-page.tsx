@@ -46,8 +46,8 @@ export function PurchasesPage(): React.JSX.Element | null {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col px-4 py-6 pt-20">
-      <h1 className="mb-4 text-2xl font-bold text-gray-900">My purchases</h1>
+    <div className="mx-auto flex max-w-2xl flex-col py-6">
+      <h1 className="mb-4 font-display text-2xl font-bold text-ink">My purchases</h1>
       {purchases.length === 0 ? (
         <p className="text-sm text-gray-500">No purchases yet.</p>
       ) : (
@@ -62,6 +62,6 @@ export function PurchasesPage(): React.JSX.Element | null {
           ))}
         </ul>
       )}
-    </main>
+    </div>
   );
 }

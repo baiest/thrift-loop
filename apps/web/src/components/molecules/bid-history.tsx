@@ -20,7 +20,7 @@ export function BidHistory({ bids }: BidHistoryProps): React.JSX.Element {
           <span className="text-gray-700">
             {bid.bidderFirstName}
             {index === 0 && (
-              <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+              <span className="ml-2 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-700">
                 Highest
               </span>
             )}
