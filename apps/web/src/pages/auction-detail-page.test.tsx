@@ -100,6 +100,35 @@ describe('AuctionDetailPage', () => {
     expect(screen.getByText(publicAuction.location)).toBeInTheDocument();
   });
 
+  it('shows a placeholder icon when the auction has no photos', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+
+    renderPage();
+
+    expect(await screen.findByLabelText('No photo')).toBeInTheDocument();
+  });
+
+  it('falls back to the placeholder icon when the photo fails to load', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: { ...publicAuction, photoUrls: ['/uploads/broken.jpg'] },
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+
+    renderPage();
+
+    const image = await screen.findByRole('img');
+    image.dispatchEvent(new Event('error'));
+
+    expect(await screen.findByLabelText('No photo')).toBeInTheDocument();
+  });
+
   it('shows a 404 message when the auction does not exist', async () => {
     vi.mocked(fetchAuctionDetail).mockResolvedValue(null);
     vi.mocked(fetchBids).mockResolvedValue([]);

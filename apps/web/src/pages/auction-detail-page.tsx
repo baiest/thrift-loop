@@ -13,6 +13,7 @@ import { BidHistory } from '../components/molecules/bid-history.js';
 import { BidForm } from '../components/organisms/bid-form.js';
 import { Button } from '../components/atoms/button.js';
 import { Skeleton } from '../components/atoms/skeleton.js';
+import { PhotoPlaceholder } from '../components/atoms/photo-placeholder.js';
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -36,6 +37,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
   const [user, setUser] = useState<PublicUser | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [photoFailed, setPhotoFailed] = useState(false);
 
   const load = useCallback(async (): Promise<void> => {
     if (!id) {
@@ -75,19 +77,21 @@ export function AuctionDetailPage(): React.JSX.Element | null {
     return (
       <div
         aria-label="Loading auction details"
-        className="mx-auto flex max-w-2xl flex-col gap-3 py-6"
+        className="mx-auto grid max-w-4xl gap-6 py-6 lg:grid-cols-2"
       >
         <Skeleton className="aspect-square w-full" />
-        <Skeleton className="h-6 w-2/3" />
-        <Skeleton className="h-4 w-1/3" />
-        <Skeleton className="h-10 w-1/2" />
+        <div className="flex flex-col gap-3">
+          <Skeleton className="h-6 w-2/3" />
+          <Skeleton className="h-4 w-1/3" />
+          <Skeleton className="h-10 w-1/2" />
+        </div>
       </div>
     );
   }
 
   if (notFound || !detail) {
     return (
-      <div className="mx-auto flex max-w-2xl flex-col py-6">
+      <div className="mx-auto flex max-w-4xl flex-col py-6">
         <p className="text-sm text-ink-soft">Auction not found.</p>
       </div>
     );
@@ -103,52 +107,62 @@ export function AuctionDetailPage(): React.JSX.Element | null {
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col py-6">
-      {auction.photoUrls[0] && (
-        <img
-          src={auction.photoUrls[0]}
-          alt={auction.category}
-          className="mb-4 aspect-square w-full rounded-lg object-cover"
-        />
-      )}
-      <h1 className="mb-1 text-xl font-bold text-ink">{auction.title}</h1>
-      <p className="mb-2 text-sm text-ink-soft">{auction.location}</p>
-      <p className="mb-4 whitespace-pre-wrap text-sm text-ink-soft">{auction.description}</p>
-      <p className="text-sm text-ink-soft">
-        {auction.currentBidCOP === null ? 'Starting at' : 'Current bid'}
-      </p>
-      <p className="mb-2 text-3xl font-bold text-ink">
-        {formatCOP(auction.currentBidCOP ?? auction.priceCOP)}
-      </p>
-      <div className="mb-4">
-        <Countdown
-          endsAt={auction.bidEndsAt}
-          serverOffsetMs={serverOffsetMs}
-          onExpire={() => void load()}
-        />
+    <div className="mx-auto flex max-w-4xl flex-col py-6">
+      <div className="grid gap-8 lg:grid-cols-2">
+        {auction.photoUrls[0] && !photoFailed ? (
+          <img
+            src={auction.photoUrls[0]}
+            alt={auction.category}
+            onError={() => setPhotoFailed(true)}
+            className="aspect-square w-full rounded-lg object-cover"
+          />
+        ) : (
+          <PhotoPlaceholder className="aspect-square" />
+        )}
+
+        <div className="flex flex-col">
+          <h1 className="mb-1 text-xl font-bold text-ink">{auction.title}</h1>
+          <p className="mb-2 text-sm text-ink-soft">{auction.location}</p>
+          <p className="mb-4 whitespace-pre-wrap text-sm text-ink-soft">{auction.description}</p>
+          <p className="text-sm text-ink-soft">
+            {auction.currentBidCOP === null ? 'Starting at' : 'Current bid'}
+          </p>
+          <p className="mb-2 text-3xl font-bold text-ink">
+            {formatCOP(auction.currentBidCOP ?? auction.priceCOP)}
+          </p>
+          <div className="mb-4">
+            <Countdown
+              endsAt={auction.bidEndsAt}
+              serverOffsetMs={serverOffsetMs}
+              onExpire={() => void load()}
+            />
+          </div>
+
+          {canPublish && (
+            <div className="mb-6">
+              <Button type="button" onClick={() => void handlePublish()}>
+                Publish now
+              </Button>
+            </div>
+          )}
+
+          {canBid && (
+            <div className="mb-6">
+              <BidForm
+                auctionId={auction.id}
+                currentBidCOP={auction.currentBidCOP}
+                priceCOP={auction.priceCOP}
+                onBidPlaced={() => void load()}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
-      {canPublish && (
-        <div className="mb-6">
-          <Button type="button" onClick={() => void handlePublish()}>
-            Publish now
-          </Button>
-        </div>
-      )}
-
-      {canBid && (
-        <div className="mb-6">
-          <BidForm
-            auctionId={auction.id}
-            currentBidCOP={auction.currentBidCOP}
-            priceCOP={auction.priceCOP}
-            onBidPlaced={() => void load()}
-          />
-        </div>
-      )}
-
-      <h2 className="mb-2 text-lg font-semibold text-ink">Bid history</h2>
-      <BidHistory bids={bids} />
+      <div className="mt-8">
+        <h2 className="mb-2 text-lg font-semibold text-ink">Bid history</h2>
+        <BidHistory bids={bids} />
+      </div>
     </div>
   );
 }
