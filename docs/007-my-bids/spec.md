@@ -41,8 +41,8 @@ bid on that item — they have to open it to find out.
       auction is `published`). One entry per auction, newest-bid-first.
 - [ ] `GET /api/auctions/my-bids` (authenticated) returns `{ bids: PublicMyBid[] }`, mounted before
       the `/:id` route like `/mine` and `/purchases` already are.
-- [ ] `packages/shared` exports `PublicMyBid { auction: PublicAuction; myBidCOP: number; isWinning:
-    boolean }`.
+- [ ] `packages/shared` exports `PublicMyBid` with fields `auction: PublicAuction`,
+      `myBidCOP: number`, `isWinning: boolean`.
 
 ### Frontend
 
