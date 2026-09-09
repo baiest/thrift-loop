@@ -7,6 +7,7 @@ import { AuctionsPage } from './pages/auctions-page.js';
 import { MyAuctionsPage } from './pages/my-auctions-page.js';
 import { AuctionDetailPage } from './pages/auction-detail-page.js';
 import { PurchasesPage } from './pages/purchases-page.js';
+import { MyBidsPage } from './pages/my-bids-page.js';
 import { ProfilePage } from './pages/profile-page.js';
 
 export function App(): React.JSX.Element {
@@ -19,6 +20,7 @@ export function App(): React.JSX.Element {
           <Route path="/auctions/mine" element={<MyAuctionsPage />} />
           <Route path="/auctions/:id" element={<AuctionDetailPage />} />
           <Route path="/purchases" element={<PurchasesPage />} />
+          <Route path="/my-bids" element={<MyBidsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
         <Route path="/login" element={<LoginPage />} />

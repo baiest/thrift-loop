@@ -71,6 +71,10 @@ describe('SidebarNav', () => {
         'href',
         '/purchases',
       );
+      expect(within(nav).getByRole('link', { name: /my bids/i })).toHaveAttribute(
+        'href',
+        '/my-bids',
+      );
       expect(within(nav).getByRole('link', { name: /my profile/i })).toHaveAttribute(
         'href',
         '/profile',
@@ -139,6 +143,7 @@ describe('SidebarNav', () => {
       const nav = tabletNav();
       expect(within(nav).getByRole('link', { name: /^auctions$/i })).toBeInTheDocument();
       expect(within(nav).getByRole('link', { name: /my auctions/i })).toBeInTheDocument();
+      expect(within(nav).getByRole('link', { name: /my bids/i })).toBeInTheDocument();
       expect(within(nav).getByRole('link', { name: /my profile/i })).toBeInTheDocument();
       expect(within(nav).queryByRole('link', { name: /create auction/i })).not.toBeInTheDocument();
     });
