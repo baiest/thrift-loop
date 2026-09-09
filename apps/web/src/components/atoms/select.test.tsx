@@ -35,4 +35,12 @@ describe('Select', () => {
     render(<Select id="category" value="" options={OPTIONS} onChange={vi.fn()} invalid />);
     expect(screen.getByRole('combobox')).toHaveAttribute('aria-invalid', 'true');
   });
+
+  it('hides the native arrow and shows our own chevron instead', () => {
+    const { container } = render(
+      <Select id="category" value="" options={OPTIONS} onChange={vi.fn()} />,
+    );
+    expect(screen.getByRole('combobox')).toHaveClass('appearance-none');
+    expect(container.querySelector('svg')).toBeInTheDocument();
+  });
 });

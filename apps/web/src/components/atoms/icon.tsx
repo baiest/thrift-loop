@@ -10,6 +10,7 @@ export type IconName =
   | 'upload'
   | 'chevron-left'
   | 'chevron-right'
+  | 'chevron-down'
   | 'grip';
 
 const ICON_PATHS: Record<IconName, string> = {
@@ -24,6 +25,7 @@ const ICON_PATHS: Record<IconName, string> = {
   upload: 'M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3',
   'chevron-left': 'M15 18l-6-6 6-6',
   'chevron-right': 'M9 6l6 6-6 6',
+  'chevron-down': 'M6 9l6 6 6-6',
   grip: 'M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01',
 };
 
