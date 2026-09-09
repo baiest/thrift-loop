@@ -20,6 +20,9 @@ location (only a display-only join to the seller's city).
 - Auctions have a real `location` field, defaulting to the seller's own city, editable at
   creation, and usable as a native filter (no join required to filter or display it).
 
+- A seller can publish a draft auction immediately from its detail page, instead of only via a
+  future `publishAt` date and the background scheduler.
+
 ## Non-goals
 
 - Using the category preference to pre-filter or sort the grid — only captured, not applied yet.
@@ -63,6 +66,16 @@ location (only a display-only join to the seller's city).
       seller can change it before submitting.
 - [ ] `GET /api/auctions?city=<value>` filters by `location` directly (no per-result lookup).
 - [ ] Legacy auctions without a `location` load with an empty one instead of breaking.
+
+### Publish now
+
+- [ ] Creating an auction navigates the seller to its own detail page (not the public grid, since
+      a fresh draft doesn't show there).
+- [ ] The auction detail page shows a "Publish now" button only to the owner, only while the
+      auction is `draft`.
+- [ ] Clicking it calls `PATCH /api/auctions/:id` with `{ status: 'published' }` (the existing
+      endpoint — no new backend work) and refreshes the page, after which the button is gone and
+      the auction is visible on the public grid.
 
 ## Risks
 
