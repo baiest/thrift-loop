@@ -22,6 +22,8 @@ location (only a display-only join to the seller's city).
 
 - A seller can publish a draft auction immediately from its detail page, instead of only via a
   future `publishAt` date and the background scheduler.
+- A seller can see all of their own auctions, drafts included, from a dedicated page — not just
+  the ones that already made it to the public grid.
 
 ## Non-goals
 
@@ -76,6 +78,16 @@ location (only a display-only join to the seller's city).
 - [ ] Clicking it calls `PATCH /api/auctions/:id` with `{ status: 'published' }` (the existing
       endpoint — no new backend work) and refreshes the page, after which the button is gone and
       the auction is visible on the public grid.
+
+### My auctions
+
+- [ ] `/auctions/mine` lists every auction owned by the current viewer, any status (draft,
+      published, sold), using the existing `fetchMyAuctions`/`GET /api/auctions/mine` endpoint
+      (already implemented, previously unused by the frontend).
+- [ ] Draft auctions show a "Draft" badge on their card, same treatment as the existing "Sold"
+      badge.
+- [ ] The sidebar has a "My auctions" link to this page; anonymous visitors are redirected to
+      `/login`, matching every other authenticated page.
 
 ## Risks
 
