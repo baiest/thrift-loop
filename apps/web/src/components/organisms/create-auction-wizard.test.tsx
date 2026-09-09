@@ -42,6 +42,8 @@ const createdAuction = {
 };
 
 async function goToDetails(): Promise<void> {
+  const file = new File(['x'], 'photo.jpg', { type: 'image/jpeg' });
+  await userEvent.upload(screen.getByLabelText(/add photos/i), file);
   await userEvent.click(screen.getByRole('button', { name: /continue/i }));
 }
 
@@ -100,10 +102,17 @@ describe('CreateAuctionWizard', () => {
     expect(screen.getByLabelText(/add photos/i)).toBeInTheDocument();
   });
 
-  it('does not block Continue on the Photos step (no fields to validate)', async () => {
+  it('blocks Continue on the Photos step until at least one photo is added', async () => {
     render(<CreateAuctionWizard />);
 
-    await goToDetails();
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+
+    expect(screen.getByText(/add at least one photo/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Title')).not.toBeInTheDocument();
+
+    const file = new File(['x'], 'photo.jpg', { type: 'image/jpeg' });
+    await userEvent.upload(screen.getByLabelText(/add photos/i), file);
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
 
     expect(screen.getByLabelText('Title')).toBeInTheDocument();
   });
@@ -145,7 +154,7 @@ describe('CreateAuctionWizard', () => {
     );
   });
 
-  it('calls onSuccess after a successful create with no photos', async () => {
+  it('calls onSuccess after a successful create', async () => {
     const onSuccess = vi.fn();
     render(<CreateAuctionWizard onSuccess={onSuccess} />);
     await advanceThroughToReview();
@@ -153,7 +162,7 @@ describe('CreateAuctionWizard', () => {
     await userEvent.click(screen.getByRole('button', { name: /create auction/i }));
 
     await waitFor(() => expect(onSuccess).toHaveBeenCalledWith('AUC-1'));
-    expect(uploadAuctionPhotos).not.toHaveBeenCalled();
+    expect(uploadAuctionPhotos).toHaveBeenCalled();
   });
 
   it('uploads photos added on the Photos step after creating the auction', async () => {
@@ -165,9 +174,10 @@ describe('CreateAuctionWizard', () => {
     await userEvent.click(screen.getByRole('button', { name: /create auction/i }));
 
     await waitFor(() =>
-      expect(uploadAuctionPhotos).toHaveBeenCalledWith('AUC-1', [
-        expect.objectContaining({ name: 'front.jpg' }),
-      ]),
+      expect(uploadAuctionPhotos).toHaveBeenCalledWith(
+        'AUC-1',
+        expect.arrayContaining([expect.objectContaining({ name: 'front.jpg' })]),
+      ),
     );
   });
 

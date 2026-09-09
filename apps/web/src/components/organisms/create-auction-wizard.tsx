@@ -25,6 +25,7 @@ import { Select, type SelectOption } from '../atoms/select.js';
 import { TextInput } from '../atoms/text-input.js';
 import { Textarea } from '../atoms/textarea.js';
 import { Button } from '../atoms/button.js';
+import { FieldError } from '../atoms/field-error.js';
 import { FormField } from '../molecules/form-field.js';
 import { PhotoDropzone } from '../molecules/photo-dropzone.js';
 import { SearchableSelect } from '../molecules/searchable-select.js';
@@ -40,6 +41,9 @@ function humanize(value: string): string {
 function toOptions(values: readonly string[]): SelectOption[] {
   return values.map((value) => ({ value, label: humanize(value) }));
 }
+
+const MIN_PHOTOS_REQUIRED = 1;
+const PHOTO_REQUIRED_MESSAGE = 'Add at least one photo to continue';
 
 const CATEGORY_OPTIONS = toOptions(ITEM_CATEGORIES);
 const CONDITION_OPTIONS = toOptions(ITEM_CONDITIONS);
@@ -159,15 +163,17 @@ function stepIndexForField(field: string): number {
 
 interface PhotosStepProps {
   readonly photos: File[];
+  readonly error: string | undefined;
   readonly onChange: (files: File[]) => void;
 }
 
-function PhotosStep({ photos, onChange }: PhotosStepProps): React.JSX.Element {
+function PhotosStep({ photos, error, onChange }: PhotosStepProps): React.JSX.Element {
   return (
     <div>
       <h2 className="mb-1 font-display text-xl font-bold text-ink">Add photos</h2>
       <p className="mb-4 text-sm text-ink-soft">The first photo is the cover. Up to 10 photos.</p>
       <PhotoDropzone files={photos} onChange={onChange} />
+      <FieldError message={error} />
     </div>
   );
 }
@@ -428,6 +434,7 @@ interface StepContentProps {
   readonly values: FormValues;
   readonly errors: FormErrors;
   readonly photos: File[];
+  readonly photoError: string | undefined;
   readonly onFieldChange: (field: keyof FormValues, value: string) => void;
   readonly onPhotosChange: (files: File[]) => void;
   readonly onEditStep: (index: number) => void;
@@ -438,13 +445,14 @@ function StepContent({
   values,
   errors,
   photos,
+  photoError,
   onFieldChange,
   onPhotosChange,
   onEditStep,
 }: StepContentProps): React.JSX.Element | null {
   switch (currentStep?.id) {
     case 'photos':
-      return <PhotosStep photos={photos} onChange={onPhotosChange} />;
+      return <PhotosStep photos={photos} error={photoError} onChange={onPhotosChange} />;
     case 'details':
       return <DetailsStep values={values} errors={errors} onChange={onFieldChange} />;
     case 'pricing':
@@ -489,6 +497,7 @@ export function CreateAuctionWizard({ onSuccess }: CreateAuctionWizardProps): Re
   const [values, setValues] = useState<FormValues>(EMPTY_VALUES);
   const [errors, setErrors] = useState<FormErrors>({});
   const [photos, setPhotos] = useState<File[]>([]);
+  const [photoError, setPhotoError] = useState<string | undefined>(undefined);
   const [serverError, setServerError] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const locationTouched = useRef(false);
@@ -522,6 +531,13 @@ export function CreateAuctionWizard({ onSuccess }: CreateAuctionWizardProps): Re
     const step = WIZARD_STEPS[stepIndex];
     if (!step) {
       return;
+    }
+    if (step.id === 'photos') {
+      const hasEnoughPhotos = photos.length >= MIN_PHOTOS_REQUIRED;
+      setPhotoError(hasEnoughPhotos ? undefined : PHOTO_REQUIRED_MESSAGE);
+      if (!hasEnoughPhotos) {
+        return;
+      }
     }
     const stepErrors = validateFields(values, step.fields);
     setErrors(stepErrors);
@@ -581,6 +597,7 @@ export function CreateAuctionWizard({ onSuccess }: CreateAuctionWizardProps): Re
           values={values}
           errors={errors}
           photos={photos}
+          photoError={photoError}
           onFieldChange={updateField}
           onPhotosChange={setPhotos}
           onEditStep={goToStep}
@@ -594,18 +611,18 @@ export function CreateAuctionWizard({ onSuccess }: CreateAuctionWizardProps): Re
       )}
 
       <div className="flex items-center justify-between border-t border-hairline pt-4">
-        <Button type="button" onClick={handleBack} disabled={stepIndex === 0} className="w-auto">
+        <Button type="button" onClick={handleBack} disabled={stepIndex === 0} fullWidth={false}>
           Back
         </Button>
-        <span className="text-xs text-ink-soft">
+        <span className="whitespace-nowrap text-xs text-ink-soft">
           Step {stepIndex + 1} of {WIZARD_STEPS.length}
         </span>
         {isReview ? (
-          <Button type="submit" disabled={submitting} className="w-auto">
+          <Button type="submit" disabled={submitting} fullWidth={false}>
             {submitting ? 'Creating auction…' : 'Create auction'}
           </Button>
         ) : (
-          <Button type="button" onClick={handleContinue} className="w-auto">
+          <Button type="button" onClick={handleContinue} fullWidth={false}>
             Continue
           </Button>
         )}
