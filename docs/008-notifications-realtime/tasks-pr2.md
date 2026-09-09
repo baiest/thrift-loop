@@ -83,4 +83,4 @@ in PR 3.
       complete the two-browser live-bidding walkthrough beyond this (bell/notifications path
       only) given time spent on the regression above; the live-bid-update and reconnect paths are
       covered by `auction-detail-page.test.tsx` and `realtime-client.test.ts` instead.
-- [x] Open PR, confirm CI is green, leave merge to the user
+- [x] Open PR, confirm CI is green, leave merge to the user (PR #14)
