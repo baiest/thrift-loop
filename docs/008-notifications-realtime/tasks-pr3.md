@@ -35,4 +35,4 @@ the `grid` room and `presence` message already exist from PR 2's design, just un
       spent on PR 1/2's manual passes — the merge/flip logic itself is covered by
       `auction-grid.test.tsx`'s live-update and live-close tests and `event-fanout.test.ts`'s grid
       broadcast tests.
-- [x] Open PR, confirm CI is green, leave merge to the user
+- [x] Open PR, confirm CI is green, leave merge to the user (PR #15)
