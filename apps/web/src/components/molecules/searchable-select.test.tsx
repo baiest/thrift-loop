@@ -42,6 +42,16 @@ describe('SearchableSelect', () => {
     expect(onChange).toHaveBeenCalledWith('');
   });
 
+  it('syncs its displayed value when the value prop changes externally', () => {
+    const { rerender } = render(
+      <SearchableSelect id="city" options={CITIES} value="" onChange={vi.fn()} />,
+    );
+
+    rerender(<SearchableSelect id="city" options={CITIES} value="Cali" onChange={vi.fn()} />);
+
+    expect(screen.getByRole('combobox')).toHaveValue('Cali');
+  });
+
   it('calls onBlur when the input loses focus', async () => {
     const onBlur = vi.fn();
     render(

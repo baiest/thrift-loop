@@ -24,6 +24,7 @@ const publicPurchase = {
   auction: {
     id: 'AUC-1',
     userId: 'USR-seller',
+    title: 'Chaqueta de cuero',
     category: 'jeans' as const,
     condition: 'good' as const,
     priceCOP: 50_000,

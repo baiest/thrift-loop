@@ -80,6 +80,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
           className="mb-4 aspect-square w-full rounded-lg object-cover"
         />
       )}
+      <h1 className="mb-1 text-xl font-bold text-gray-900">{auction.title}</h1>
       <p className="text-sm text-gray-500">
         {auction.currentBidCOP === null ? 'Starting at' : 'Current bid'}
       </p>

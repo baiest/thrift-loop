@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 
 const MAX_VISIBLE_OPTIONS = 6;
 
@@ -23,6 +23,14 @@ export function SearchableSelect({
 }: SearchableSelectProps): React.JSX.Element {
   const [query, setQuery] = useState(value);
   const [isOpen, setIsOpen] = useState(false);
+
+  // Keeps the displayed text in sync when `value` changes from outside
+  // (e.g. a default populated after an async fetch), without clobbering
+  // what the user is actively typing (typing itself never changes `value`
+  // until an option is picked, so this effect only fires on external sets).
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
 
   const filteredOptions = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();

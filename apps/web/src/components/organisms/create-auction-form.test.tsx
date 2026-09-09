@@ -13,6 +13,7 @@ vi.mock('../../lib/api-client.js', async () => {
 const createdAuction = {
   id: 'AUC-1',
   userId: 'USR-1',
+  title: 'Chaqueta de cuero',
   category: 'jeans' as const,
   condition: 'good' as const,
   priceCOP: 50_000,
@@ -30,6 +31,7 @@ const createdAuction = {
 };
 
 async function fillRequiredFields(): Promise<void> {
+  await userEvent.type(screen.getByLabelText('Title'), 'Chaqueta de cuero');
   await userEvent.selectOptions(screen.getByLabelText('Category'), 'jeans');
   await userEvent.selectOptions(screen.getByLabelText('Condition'), 'good');
   await userEvent.selectOptions(screen.getByLabelText('Delivery method'), 'pickup');
@@ -64,6 +66,7 @@ describe('CreateAuctionForm', () => {
     await waitFor(() =>
       expect(createAuction).toHaveBeenCalledWith(
         expect.objectContaining({
+          title: 'Chaqueta de cuero',
           category: 'jeans',
           condition: 'good',
           deliveryMethod: 'pickup',
@@ -98,6 +101,20 @@ describe('CreateAuctionForm', () => {
         expect.objectContaining({ name: 'front.jpg' }),
       ]),
     );
+  });
+
+  it('shows inline feedback when the title exceeds the max length', async () => {
+    render(<CreateAuctionForm />);
+    await userEvent.type(screen.getByLabelText('Title'), 'a'.repeat(81));
+    await userEvent.selectOptions(screen.getByLabelText('Category'), 'jeans');
+    await userEvent.selectOptions(screen.getByLabelText('Condition'), 'good');
+    await userEvent.selectOptions(screen.getByLabelText('Delivery method'), 'pickup');
+    await userEvent.type(screen.getByLabelText('Price (COP)'), '50000');
+
+    await userEvent.click(screen.getByRole('button', { name: /create auction/i }));
+
+    expect(createAuction).not.toHaveBeenCalled();
+    expect(screen.getByText(/enter a title up to 80 characters/i)).toBeInTheDocument();
   });
 
   it('shows a server field error under the right field', async () => {

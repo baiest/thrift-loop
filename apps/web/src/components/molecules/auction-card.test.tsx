@@ -8,6 +8,7 @@ function makeAuction(overrides: Partial<PublicAuction> = {}): PublicAuction {
   return {
     id: 'AUC-1',
     userId: 'USR-1',
+    title: 'Chaqueta de cuero',
     category: 'jeans',
     condition: 'good',
     priceCOP: 50_000,
@@ -58,6 +59,11 @@ describe('AuctionCard', () => {
   it('shows the first photo when there is one', () => {
     renderCard(makeAuction({ photoUrls: ['/uploads/a.jpg'] }));
     expect(screen.getByRole('img')).toHaveAttribute('src', '/uploads/a.jpg');
+  });
+
+  it('shows the title', () => {
+    renderCard(makeAuction({ title: 'Chaqueta de cuero' }));
+    expect(screen.getByText('Chaqueta de cuero')).toBeInTheDocument();
   });
 
   it('shows the condition', () => {

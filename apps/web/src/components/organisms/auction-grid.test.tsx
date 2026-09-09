@@ -8,6 +8,7 @@ function makeAuction(overrides: Partial<PublicAuction> = {}): PublicAuction {
   return {
     id: 'AUC-1',
     userId: 'USR-1',
+    title: 'Chaqueta de cuero',
     category: 'jeans',
     condition: 'good',
     priceCOP: 50_000,

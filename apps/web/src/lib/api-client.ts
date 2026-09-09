@@ -93,6 +93,7 @@ interface AuctionResponseBody {
 }
 
 export interface CreateAuctionPayload {
+  title: string;
   category: string;
   condition: string;
   deliveryMethod: string;
@@ -152,8 +153,24 @@ export async function fetchAuction(id: string): Promise<PublicAuction | null> {
   return data.auction ?? null;
 }
 
-export async function fetchAuctions(): Promise<PublicAuction[]> {
-  const response = await fetch('/api/auctions', { credentials: 'include' });
+export interface AuctionFilters {
+  search?: string;
+  category?: string;
+  city?: string;
+  minPriceCOP?: string;
+  maxPriceCOP?: string;
+}
+
+export async function fetchAuctions(filters: AuctionFilters = {}): Promise<PublicAuction[]> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (typeof value === 'string' && value) {
+      params.set(key, value);
+    }
+  }
+  const query = params.toString();
+  const path = query ? `/api/auctions?${query}` : '/api/auctions';
+  const response = await fetch(path, { credentials: 'include' });
   const data = (await response.json()) as AuctionResponseBody;
   return data.auctions ?? [];
 }
