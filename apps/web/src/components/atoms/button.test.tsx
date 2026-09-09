@@ -27,4 +27,14 @@ describe('Button', () => {
     render(<Button>Continue</Button>);
     expect(screen.getByRole('button')).toHaveAttribute('type', 'button');
   });
+
+  it('is full-width by default', () => {
+    render(<Button>Continue</Button>);
+    expect(screen.getByRole('button')).toHaveClass('w-full');
+  });
+
+  it('is not full-width when fullWidth is false', () => {
+    render(<Button fullWidth={false}>Continue</Button>);
+    expect(screen.getByRole('button')).not.toHaveClass('w-full');
+  });
 });
