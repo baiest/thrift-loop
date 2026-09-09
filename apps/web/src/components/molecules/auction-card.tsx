@@ -11,13 +11,14 @@ const START_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'short', 
 export interface AuctionCardProps {
   readonly auction: PublicAuction;
   readonly isOwn: boolean;
+  readonly myBidCOP?: number | undefined;
 }
 
 function humanizeCondition(condition: string): string {
   return condition.charAt(0).toUpperCase() + condition.slice(1).replace(/-/g, ' ');
 }
 
-export function AuctionCard({ auction, isOwn }: AuctionCardProps): React.JSX.Element {
+export function AuctionCard({ auction, isOwn, myBidCOP }: AuctionCardProps): React.JSX.Element {
   const priceLabel = auction.currentBidCOP === null ? 'Starting at' : 'Current bid';
   const priceValue = auction.currentBidCOP ?? auction.priceCOP;
   const now = useNow();
@@ -62,6 +63,9 @@ export function AuctionCard({ auction, isOwn }: AuctionCardProps): React.JSX.Ele
         <p className="mt-2 text-[11px] text-ink-faint">
           Started {startedOn} · {auction.location}
         </p>
+        {myBidCOP !== undefined && (
+          <p className="mt-1 text-xs font-medium text-brand-600">You bid {formatCOP(myBidCOP)}</p>
+        )}
       </div>
     </Link>
   );

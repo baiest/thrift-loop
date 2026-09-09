@@ -6,10 +6,10 @@ import { useAuthStore } from '../stores/auth-store.js';
 
 vi.mock('../lib/api-client.js', async () => {
   const actual = await vi.importActual('../lib/api-client.js');
-  return { ...actual, fetchAuctions: vi.fn(), fetchCurrentUser: vi.fn() };
+  return { ...actual, fetchAuctions: vi.fn(), fetchCurrentUser: vi.fn(), fetchMyBids: vi.fn() };
 });
 
-const { fetchAuctions, fetchCurrentUser } = await import('../lib/api-client.js');
+const { fetchAuctions, fetchCurrentUser, fetchMyBids } = await import('../lib/api-client.js');
 
 const publicAuction = {
   id: 'AUC-1',
@@ -55,8 +55,10 @@ describe('AuctionsPage', () => {
     useAuthStore.getState().clearUser();
     vi.mocked(fetchAuctions).mockReset();
     vi.mocked(fetchCurrentUser).mockReset();
+    vi.mocked(fetchMyBids).mockReset();
     vi.mocked(fetchAuctions).mockResolvedValue([]);
     vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+    vi.mocked(fetchMyBids).mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -153,5 +155,27 @@ describe('AuctionsPage', () => {
     expect(fetchAuctions).toHaveBeenCalledTimes(1);
     expect(fetchAuctions).toHaveBeenCalledWith(expect.objectContaining({ search: 'cha' }));
     vi.useRealTimers();
+  });
+
+  it('shows the viewer own bid on a card when signed in and already bid on it', async () => {
+    vi.mocked(fetchAuctions).mockResolvedValue([publicAuction]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+    vi.mocked(fetchMyBids).mockResolvedValue([
+      { auction: publicAuction, myBidCOP: 45_000, isWinning: true },
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText(/you bid/i)).toBeInTheDocument();
+  });
+
+  it('does not fetch my bids for an anonymous viewer', async () => {
+    vi.mocked(fetchAuctions).mockResolvedValue([publicAuction]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+
+    renderPage();
+
+    await screen.findByRole('link');
+    expect(fetchMyBids).not.toHaveBeenCalled();
   });
 });

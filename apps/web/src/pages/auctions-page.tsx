@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DEFAULT_AUCTION_SORT, type AuctionSort, type PublicAuction } from '@thrift-loop/shared';
-import { fetchAuctions, fetchCurrentUser } from '../lib/api-client.js';
+import { fetchAuctions, fetchCurrentUser, fetchMyBids } from '../lib/api-client.js';
 import { AuctionGrid } from '../components/organisms/auction-grid.js';
 import { AuctionFilters } from '../components/organisms/auction-filters.js';
 import { ResultsBar } from '../components/molecules/results-bar.js';
@@ -31,6 +31,9 @@ const EMPTY_FILTERS: Filters = {
 export function AuctionsPage(): React.JSX.Element {
   const [auctions, setAuctions] = useState<PublicAuction[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [myBidsByAuctionId, setMyBidsByAuctionId] = useState<ReadonlyMap<string, number>>(
+    new Map(),
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -38,7 +41,9 @@ export function AuctionsPage(): React.JSX.Element {
 
   useEffect(() => {
     let isActive = true;
-    void fetchCurrentUser().then((user) => {
+
+    async function loadViewer(): Promise<void> {
+      const user = await fetchCurrentUser();
       if (!isActive) {
         return;
       }
@@ -47,7 +52,16 @@ export function AuctionsPage(): React.JSX.Element {
         cityDefaulted.current = true;
         setFilters((current) => ({ ...current, city: user.city }));
       }
-    });
+      if (!user) {
+        return;
+      }
+      const myBids = await fetchMyBids();
+      if (isActive) {
+        setMyBidsByAuctionId(new Map(myBids.map((bid) => [bid.auction.id, bid.myBidCOP])));
+      }
+    }
+
+    void loadViewer();
     return () => {
       isActive = false;
     };
@@ -135,6 +149,7 @@ export function AuctionsPage(): React.JSX.Element {
         isLoading={isLoading}
         error={error}
         currentUserId={currentUserId}
+        myBidsByAuctionId={myBidsByAuctionId}
       />
     </div>
   );
