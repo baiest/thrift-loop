@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { PhotoUploader } from './photo-uploader.js';
+import { PhotoDropzone } from './photo-dropzone.js';
 
 function makeFile(name: string, type: string, sizeBytes?: number): File {
   const file = new File(['x'], name, { type });
@@ -11,15 +11,15 @@ function makeFile(name: string, type: string, sizeBytes?: number): File {
   return file;
 }
 
-describe('PhotoUploader', () => {
+describe('PhotoDropzone', () => {
   it('shows how many photos are selected out of the max', () => {
-    render(<PhotoUploader files={[]} onChange={vi.fn()} />);
+    render(<PhotoDropzone files={[]} onChange={vi.fn()} />);
     expect(screen.getByText('0/10 photos')).toBeInTheDocument();
   });
 
   it('adds a valid selected file', async () => {
     const onChange = vi.fn();
-    render(<PhotoUploader files={[]} onChange={onChange} />);
+    render(<PhotoDropzone files={[]} onChange={onChange} />);
 
     const input = screen.getByLabelText(/add photos/i);
     await userEvent.upload(input, makeFile('front.jpg', 'image/jpeg'));
@@ -29,11 +29,8 @@ describe('PhotoUploader', () => {
 
   it('rejects a disallowed file type with an error message', () => {
     const onChange = vi.fn();
-    render(<PhotoUploader files={[]} onChange={onChange} />);
+    render(<PhotoDropzone files={[]} onChange={onChange} />);
 
-    // fireEvent bypasses userEvent's accept-attribute filtering, so this
-    // exercises our own validation (a real defense: accept is only a hint —
-    // drag-and-drop and other browsers can still deliver a disallowed file).
     const input = screen.getByLabelText(/add photos/i);
     fireEvent.change(input, { target: { files: [makeFile('notes.txt', 'text/plain')] } });
 
@@ -43,7 +40,7 @@ describe('PhotoUploader', () => {
 
   it('rejects a file over the size limit', async () => {
     const onChange = vi.fn();
-    render(<PhotoUploader files={[]} onChange={onChange} />);
+    render(<PhotoDropzone files={[]} onChange={onChange} />);
 
     const input = screen.getByLabelText(/add photos/i);
     const tooBig = makeFile('big.jpg', 'image/jpeg', 6 * 1024 * 1024);
@@ -56,7 +53,7 @@ describe('PhotoUploader', () => {
   it('caps the total number of photos at the max', async () => {
     const onChange = vi.fn();
     const existing = Array.from({ length: 9 }, (_unused, i) => makeFile(`p${i}.jpg`, 'image/jpeg'));
-    render(<PhotoUploader files={existing} onChange={onChange} />);
+    render(<PhotoDropzone files={existing} onChange={onChange} />);
 
     const input = screen.getByLabelText(/add photos/i);
     await userEvent.upload(input, [
@@ -64,7 +61,6 @@ describe('PhotoUploader', () => {
       makeFile('b.jpg', 'image/jpeg'),
     ]);
 
-    expect(onChange).toHaveBeenCalledWith(expect.arrayContaining([expect.anything()]));
     const calledWith = onChange.mock.calls[0]?.[0] as File[];
     expect(calledWith).toHaveLength(10);
   });
@@ -73,7 +69,7 @@ describe('PhotoUploader', () => {
     const existing = Array.from({ length: 10 }, (_unused, i) =>
       makeFile(`p${i}.jpg`, 'image/jpeg'),
     );
-    render(<PhotoUploader files={existing} onChange={vi.fn()} />);
+    render(<PhotoDropzone files={existing} onChange={vi.fn()} />);
 
     expect(screen.getByLabelText(/add photos/i)).toBeDisabled();
   });
@@ -81,10 +77,43 @@ describe('PhotoUploader', () => {
   it('removes a photo when its remove button is clicked', async () => {
     const onChange = vi.fn();
     const existing = [makeFile('front.jpg', 'image/jpeg'), makeFile('back.jpg', 'image/jpeg')];
-    render(<PhotoUploader files={existing} onChange={onChange} />);
+    render(<PhotoDropzone files={existing} onChange={onChange} />);
 
     await userEvent.click(screen.getAllByRole('button', { name: /remove/i })[0] as HTMLElement);
 
     expect(onChange).toHaveBeenCalledWith([existing[1]]);
+  });
+
+  it('marks the first photo as the cover', () => {
+    const existing = [makeFile('front.jpg', 'image/jpeg'), makeFile('back.jpg', 'image/jpeg')];
+    render(<PhotoDropzone files={existing} onChange={vi.fn()} />);
+
+    expect(screen.getByText('Cover')).toBeInTheDocument();
+  });
+
+  it('accepts dropped files', () => {
+    const onChange = vi.fn();
+    render(<PhotoDropzone files={[]} onChange={onChange} />);
+
+    const dropzone = screen.getByTestId('photo-dropzone');
+    fireEvent.drop(dropzone, {
+      dataTransfer: { files: [makeFile('dropped.jpg', 'image/jpeg')] },
+    });
+
+    expect(onChange).toHaveBeenCalledWith([expect.objectContaining({ name: 'dropped.jpg' })]);
+  });
+
+  it('reorders photos, moving one later in the list', () => {
+    const onChange = vi.fn();
+    const existing = [
+      makeFile('front.jpg', 'image/jpeg'),
+      makeFile('back.jpg', 'image/jpeg'),
+      makeFile('side.jpg', 'image/jpeg'),
+    ];
+    render(<PhotoDropzone files={existing} onChange={onChange} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /move front\.jpg later/i }));
+
+    expect(onChange).toHaveBeenCalledWith([existing[1], existing[0], existing[2]]);
   });
 });

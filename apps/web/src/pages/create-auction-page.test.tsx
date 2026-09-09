@@ -27,6 +27,6 @@ describe('CreateAuctionPage', () => {
     );
 
     expect(screen.getByRole('heading', { name: /create auction/i })).toBeInTheDocument();
-    expect(screen.getByLabelText('Category')).toBeInTheDocument();
+    expect(screen.getByLabelText(/add photos/i)).toBeInTheDocument();
   });
 });
