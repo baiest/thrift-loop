@@ -1,14 +1,73 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { COLOMBIA_CITIES, ITEM_CATEGORIES } from '@thrift-loop/shared';
-import { fetchCurrentUser, logout, updateProfile } from '../lib/api-client.js';
+import {
+  COLOMBIA_CITIES,
+  ITEM_CATEGORIES,
+  type NotificationPreferences,
+  type PublicUser,
+} from '@thrift-loop/shared';
+import {
+  fetchCurrentUser,
+  logout,
+  updateNotificationPreferences,
+  updateProfile,
+} from '../lib/api-client.js';
 import { useAuthStore } from '../stores/auth-store.js';
 import { TextInput } from '../components/atoms/text-input.js';
 import { Select, type SelectOption } from '../components/atoms/select.js';
 import { Skeleton } from '../components/atoms/skeleton.js';
 import { Button } from '../components/atoms/button.js';
+import { Toggle } from '../components/atoms/toggle.js';
 import { FormField } from '../components/molecules/form-field.js';
 import { SearchableSelect } from '../components/molecules/searchable-select.js';
+
+const NOTIFICATION_TOGGLES: readonly { key: keyof NotificationPreferences; label: string }[] = [
+  { key: 'outbid', label: 'Someone outbids me' },
+  { key: 'auctionWon', label: 'I won an auction' },
+  { key: 'bidOnMyListing', label: 'Someone bid on my listing' },
+];
+
+function NotificationPreferencesSection({
+  user,
+  setUser,
+}: {
+  readonly user: PublicUser;
+  readonly setUser: (user: PublicUser) => void;
+}): React.JSX.Element {
+  const [preferences, setPreferences] = useState(user.notificationPreferences);
+
+  function handleToggle(key: keyof NotificationPreferences, checked: boolean): void {
+    setPreferences((current) => ({ ...current, [key]: checked }));
+    updateNotificationPreferences({ [key]: checked })
+      .then(setUser)
+      .catch(() => {
+        setPreferences((current) => ({ ...current, [key]: !checked }));
+      });
+  }
+
+  return (
+    <div className="mb-6 rounded-lg border border-hairline p-4">
+      <p className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-soft">
+        Notifications
+      </p>
+      <div className="space-y-3">
+        {NOTIFICATION_TOGGLES.map(({ key, label }) => (
+          <div key={key} className="flex items-center justify-between gap-3">
+            <span className="text-sm text-ink">{label}</span>
+            <Toggle
+              id={`notification-${key}`}
+              // key comes from the fixed NOTIFICATION_TOGGLES list, not request data.
+              // eslint-disable-next-line security/detect-object-injection
+              checked={preferences[key]}
+              onChange={(checked) => handleToggle(key, checked)}
+              label={label}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function humanize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).replace(/-/g, ' ');
@@ -136,6 +195,8 @@ export function ProfilePage(): React.JSX.Element {
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-soft">Country</p>
         <p className="text-sm text-ink">{user.country}</p>
       </div>
+
+      <NotificationPreferencesSection user={user} setUser={setUser} />
 
       <form onSubmit={(event) => void handleSave(event)}>
         <FormField id="firstName" label="First name">

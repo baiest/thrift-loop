@@ -14,6 +14,7 @@ const SAMPLE_USER: PublicUser = {
   country: 'CO',
   address: null,
   categoryPreference: null,
+  notificationPreferences: { outbid: true, auctionWon: true, bidOnMyListing: true },
 };
 
 describe('useLogout', () => {

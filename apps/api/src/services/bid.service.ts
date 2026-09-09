@@ -5,6 +5,7 @@ import type { AuctionRepository } from '../repositories/auction.repository.js';
 import type { BidRepository } from '../repositories/bid.repository.js';
 import type { UserRepository } from '../repositories/user.repository.js';
 import type { KeyedMutex } from '../lib/keyed-mutex.js';
+import type { DomainEvent, EventBus } from '../lib/event-bus.js';
 import { createPrefixedId } from '../lib/prefixed-id.js';
 import { HttpError } from '../lib/http-error.js';
 import { HTTP_STATUS } from '../lib/http-status.js';
@@ -46,6 +47,7 @@ export function createBidService(
   bidRepository: BidRepository,
   userRepository: UserRepository,
   mutex: KeyedMutex,
+  eventBus: EventBus,
 ) {
   return {
     async placeBid(
@@ -53,33 +55,54 @@ export function createBidService(
       auctionId: string,
       amountRaw: string,
     ): Promise<{ auction: Auction; bid: Bid }> {
-      return mutex.runExclusive(auctionId, async () => {
-        const auction = await auctionRepository.findById(auctionId);
-        if (!auction) {
+      const { auction, bid, event } = await mutex.runExclusive(auctionId, async () => {
+        const existingAuction = await auctionRepository.findById(auctionId);
+        if (!existingAuction) {
           throw new HttpError(AUCTION_NOT_FOUND_MESSAGE, HTTP_STATUS.NOT_FOUND);
         }
 
         const now = new Date();
         const amount = parseAmount(amountRaw);
-        validateBid(auction, userId, amount, now);
+        validateBid(existingAuction, userId, amount, now);
 
-        const bid: Bid = {
+        const previousTopBidderId =
+          (await bidRepository.findByAuctionId(auctionId))[0]?.userId ?? null;
+
+        const newBid: Bid = {
           id: createPrefixedId(BID_ID_PREFIX),
           auctionId,
           userId,
           amountCOP: amount as number,
           createdAt: now.toISOString(),
         };
-        await bidRepository.save(bid);
+        await bidRepository.save(newBid);
 
-        const updated = await auctionRepository.update(auctionId, {
-          currentBidCOP: bid.amountCOP,
-          bidCount: auction.bidCount + 1,
+        const updatedAuction = (await auctionRepository.update(auctionId, {
+          currentBidCOP: newBid.amountCOP,
+          bidCount: existingAuction.bidCount + 1,
           bidEndsAt: new Date(now.getTime() + BID_WINDOW_MS).toISOString(),
-        });
+        })) as Auction;
 
-        return { auction: updated as Auction, bid };
+        const bidder = await userRepository.findById(userId);
+        const domainEvent: DomainEvent = {
+          type: 'bid-placed',
+          auctionId,
+          auctionTitle: updatedAuction.title,
+          ownerUserId: updatedAuction.userId,
+          bidderId: userId,
+          bidderFirstName: bidder?.firstName ?? UNKNOWN_BIDDER_NAME,
+          amountCOP: newBid.amountCOP,
+          bidCount: updatedAuction.bidCount,
+          bidEndsAt: updatedAuction.bidEndsAt,
+          previousTopBidderId,
+          occurredAt: now.toISOString(),
+        };
+
+        return { auction: updatedAuction, bid: newBid, event: domainEvent };
       });
+
+      eventBus.publish(event);
+      return { auction, bid };
     },
 
     async listMyBids(

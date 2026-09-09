@@ -11,11 +11,15 @@ import {
   fetchMyAuctions,
   fetchMyBids,
   fetchMyPurchases,
+  fetchNotifications,
   login,
   logout,
+  markAllNotificationsRead,
+  markNotificationRead,
   placeBid,
   register,
   updateAuction,
+  updateNotificationPreferences,
   updateProfile,
   uploadAuctionPhotos,
 } from './api-client.js';
@@ -437,6 +441,91 @@ describe('api-client', () => {
         method: 'PATCH',
         credentials: 'include',
         headers: csrfHeaderMatcher,
+      }),
+    );
+  });
+
+  const publicNotification = {
+    id: 'NTF-1',
+    type: 'outbid' as const,
+    auctionId: 'AUC-1',
+    auctionTitle: 'Chaqueta de cuero',
+    amountCOP: 60_000,
+    actorFirstName: 'Ana',
+    readAt: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+  };
+
+  it('fetchNotifications resolves with the list and unread count', async () => {
+    mockFetchOnce(200, { notifications: [publicNotification], unreadCount: 1 });
+    await expect(fetchNotifications()).resolves.toEqual({
+      notifications: [publicNotification],
+      unreadCount: 1,
+    });
+  });
+
+  it('fetchNotifications defaults to an empty list and zero when the response has none', async () => {
+    mockFetchOnce(200, {});
+    await expect(fetchNotifications()).resolves.toEqual({ notifications: [], unreadCount: 0 });
+  });
+
+  it('markNotificationRead posts to /api/notifications/:id/read with the CSRF header', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () =>
+        Promise.resolve({
+          notification: { ...publicNotification, readAt: '2026-01-02T00:00:00.000Z' },
+        }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const updated = await markNotificationRead('NTF-1');
+
+    expect(updated.readAt).toBe('2026-01-02T00:00:00.000Z');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/notifications/NTF-1/read',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        headers: csrfHeaderMatcher,
+      }),
+    );
+  });
+
+  it('markAllNotificationsRead posts to /api/notifications/read-all', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve({ updated: 3 }) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(markAllNotificationsRead()).resolves.toBe(3);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/notifications/read-all',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        headers: csrfHeaderMatcher,
+      }),
+    );
+  });
+
+  it('updateNotificationPreferences patches /api/notifications/preferences', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ user: publicUser }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(updateNotificationPreferences({ outbid: false })).resolves.toEqual(publicUser);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/notifications/preferences',
+      expect.objectContaining({
+        method: 'PATCH',
+        credentials: 'include',
+        headers: csrfHeaderMatcher,
+        body: JSON.stringify({ outbid: false }),
       }),
     );
   });

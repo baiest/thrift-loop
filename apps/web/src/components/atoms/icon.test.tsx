@@ -26,4 +26,9 @@ describe('Icon', () => {
     const { container } = render(<Icon name="log-out" />);
     expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
   });
+
+  it('renders the bell icon', () => {
+    render(<Icon name="bell" aria-label="notifications" />);
+    expect(screen.getByLabelText('notifications').tagName).toBe('svg');
+  });
 });

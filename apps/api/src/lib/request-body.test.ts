@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { pickPresentStringFields, pickStringFields } from './request-body.js';
+import {
+  pickPresentBooleanFields,
+  pickPresentStringFields,
+  pickStringFields,
+} from './request-body.js';
 
 interface LoginBody {
   phone: string;
   password: string;
+}
+
+interface PreferencesBody {
+  outbid: boolean;
+  auctionWon: boolean;
 }
 
 describe('pickStringFields', () => {
@@ -79,5 +88,34 @@ describe('pickPresentStringFields', () => {
   it('includes a present field even when its value is an empty string', () => {
     const result = pickPresentStringFields<LoginBody>({ phone: '' }, ['phone', 'password']);
     expect(result).toEqual({ phone: '' });
+  });
+});
+
+describe('pickPresentBooleanFields', () => {
+  it('includes only fields that are real booleans', () => {
+    const result = pickPresentBooleanFields<PreferencesBody>({ outbid: false }, [
+      'outbid',
+      'auctionWon',
+    ]);
+
+    expect(result).toEqual({ outbid: false });
+  });
+
+  it('drops a present field whose value is not a boolean', () => {
+    const result = pickPresentBooleanFields<PreferencesBody>({ outbid: 'true' }, [
+      'outbid',
+      'auctionWon',
+    ]);
+
+    expect(result).toEqual({});
+  });
+
+  it('returns an empty object when no requested fields are present', () => {
+    expect(pickPresentBooleanFields<PreferencesBody>({}, ['outbid', 'auctionWon'])).toEqual({});
+  });
+
+  it('handles a null or undefined body without throwing', () => {
+    expect(pickPresentBooleanFields<PreferencesBody>(null, ['outbid'])).toEqual({});
+    expect(pickPresentBooleanFields<PreferencesBody>(undefined, ['outbid'])).toEqual({});
   });
 });

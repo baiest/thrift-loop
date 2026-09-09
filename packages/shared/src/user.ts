@@ -1,4 +1,5 @@
 import type { ItemCategory } from './item-category.js';
+import type { NotificationPreferences } from './notification.js';
 
 export interface PublicUser {
   id: string;
@@ -8,4 +9,5 @@ export interface PublicUser {
   country: 'CO';
   address: string | null;
   categoryPreference: ItemCategory | null;
+  notificationPreferences: NotificationPreferences;
 }

@@ -27,9 +27,11 @@ const {
   userRepository,
   auctionService,
   bidService,
+  notificationService,
   auctionRepository,
   bidRepository,
   mutex,
+  eventBus,
   uploadsDir,
 } = buildContainer();
 
@@ -39,9 +41,16 @@ createApp({
   webDistPath,
   auctionService,
   bidService,
+  notificationService,
   uploadsDir,
 }).listen(port, () => {
   console.log(`API listening on port ${port}`);
 });
 
-startAuctionScheduler(auctionRepository, bidRepository, mutex, AUCTION_SCHEDULER_INTERVAL_MS);
+startAuctionScheduler(
+  auctionRepository,
+  bidRepository,
+  mutex,
+  eventBus,
+  AUCTION_SCHEDULER_INTERVAL_MS,
+);

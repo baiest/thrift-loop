@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
   isColombiaCity,
   isColombianMobilePhone,
   isItemCategory,
@@ -75,6 +76,7 @@ export function toPublicUser(user: User): PublicUser {
     country: user.country,
     address: user.address,
     categoryPreference: user.categoryPreference,
+    notificationPreferences: user.notificationPreferences,
   };
 }
 
@@ -151,6 +153,7 @@ async function registerUser(
     passwordHash,
     address: null,
     categoryPreference: parseCategoryPreference(input.categoryPreference, {}) ?? null,
+    notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
     createdAt: now,
     updatedAt: now,
   };

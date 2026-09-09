@@ -1,6 +1,7 @@
 import type { AuctionRepository } from '../repositories/auction.repository.js';
 import type { BidRepository } from '../repositories/bid.repository.js';
 import type { KeyedMutex } from './keyed-mutex.js';
+import type { EventBus } from './event-bus.js';
 
 export async function publishDueAuctions(
   auctionRepository: AuctionRepository,
@@ -34,6 +35,7 @@ export function startPublishScheduler(
 async function closeOneAuction(
   auctionRepository: AuctionRepository,
   bidRepository: BidRepository,
+  eventBus: EventBus,
   auctionId: string,
 ): Promise<void> {
   const bids = await bidRepository.findByAuctionId(auctionId);
@@ -41,9 +43,22 @@ async function closeOneAuction(
   if (!winningBid) {
     return;
   }
-  await auctionRepository.update(auctionId, {
+  const auction = await auctionRepository.findById(auctionId);
+  const updated = await auctionRepository.update(auctionId, {
     status: 'sold',
     winnerUserId: winningBid.userId,
+  });
+  if (!auction || !updated) {
+    return;
+  }
+  eventBus.publish({
+    type: 'auction-closed',
+    auctionId,
+    auctionTitle: auction.title,
+    ownerUserId: auction.userId,
+    winnerUserId: winningBid.userId,
+    finalPriceCOP: winningBid.amountCOP,
+    occurredAt: new Date().toISOString(),
   });
 }
 
@@ -51,6 +66,7 @@ export async function closeDueAuctions(
   auctionRepository: AuctionRepository,
   bidRepository: BidRepository,
   mutex: KeyedMutex,
+  eventBus: EventBus,
   now: Date,
 ): Promise<void> {
   const due = await auctionRepository.findDueForClose(now);
@@ -58,7 +74,7 @@ export async function closeDueAuctions(
     // Same mutex key as bid.service.ts's placeBid, so a bid can never land in
     // the same instant this auction closes.
     await mutex.runExclusive(auction.id, () =>
-      closeOneAuction(auctionRepository, bidRepository, auction.id),
+      closeOneAuction(auctionRepository, bidRepository, eventBus, auction.id),
     );
   }
 }
@@ -67,12 +83,13 @@ export function startAuctionScheduler(
   auctionRepository: AuctionRepository,
   bidRepository: BidRepository,
   mutex: KeyedMutex,
+  eventBus: EventBus,
   intervalMs: number,
 ): () => void {
   const timer = setInterval(() => {
     const now = new Date();
     publishDueAuctions(auctionRepository, now)
-      .then(() => closeDueAuctions(auctionRepository, bidRepository, mutex, now))
+      .then(() => closeDueAuctions(auctionRepository, bidRepository, mutex, eventBus, now))
       .catch((error: unknown) => {
         console.error('Auction scheduler tick failed', error);
       });

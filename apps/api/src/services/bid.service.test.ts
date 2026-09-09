@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_NOTIFICATION_PREFERENCES } from '@thrift-loop/shared';
 import type { Auction } from '../models/auction.js';
 import type { Bid } from '../models/bid.js';
 import type { AuctionPatch, AuctionRepository } from '../repositories/auction.repository.js';
@@ -7,7 +8,20 @@ import type { User } from '../models/user.js';
 import type { UserRepository } from '../repositories/user.repository.js';
 import { HttpError } from '../lib/http-error.js';
 import { createKeyedMutex } from '../lib/keyed-mutex.js';
+import type { DomainEvent, EventBus } from '../lib/event-bus.js';
 import { createBidService } from './bid.service.js';
+
+class FakeEventBus implements EventBus {
+  readonly published: DomainEvent[] = [];
+
+  publish(event: DomainEvent): void {
+    this.published.push(event);
+  }
+
+  subscribe(): () => void {
+    return () => undefined;
+  }
+}
 
 class FakeAuctionRepository implements AuctionRepository {
   private readonly auctions = new Map<string, Auction>();
@@ -161,6 +175,7 @@ describe('BidService', () => {
   let auctionRepository: FakeAuctionRepository;
   let bidRepository: FakeBidRepository;
   let userRepository: FakeUserRepository;
+  let eventBus: FakeEventBus;
   let service: ReturnType<typeof createBidService>;
 
   beforeEach(() => {
@@ -169,11 +184,13 @@ describe('BidService', () => {
     auctionRepository = new FakeAuctionRepository();
     bidRepository = new FakeBidRepository();
     userRepository = new FakeUserRepository();
+    eventBus = new FakeEventBus();
     service = createBidService(
       auctionRepository,
       bidRepository,
       userRepository,
       createKeyedMutex(),
+      eventBus,
     );
   });
 
@@ -298,6 +315,62 @@ describe('BidService', () => {
       const bids = await bidRepository.findByAuctionId('AUC-1');
       expect(bids).toHaveLength(1);
     });
+
+    it('publishes bid-placed with no previous top bidder on the first bid', async () => {
+      auctionRepository.seed(makeAuction());
+
+      await service.placeBid('USR-bidder', 'AUC-1', '50000');
+
+      expect(eventBus.published).toEqual([
+        expect.objectContaining({ type: 'bid-placed', previousTopBidderId: null }),
+      ]);
+    });
+
+    it('publishes bid-placed with the prior bidder once someone else raises the bid', async () => {
+      auctionRepository.seed(makeAuction());
+      await service.placeBid('USR-bidder-1', 'AUC-1', '50000');
+
+      await service.placeBid('USR-bidder-2', 'AUC-1', '51000');
+
+      expect(eventBus.published[1]).toEqual(
+        expect.objectContaining({ type: 'bid-placed', previousTopBidderId: 'USR-bidder-1' }),
+      );
+    });
+
+    it('publishes the same bidder as previousTopBidderId when they raise themselves', async () => {
+      auctionRepository.seed(makeAuction());
+      await service.placeBid('USR-bidder', 'AUC-1', '50000');
+
+      await service.placeBid('USR-bidder', 'AUC-1', '51000');
+
+      expect(eventBus.published[1]).toEqual(
+        expect.objectContaining({ type: 'bid-placed', previousTopBidderId: 'USR-bidder' }),
+      );
+    });
+
+    it('publishes bid-placed only after the auction update resolves', async () => {
+      auctionRepository.seed(makeAuction());
+      const originalUpdate = auctionRepository.update.bind(auctionRepository);
+      const publishedBeforeUpdateResolved: boolean[] = [];
+      auctionRepository.update = async (id, patch) => {
+        const result = await originalUpdate(id, patch);
+        publishedBeforeUpdateResolved.push(eventBus.published.length > 0);
+        return result;
+      };
+
+      await service.placeBid('USR-bidder', 'AUC-1', '50000');
+
+      expect(publishedBeforeUpdateResolved).toEqual([false]);
+      expect(eventBus.published).toHaveLength(1);
+    });
+
+    it('does not publish when the bid is rejected', async () => {
+      auctionRepository.seed(makeAuction());
+
+      await catchHttpError(service.placeBid('USR-bidder', 'AUC-1', '1'));
+
+      expect(eventBus.published).toEqual([]);
+    });
   });
 
   describe('listBids', () => {
@@ -312,6 +385,7 @@ describe('BidService', () => {
         passwordHash: 'x',
         address: null,
         categoryPreference: null,
+        notificationPreferences: DEFAULT_NOTIFICATION_PREFERENCES,
         createdAt: '2026-01-01T00:00:00.000Z',
         updatedAt: '2026-01-01T00:00:00.000Z',
       });

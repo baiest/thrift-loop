@@ -7,10 +7,17 @@ import { useAuthStore } from '../stores/auth-store.js';
 
 vi.mock('../lib/api-client.js', async () => {
   const actual = await vi.importActual('../lib/api-client.js');
-  return { ...actual, fetchCurrentUser: vi.fn(), updateProfile: vi.fn(), logout: vi.fn() };
+  return {
+    ...actual,
+    fetchCurrentUser: vi.fn(),
+    updateProfile: vi.fn(),
+    logout: vi.fn(),
+    updateNotificationPreferences: vi.fn(),
+  };
 });
 
-const { fetchCurrentUser, updateProfile, logout } = await import('../lib/api-client.js');
+const { fetchCurrentUser, updateProfile, logout, updateNotificationPreferences } =
+  await import('../lib/api-client.js');
 
 const sampleUser = {
   id: 'USR-1',
@@ -20,6 +27,7 @@ const sampleUser = {
   country: 'CO' as const,
   address: null,
   categoryPreference: null,
+  notificationPreferences: { outbid: true, auctionWon: true, bidOnMyListing: true },
 };
 
 function renderPage(): void {
@@ -39,6 +47,7 @@ describe('ProfilePage', () => {
     vi.mocked(fetchCurrentUser).mockReset();
     vi.mocked(updateProfile).mockReset();
     vi.mocked(logout).mockReset().mockResolvedValue(undefined);
+    vi.mocked(updateNotificationPreferences).mockReset();
   });
 
   afterEach(() => {
@@ -174,5 +183,63 @@ describe('ProfilePage', () => {
     expect(await screen.findByText('login screen')).toBeInTheDocument();
     expect(logout).toHaveBeenCalledOnce();
     expect(useAuthStore.getState().user).toBeNull();
+  });
+
+  it('shows the three notification preference toggles', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+
+    expect(await screen.findByRole('switch', { name: /outbid/i })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    expect(screen.getByRole('switch', { name: /won/i })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('switch', { name: /bid on my listing/i })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  it('reflects a preference that is off', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue({
+      ...sampleUser,
+      notificationPreferences: { ...sampleUser.notificationPreferences, outbid: false },
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole('switch', { name: /outbid/i })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+  });
+
+  it('saves a toggle immediately without a Save button', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+    vi.mocked(updateNotificationPreferences).mockResolvedValue({
+      ...sampleUser,
+      notificationPreferences: { ...sampleUser.notificationPreferences, outbid: false },
+    });
+
+    renderPage();
+    const toggle = await screen.findByRole('switch', { name: /outbid/i });
+    await userEvent.click(toggle);
+
+    await waitFor(() =>
+      expect(updateNotificationPreferences).toHaveBeenCalledWith({ outbid: false }),
+    );
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'false'));
+  });
+
+  it('reverts the toggle if saving the preference fails', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+    vi.mocked(updateNotificationPreferences).mockRejectedValue(new Error('failed'));
+
+    renderPage();
+    const toggle = await screen.findByRole('switch', { name: /outbid/i });
+    await userEvent.click(toggle);
+
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'));
   });
 });

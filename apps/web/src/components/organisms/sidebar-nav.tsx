@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { Icon, type IconName } from '../atoms/icon.js';
 import { useAuthStore } from '../../stores/auth-store.js';
 import { useLogout } from '../../hooks/use-logout.js';
+import { NotificationBell } from './notification-bell.js';
 
 interface NavItem {
   readonly label: string;
@@ -116,6 +117,7 @@ function DesktopSidebar(): React.JSX.Element {
           </li>
         ))}
       </ul>
+      <NotificationBell />
       <DesktopUserBlock />
     </nav>
   );
@@ -144,6 +146,7 @@ function TabletRail(): React.JSX.Element {
           <Icon name={item.icon} className="h-5 w-5" />
         </NavLink>
       ))}
+      <NotificationBell />
       <TabletLogoutButton />
     </nav>
   );

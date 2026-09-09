@@ -48,6 +48,7 @@ const sampleUser = {
   country: 'CO' as const,
   address: null,
   categoryPreference: null,
+  notificationPreferences: { outbid: true, auctionWon: true, bidOnMyListing: true },
 };
 
 function renderPage(id = 'AUC-1'): void {

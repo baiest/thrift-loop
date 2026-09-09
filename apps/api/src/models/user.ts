@@ -1,4 +1,4 @@
-import type { ItemCategory } from '@thrift-loop/shared';
+import type { ItemCategory, NotificationPreferences } from '@thrift-loop/shared';
 
 export interface User {
   id: string;
@@ -10,6 +10,7 @@ export interface User {
   passwordHash: string;
   address: string | null;
   categoryPreference: ItemCategory | null;
+  notificationPreferences: NotificationPreferences;
   createdAt: string;
   updatedAt: string;
 }
