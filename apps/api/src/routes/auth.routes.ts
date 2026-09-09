@@ -32,6 +32,9 @@ const REGISTER_FIELDS = [
 const LOGIN_FIELDS = ['phone', 'password'] as const satisfies readonly (keyof LoginInput)[];
 
 const UPDATE_PROFILE_FIELDS = [
+  'firstName',
+  'lastName',
+  'city',
   'address',
   'categoryPreference',
 ] as const satisfies readonly (keyof UpdateProfileInput)[];

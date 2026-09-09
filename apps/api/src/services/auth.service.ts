@@ -21,6 +21,9 @@ const GENERIC_LOGIN_ERROR = 'Phone number or password is incorrect';
 const MAX_ADDRESS_LENGTH = 200;
 const USER_NOT_FOUND_MESSAGE = 'User not found';
 const CATEGORY_PREFERENCE_ERROR_MESSAGE = 'Select a valid category';
+const FIRST_NAME_ERROR_MESSAGE = 'First name is required';
+const LAST_NAME_ERROR_MESSAGE = 'Last name is required';
+const CITY_ERROR_MESSAGE = 'Select a valid city';
 
 const PASSWORD_RULE_MESSAGES: Record<PasswordRule, string> = {
   minLength: 'Password must be at least 8 characters',
@@ -52,6 +55,9 @@ export interface AuthResult {
 export interface UpdateProfileInput {
   address?: string;
   categoryPreference?: string;
+  firstName?: string;
+  lastName?: string;
+  city?: string;
 }
 
 export interface AuthService {
@@ -167,16 +173,63 @@ async function loginUser(userRepository: UserRepository, input: LoginInput): Pro
   return { user: toPublicUser(user), token: signSessionToken({ userId: user.id }) };
 }
 
+function applyAddressPatch(
+  input: UpdateProfileInput,
+  patch: UserPatch,
+  errors: Record<string, string>,
+): void {
+  if (input.address === undefined) {
+    return;
+  }
+  const trimmed = input.address.trim();
+  if (trimmed.length > MAX_ADDRESS_LENGTH) {
+    errors['address'] = `Address must be at most ${MAX_ADDRESS_LENGTH} characters`;
+  } else {
+    patch.address = trimmed.length > 0 ? trimmed : null;
+  }
+}
+
+function applyRequiredTextPatch(
+  value: string | undefined,
+  field: 'firstName' | 'lastName',
+  patch: UserPatch,
+  errors: Record<string, string>,
+): void {
+  if (value === undefined) {
+    return;
+  }
+  const trimmed = value.trim();
+  // field is narrowed to the fixed 'firstName' | 'lastName' union, not request data.
+  /* eslint-disable security/detect-object-injection */
+  if (trimmed.length === 0) {
+    errors[field] = field === 'firstName' ? FIRST_NAME_ERROR_MESSAGE : LAST_NAME_ERROR_MESSAGE;
+  } else {
+    patch[field] = trimmed;
+  }
+  /* eslint-enable security/detect-object-injection */
+}
+
+function applyCityPatch(
+  input: UpdateProfileInput,
+  patch: UserPatch,
+  errors: Record<string, string>,
+): void {
+  if (input.city === undefined) {
+    return;
+  }
+  if (isColombiaCity(input.city)) {
+    patch.city = input.city;
+  } else {
+    errors['city'] = CITY_ERROR_MESSAGE;
+  }
+}
+
 function buildProfilePatch(input: UpdateProfileInput, errors: Record<string, string>): UserPatch {
   const patch: UserPatch = {};
-  if (input.address !== undefined) {
-    const trimmed = input.address.trim();
-    if (trimmed.length > MAX_ADDRESS_LENGTH) {
-      errors['address'] = `Address must be at most ${MAX_ADDRESS_LENGTH} characters`;
-    } else {
-      patch.address = trimmed.length > 0 ? trimmed : null;
-    }
-  }
+  applyAddressPatch(input, patch, errors);
+  applyRequiredTextPatch(input.firstName, 'firstName', patch, errors);
+  applyRequiredTextPatch(input.lastName, 'lastName', patch, errors);
+  applyCityPatch(input, patch, errors);
   if (input.categoryPreference !== undefined) {
     const categoryPreference = parseCategoryPreference(input.categoryPreference, errors);
     if (categoryPreference !== undefined) {

@@ -1,6 +1,8 @@
 import type { User } from '../models/user.js';
 
-export type UserPatch = Partial<Pick<User, 'address' | 'categoryPreference'>>;
+export type UserPatch = Partial<
+  Pick<User, 'address' | 'categoryPreference' | 'firstName' | 'lastName' | 'city'>
+>;
 
 export interface UserRepository {
   findByPhone(phone: string): Promise<User | null>;

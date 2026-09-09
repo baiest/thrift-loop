@@ -244,5 +244,35 @@ describe('auth routes', () => {
 
       expect(response.status).toBe(403);
     });
+
+    it('sets first name, last name, and city with a valid session and CSRF token', async () => {
+      const agent = request.agent(app);
+      const registerResponse = await agent.post('/api/auth/register').send(registerBody);
+      const csrfToken = extractCsrfToken(registerResponse);
+
+      const response = await agent
+        .patch('/api/auth/me')
+        .set(CSRF_HEADER_NAME, csrfToken)
+        .send({ firstName: 'Sofía', lastName: 'Restrepo', city: 'Medellín' });
+
+      expect(response.status).toBe(200);
+      expect(body(response).user?.firstName).toBe('Sofía');
+      expect(body(response).user?.lastName).toBe('Restrepo');
+      expect(body(response).user?.city).toBe('Medellín');
+    });
+
+    it('rejects an invalid city with a 400 field error', async () => {
+      const agent = request.agent(app);
+      const registerResponse = await agent.post('/api/auth/register').send(registerBody);
+      const csrfToken = extractCsrfToken(registerResponse);
+
+      const response = await agent
+        .patch('/api/auth/me')
+        .set(CSRF_HEADER_NAME, csrfToken)
+        .send({ city: 'Not a real city' });
+
+      expect(response.status).toBe(400);
+      expect(body(response).fields?.city).toBeDefined();
+    });
   });
 });

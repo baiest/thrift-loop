@@ -45,6 +45,14 @@ describe('ProfilePage', () => {
     vi.restoreAllMocks();
   });
 
+  it('shows a skeleton instead of a blank screen while the session loads', () => {
+    vi.mocked(fetchCurrentUser).mockReturnValue(new Promise(() => {}));
+
+    renderPage();
+
+    expect(screen.getByLabelText('Loading profile')).toBeInTheDocument();
+  });
+
   it('redirects to /login when there is no session', async () => {
     vi.mocked(fetchCurrentUser).mockResolvedValue(null);
 
@@ -71,7 +79,13 @@ describe('ProfilePage', () => {
     await userEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() =>
-      expect(updateProfile).toHaveBeenCalledWith({ address: 'Calle 2', categoryPreference: '' }),
+      expect(updateProfile).toHaveBeenCalledWith({
+        firstName: 'Ana',
+        lastName: 'Gómez',
+        city: 'Bogotá D.C.',
+        address: 'Calle 2',
+        categoryPreference: '',
+      }),
     );
     expect(await screen.findByText(/saved/i)).toBeInTheDocument();
   });
@@ -94,8 +108,60 @@ describe('ProfilePage', () => {
     await userEvent.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() =>
-      expect(updateProfile).toHaveBeenCalledWith({ address: '', categoryPreference: 'jeans' }),
+      expect(updateProfile).toHaveBeenCalledWith({
+        firstName: 'Ana',
+        lastName: 'Gómez',
+        city: 'Bogotá D.C.',
+        address: '',
+        categoryPreference: 'jeans',
+      }),
     );
+  });
+
+  it('shows the read-only country', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+
+    expect(await screen.findByText('CO')).toBeInTheDocument();
+  });
+
+  it('pre-fills first name, last name, and city from the current user', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+
+    expect(await screen.findByLabelText('First name')).toHaveValue('Ana');
+    expect(screen.getByLabelText('Last name')).toHaveValue('Gómez');
+    expect(screen.getByLabelText('City')).toHaveValue('Bogotá D.C.');
+  });
+
+  it('saves a changed first name, last name, and city', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+    vi.mocked(updateProfile).mockResolvedValue({ ...sampleUser, firstName: 'Sofía' });
+
+    renderPage();
+    const firstNameInput = await screen.findByLabelText('First name');
+    await userEvent.clear(firstNameInput);
+    await userEvent.type(firstNameInput, 'Sofía');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() =>
+      expect(updateProfile).toHaveBeenCalledWith(expect.objectContaining({ firstName: 'Sofía' })),
+    );
+  });
+
+  it('shows an unsaved-changes indicator once a field is edited', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+    const firstNameInput = await screen.findByLabelText('First name');
+
+    expect(screen.queryByText(/unsaved changes/i)).not.toBeInTheDocument();
+
+    await userEvent.type(firstNameInput, 'x');
+
+    expect(screen.getByText(/unsaved changes/i)).toBeInTheDocument();
   });
 
   it('logs out and redirects to /login', async () => {
