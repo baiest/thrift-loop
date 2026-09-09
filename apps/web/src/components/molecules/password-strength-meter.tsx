@@ -3,7 +3,7 @@ import { passwordStrength } from '@thrift-loop/shared';
 const STRENGTH_SEGMENT_COUNT = 4;
 const STRENGTH_LABELS = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong'] as const;
 const STRENGTH_COLORS = [
-  'bg-gray-200',
+  'bg-hairline',
   'bg-red-500',
   'bg-orange-500',
   'bg-yellow-500',
@@ -34,11 +34,11 @@ export function PasswordStrengthMeter({
         {Array.from({ length: STRENGTH_SEGMENT_COUNT }, (_, index) => (
           <div
             key={index}
-            className={`h-1.5 flex-1 rounded-full ${index < score ? color : 'bg-gray-200'}`}
+            className={`h-1.5 flex-1 rounded-full ${index < score ? color : 'bg-hairline'}`}
           />
         ))}
       </div>
-      <p className="mt-1 text-xs text-gray-600">{label}</p>
+      <p className="mt-1 text-xs text-ink-soft">{label}</p>
     </div>
   );
 }

@@ -7,7 +7,7 @@ export interface BidHistoryProps {
 
 export function BidHistory({ bids }: BidHistoryProps): React.JSX.Element {
   if (bids.length === 0) {
-    return <p className="text-sm text-gray-500">No bids yet — be the first.</p>;
+    return <p className="text-sm text-ink-soft">No bids yet — be the first.</p>;
   }
 
   return (
@@ -15,9 +15,9 @@ export function BidHistory({ bids }: BidHistoryProps): React.JSX.Element {
       {bids.map((bid, index) => (
         <li
           key={bid.id}
-          className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2 text-sm"
+          className="flex items-center justify-between rounded-lg border border-hairline px-3 py-2 text-sm"
         >
-          <span className="text-gray-700">
+          <span className="text-ink-soft">
             {bid.bidderFirstName}
             {index === 0 && (
               <span className="ml-2 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-medium text-brand-700">
@@ -25,7 +25,7 @@ export function BidHistory({ bids }: BidHistoryProps): React.JSX.Element {
               </span>
             )}
           </span>
-          <span className="font-medium text-gray-900">{formatCOP(bid.amountCOP)}</span>
+          <span className="font-medium text-ink">{formatCOP(bid.amountCOP)}</span>
         </li>
       ))}
     </ul>

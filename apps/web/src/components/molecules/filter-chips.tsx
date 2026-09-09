@@ -73,7 +73,7 @@ export function FilterChips({ value, onChange }: FilterChipsProps): React.JSX.El
       <button
         type="button"
         onClick={clearAll}
-        className="text-xs font-medium text-gray-500 underline hover:text-brand-700"
+        className="text-xs font-medium text-ink-soft underline hover:text-brand-700"
       >
         Clear all
       </button>

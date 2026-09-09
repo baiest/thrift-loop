@@ -7,7 +7,7 @@ export function CreateAuctionPage(): React.JSX.Element {
   return (
     <div className="mx-auto flex max-w-2xl flex-col py-6">
       <h1 className="mb-1 font-display text-2xl font-bold text-ink">Create auction</h1>
-      <p className="mb-6 text-sm text-gray-600">List a second-hand clothing item for auction.</p>
+      <p className="mb-6 text-sm text-ink-soft">List a second-hand clothing item for auction.</p>
 
       <CreateAuctionWizard
         onSuccess={(auctionId) => {

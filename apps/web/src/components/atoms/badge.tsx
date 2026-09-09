@@ -4,10 +4,10 @@ export interface BadgeProps {
 }
 
 const TONE_CLASSES: Record<NonNullable<BadgeProps['tone']>, string> = {
-  neutral: 'bg-gray-100 text-gray-700',
+  neutral: 'bg-hairline text-ink-soft',
   condition: 'bg-linen text-ink',
   live: 'bg-brand-100 text-brand-700',
-  ended: 'bg-gray-200 text-gray-600',
+  ended: 'border border-hairline text-ink-faint',
   draft: 'bg-amber-100 text-amber-800',
   own: 'border border-ink text-ink',
 };

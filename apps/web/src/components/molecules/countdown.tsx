@@ -41,8 +41,8 @@ export function Countdown({
   }, [endsAt, serverOffsetMs, onExpire]);
 
   if (!endsAt) {
-    return <span className="text-sm text-gray-500">Waiting for first bid</span>;
+    return <span className="text-sm text-ink-soft">Waiting for first bid</span>;
   }
 
-  return <span className="text-sm font-medium text-gray-900">{formatRemaining(remaining)}</span>;
+  return <span className="text-sm font-medium text-ink">{formatRemaining(remaining)}</span>;
 }

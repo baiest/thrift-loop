@@ -166,7 +166,7 @@ function PhotosStep({ photos, onChange }: PhotosStepProps): React.JSX.Element {
   return (
     <div>
       <h2 className="mb-1 font-display text-xl font-bold text-ink">Add photos</h2>
-      <p className="mb-4 text-sm text-gray-500">The first photo is the cover. Up to 10 photos.</p>
+      <p className="mb-4 text-sm text-ink-soft">The first photo is the cover. Up to 10 photos.</p>
       <PhotoDropzone files={photos} onChange={onChange} />
     </div>
   );
@@ -303,7 +303,7 @@ function ScheduleOptionCard({
       />
       <span>
         <span className="block font-medium text-ink">{label}</span>
-        <span className="block text-sm text-gray-500">{description}</span>
+        <span className="block text-sm text-ink-soft">{description}</span>
       </span>
     </label>
   );
@@ -392,7 +392,7 @@ function ReviewStep({ values, photoCount, onEditStep }: ReviewStepProps): React.
         editLabel="Edit photos"
         onEdit={() => onEditStep(STEP_INDEX.photos)}
       >
-        <p className="text-sm text-gray-500">{photoCount} photo(s) selected</p>
+        <p className="text-sm text-ink-soft">{photoCount} photo(s) selected</p>
       </ReviewSection>
 
       <ReviewSection
@@ -400,8 +400,8 @@ function ReviewStep({ values, photoCount, onEditStep }: ReviewStepProps): React.
         editLabel="Edit details"
         onEdit={() => onEditStep(STEP_INDEX.details)}
       >
-        <p className="text-sm text-gray-700">{values.title}</p>
-        <p className="text-sm text-gray-500">{values.location}</p>
+        <p className="text-sm text-ink-soft">{values.title}</p>
+        <p className="text-sm text-ink-soft">{values.location}</p>
       </ReviewSection>
 
       <ReviewSection
@@ -409,7 +409,7 @@ function ReviewStep({ values, photoCount, onEditStep }: ReviewStepProps): React.
         editLabel="Edit pricing"
         onEdit={() => onEditStep(STEP_INDEX.pricing)}
       >
-        <p className="text-sm text-gray-700">{priceLabel}</p>
+        <p className="text-sm text-ink-soft">{priceLabel}</p>
       </ReviewSection>
 
       <ReviewSection
@@ -417,7 +417,7 @@ function ReviewStep({ values, photoCount, onEditStep }: ReviewStepProps): React.
         editLabel="Edit schedule"
         onEdit={() => onEditStep(STEP_INDEX.schedule)}
       >
-        <p className="text-sm text-gray-500">{scheduleLabel}</p>
+        <p className="text-sm text-ink-soft">{scheduleLabel}</p>
       </ReviewSection>
     </div>
   );
@@ -597,7 +597,7 @@ export function CreateAuctionWizard({ onSuccess }: CreateAuctionWizardProps): Re
         <Button type="button" onClick={handleBack} disabled={stepIndex === 0} className="w-auto">
           Back
         </Button>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-ink-soft">
           Step {stepIndex + 1} of {WIZARD_STEPS.length}
         </span>
         {isReview ? (

@@ -10,7 +10,7 @@ describe('Badge', () => {
 
   it('defaults to the neutral tone', () => {
     render(<Badge>Neutral</Badge>);
-    expect(screen.getByText('Neutral')).toHaveClass('bg-gray-100');
+    expect(screen.getByText('Neutral')).toHaveClass('bg-hairline');
   });
 
   it('applies the condition tone', () => {
@@ -25,7 +25,7 @@ describe('Badge', () => {
 
   it('applies the ended tone', () => {
     render(<Badge tone="ended">Ended</Badge>);
-    expect(screen.getByText('Ended')).toHaveClass('bg-gray-200');
+    expect(screen.getByText('Ended')).toHaveClass('border-hairline');
   });
 
   it('applies the draft tone', () => {

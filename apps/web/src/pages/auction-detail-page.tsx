@@ -88,7 +88,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
   if (notFound || !detail) {
     return (
       <div className="mx-auto flex max-w-2xl flex-col py-6">
-        <p className="text-sm text-gray-500">Auction not found.</p>
+        <p className="text-sm text-ink-soft">Auction not found.</p>
       </div>
     );
   }
@@ -111,13 +111,13 @@ export function AuctionDetailPage(): React.JSX.Element | null {
           className="mb-4 aspect-square w-full rounded-lg object-cover"
         />
       )}
-      <h1 className="mb-1 text-xl font-bold text-gray-900">{auction.title}</h1>
-      <p className="mb-2 text-sm text-gray-600">{auction.location}</p>
-      <p className="mb-4 whitespace-pre-wrap text-sm text-gray-700">{auction.description}</p>
-      <p className="text-sm text-gray-500">
+      <h1 className="mb-1 text-xl font-bold text-ink">{auction.title}</h1>
+      <p className="mb-2 text-sm text-ink-soft">{auction.location}</p>
+      <p className="mb-4 whitespace-pre-wrap text-sm text-ink-soft">{auction.description}</p>
+      <p className="text-sm text-ink-soft">
         {auction.currentBidCOP === null ? 'Starting at' : 'Current bid'}
       </p>
-      <p className="mb-2 text-3xl font-bold text-gray-900">
+      <p className="mb-2 text-3xl font-bold text-ink">
         {formatCOP(auction.currentBidCOP ?? auction.priceCOP)}
       </p>
       <div className="mb-4">
@@ -147,7 +147,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
         </div>
       )}
 
-      <h2 className="mb-2 text-lg font-semibold text-gray-900">Bid history</h2>
+      <h2 className="mb-2 text-lg font-semibold text-ink">Bid history</h2>
       <BidHistory bids={bids} />
     </div>
   );

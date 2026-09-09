@@ -11,7 +11,7 @@ export interface FormFieldProps {
 export function FormField({ id, label, error, children }: FormFieldProps): React.JSX.Element {
   return (
     <div className="mb-4">
-      <label htmlFor={id} className="mb-1 block text-sm font-medium text-gray-700">
+      <label htmlFor={id} className="mb-1 block text-sm font-medium text-ink-soft">
         {label}
       </label>
       {children}

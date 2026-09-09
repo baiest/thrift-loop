@@ -31,7 +31,7 @@ export function CurrencyInput({
 
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-sm font-medium text-gray-700">
+      <label htmlFor={id} className="mb-1 block text-sm font-medium text-ink-soft">
         {label}
       </label>
       <input
@@ -42,7 +42,7 @@ export function CurrencyInput({
         aria-invalid={invalid}
         onChange={handleChange}
         className={`w-full rounded-lg border px-4 py-3 font-display text-2xl focus:outline-none focus:ring-2 ${
-          invalid ? 'border-red-500 focus:ring-red-300' : 'border-gray-300 focus:ring-brand-300'
+          invalid ? 'border-red-500 focus:ring-red-300' : 'border-hairline focus:ring-brand-300'
         }`}
       />
     </div>

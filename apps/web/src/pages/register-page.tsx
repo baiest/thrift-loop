@@ -8,8 +8,8 @@ export function RegisterPage(): React.JSX.Element {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col px-4 py-6">
       <img src={illustration} alt="" className="mb-6 w-full" />
-      <h1 className="mb-1 text-2xl font-bold text-gray-900">Create your account</h1>
-      <p className="mb-6 text-sm text-gray-600">Buy and sell second-hand clothing in Colombia.</p>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Create your account</h1>
+      <p className="mb-6 text-sm text-ink-soft">Buy and sell second-hand clothing in Colombia.</p>
 
       <RegisterForm
         onSuccess={() => {
@@ -17,7 +17,7 @@ export function RegisterPage(): React.JSX.Element {
         }}
       />
 
-      <p className="mt-6 text-center text-sm text-gray-600">
+      <p className="mt-6 text-center text-sm text-ink-soft">
         Already have an account?{' '}
         <Link to="/login" className="font-semibold text-brand-700">
           Log in

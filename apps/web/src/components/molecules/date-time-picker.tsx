@@ -23,7 +23,7 @@ function formatHour(hour: number): string {
 
 function dayButtonClass(selectable: boolean, isSelected: boolean): string {
   if (!selectable) {
-    return 'cursor-not-allowed text-gray-300 line-through';
+    return 'cursor-not-allowed text-ink-faint line-through';
   }
   return isSelected ? 'bg-brand-500 text-white' : 'text-ink hover:bg-brand-50';
 }
@@ -94,7 +94,7 @@ export function DateTimePicker({ value, onChange, now }: DateTimePickerProps): R
           aria-label="Previous month"
           disabled={isCurrentMonth}
           onClick={goToPreviousMonth}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-ink hover:bg-brand-50 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-ink hover:bg-brand-50 disabled:cursor-not-allowed disabled:text-ink-faint disabled:hover:bg-transparent"
         >
           <Icon name="chevron-left" className="h-4 w-4" />
         </button>
@@ -142,7 +142,7 @@ export function DateTimePicker({ value, onChange, now }: DateTimePickerProps): R
                 onClick={() => pickHour(hour)}
                 className={`rounded-lg px-2 py-1.5 text-sm ${
                   !selectable
-                    ? 'cursor-not-allowed bg-gray-100 text-gray-300'
+                    ? 'cursor-not-allowed bg-linen text-ink-faint'
                     : 'bg-white text-ink hover:bg-brand-50'
                 }`}
               >

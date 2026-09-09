@@ -8,8 +8,8 @@ export function LoginPage(): React.JSX.Element {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col px-4 py-6">
       <img src={illustration} alt="" className="mb-6 w-full" />
-      <h1 className="mb-1 text-2xl font-bold text-gray-900">Welcome back</h1>
-      <p className="mb-6 text-sm text-gray-600">Log in to keep buying and selling.</p>
+      <h1 className="mb-1 text-2xl font-bold text-ink">Welcome back</h1>
+      <p className="mb-6 text-sm text-ink-soft">Log in to keep buying and selling.</p>
 
       <LoginForm
         onSuccess={() => {
@@ -17,7 +17,7 @@ export function LoginPage(): React.JSX.Element {
         }}
       />
 
-      <p className="mt-6 text-center text-sm text-gray-600">
+      <p className="mt-6 text-center text-sm text-ink-soft">
         New here?{' '}
         <Link to="/register" className="font-semibold text-brand-700">
           Create an account
