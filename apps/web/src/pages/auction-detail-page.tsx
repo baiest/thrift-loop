@@ -15,7 +15,7 @@ import { Button } from '../components/atoms/button.js';
 import { Skeleton } from '../components/atoms/skeleton.js';
 import { PhotoPlaceholder } from '../components/atoms/photo-placeholder.js';
 import { useAuctionRealtime } from '../hooks/use-auction-realtime.js';
-import { useRealtimeStore } from '../stores/realtime-store.js';
+import { useRealtimeStore, type AuctionUpdate } from '../stores/realtime-store.js';
 
 const STALE_AFTER_MS = 15_000;
 
@@ -33,6 +33,17 @@ function useIsStaleConnection(status: string, staleAfterMs: number): boolean {
   }, [status, staleAfterMs]);
 
   return stale;
+}
+
+function ViewerCount({ viewers }: { readonly viewers: number }): React.JSX.Element | null {
+  if (viewers <= 0) {
+    return null;
+  }
+  return (
+    <p className="mb-4 text-xs text-ink-soft">
+      {viewers} {viewers === 1 ? 'person' : 'people'} viewing
+    </p>
+  );
 }
 
 function AuctionPhoto({
@@ -57,10 +68,7 @@ function AuctionPhoto({
   );
 }
 
-function withLiveUpdate(
-  auction: PublicAuction,
-  update: { currentBidCOP: number; bidCount: number; bidEndsAt: string | null } | null,
-): PublicAuction {
+function withLiveUpdate(auction: PublicAuction, update: AuctionUpdate | null): PublicAuction {
   if (!update) {
     return auction;
   }
@@ -69,6 +77,7 @@ function withLiveUpdate(
     currentBidCOP: update.currentBidCOP,
     bidCount: update.bidCount,
     bidEndsAt: update.bidEndsAt,
+    ...(update.closed && { status: 'sold', winnerUserId: update.winnerUserId }),
   };
 }
 
@@ -93,7 +102,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
   const [photoFailed, setPhotoFailed] = useState(false);
-  const { update } = useAuctionRealtime(id);
+  const { update, viewers } = useAuctionRealtime(id);
   const resyncToken = useRealtimeStore((state) => state.resyncToken);
   const connectionStatus = useRealtimeStore((state) => state.status);
   const showReconnecting = useIsStaleConnection(connectionStatus, STALE_AFTER_MS);
@@ -185,6 +194,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
               onExpire={() => void load()}
             />
           </div>
+          <ViewerCount viewers={viewers} />
 
           {canPublish && (
             <div className="mb-6">

@@ -35,6 +35,7 @@ function broadcastAuctionUpdate(hub: RealtimeHub, event: DomainEvent): void {
           serverTime,
         };
   hub.broadcast(`auction:${event.auctionId}`, message);
+  hub.broadcast('grid', message);
 }
 
 export function attachEventFanout(

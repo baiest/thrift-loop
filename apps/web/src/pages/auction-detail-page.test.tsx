@@ -126,6 +126,47 @@ describe('AuctionDetailPage', () => {
     expect(fetchAuctionDetail).toHaveBeenCalledTimes(1);
   });
 
+  it('flips to Sold live when a live auction-closed message arrives', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+    await screen.findByLabelText('Your bid (COP)');
+
+    useRealtimeStore.getState().applyServerMessage({
+      type: 'auction-closed',
+      auctionId: 'AUC-1',
+      winnerUserId: 'USR-bidder',
+      serverTime: '2026-01-01T00:00:05.000Z',
+    });
+
+    await waitFor(() => expect(screen.queryByLabelText('Your bid (COP)')).not.toBeInTheDocument());
+  });
+
+  it('shows a live viewer count', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+
+    renderPage();
+    await screen.findByText(/50\.000/);
+
+    useRealtimeStore.getState().applyServerMessage({
+      type: 'presence',
+      auctionId: 'AUC-1',
+      viewers: 3,
+    });
+
+    expect(await screen.findByText(/3 people viewing/i)).toBeInTheDocument();
+  });
+
   it('refetches when the connection resyncs after a reconnect', async () => {
     vi.mocked(fetchAuctionDetail).mockResolvedValue({
       auction: publicAuction,
