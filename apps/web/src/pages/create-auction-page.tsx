@@ -10,8 +10,8 @@ export function CreateAuctionPage(): React.JSX.Element {
       <p className="mb-6 text-sm text-gray-600">List a second-hand clothing item for auction.</p>
 
       <CreateAuctionForm
-        onSuccess={() => {
-          void navigate('/');
+        onSuccess={(auctionId) => {
+          void navigate(`/auctions/${auctionId}`);
         }}
       />
     </main>
