@@ -12,24 +12,34 @@ const emptyFilters: AuctionFiltersValue = {
   maxPriceCOP: '',
 };
 
+async function openPanel(): Promise<void> {
+  await userEvent.click(screen.getByRole('button', { name: /filters/i }));
+}
+
 describe('AuctionFilters', () => {
   it('renders the current search value', () => {
     render(<AuctionFilters value={{ ...emptyFilters, search: 'chaqueta' }} onChange={vi.fn()} />);
-    expect(screen.getByLabelText('Search')).toHaveValue('chaqueta');
+    expect(screen.getByRole('searchbox')).toHaveValue('chaqueta');
   });
 
   it('calls onChange with the updated search text', async () => {
     const onChange = vi.fn();
     render(<AuctionFilters value={emptyFilters} onChange={onChange} />);
 
-    await userEvent.type(screen.getByLabelText('Search'), 'c');
+    await userEvent.type(screen.getByRole('searchbox'), 'c');
 
     expect(onChange).toHaveBeenCalledWith({ ...emptyFilters, search: 'c' });
+  });
+
+  it('does not show the other filter controls until Filters is opened', () => {
+    render(<AuctionFilters value={emptyFilters} onChange={vi.fn()} />);
+    expect(screen.queryByLabelText('Category')).not.toBeInTheDocument();
   });
 
   it('calls onChange with the selected category', async () => {
     const onChange = vi.fn();
     render(<AuctionFilters value={emptyFilters} onChange={onChange} />);
+    await openPanel();
 
     await userEvent.selectOptions(screen.getByLabelText('Category'), 'jeans');
 
@@ -39,6 +49,7 @@ describe('AuctionFilters', () => {
   it('calls onChange with the selected city', async () => {
     const onChange = vi.fn();
     render(<AuctionFilters value={emptyFilters} onChange={onChange} />);
+    await openPanel();
 
     await userEvent.type(screen.getByLabelText('City'), 'Cali');
     await userEvent.click(screen.getByRole('button', { name: 'Cali' }));
@@ -49,6 +60,7 @@ describe('AuctionFilters', () => {
   it('calls onChange with the min price', async () => {
     const onChange = vi.fn();
     render(<AuctionFilters value={emptyFilters} onChange={onChange} />);
+    await openPanel();
 
     await userEvent.type(screen.getByLabelText('Min price (COP)'), '1');
 
@@ -58,9 +70,15 @@ describe('AuctionFilters', () => {
   it('calls onChange with the max price', async () => {
     const onChange = vi.fn();
     render(<AuctionFilters value={emptyFilters} onChange={onChange} />);
+    await openPanel();
 
     await userEvent.type(screen.getByLabelText('Max price (COP)'), '1');
 
     expect(onChange).toHaveBeenCalledWith({ ...emptyFilters, maxPriceCOP: '1' });
+  });
+
+  it('shows a removable chip for an active filter', () => {
+    render(<AuctionFilters value={{ ...emptyFilters, city: 'Cali' }} onChange={vi.fn()} />);
+    expect(screen.getByText('Cali')).toBeInTheDocument();
   });
 });

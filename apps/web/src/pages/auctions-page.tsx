@@ -94,8 +94,8 @@ export function AuctionsPage(): React.JSX.Element {
   }, [queryFilters]);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col px-4 py-6 pt-20">
-      <h1 className="mb-4 text-2xl font-bold text-gray-900">Auctions</h1>
+    <div className="flex flex-col py-6">
+      <h1 className="mb-4 font-display text-3xl font-bold text-ink">Auctions</h1>
       <AuctionFilters
         value={filters}
         onChange={(next) => setFilters({ ...EMPTY_FILTERS, ...next })}
@@ -106,6 +106,6 @@ export function AuctionsPage(): React.JSX.Element {
         error={error}
         currentUserId={currentUserId}
       />
-    </main>
+    </div>
   );
 }
