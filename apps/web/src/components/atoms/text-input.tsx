@@ -39,7 +39,7 @@ export function TextInput({
       onChange={handleChange}
       onBlur={handleBlur}
       className={`w-full rounded-lg border px-4 py-3 text-base focus:outline-none focus:ring-2 ${
-        invalid ? 'border-red-500 focus:ring-red-300' : 'border-gray-300 focus:ring-emerald-300'
+        invalid ? 'border-red-500 focus:ring-red-300' : 'border-gray-300 focus:ring-brand-300'
       }`}
     />
   );
