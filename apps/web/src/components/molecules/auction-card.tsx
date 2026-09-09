@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { PublicAuction } from '@thrift-loop/shared';
 import { formatCOP, formatTimeLeft } from '../../lib/format.js';
 import { useNow } from '../../hooks/use-now.js';
 import { Badge } from '../atoms/badge.js';
+import { PhotoPlaceholder } from '../atoms/photo-placeholder.js';
 
 const START_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
 
@@ -15,46 +17,28 @@ function humanizeCondition(condition: string): string {
   return condition.charAt(0).toUpperCase() + condition.slice(1).replace(/-/g, ' ');
 }
 
-function PhotoPlaceholder(): React.JSX.Element {
-  return (
-    <div
-      aria-label="No photo"
-      className="flex aspect-[4/5] items-center justify-center rounded-lg bg-linen"
-    >
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={2}
-        className="h-8 w-8 text-ink-faint"
-      >
-        <rect x="3" y="5" width="18" height="14" rx="2" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-    </div>
-  );
-}
-
 export function AuctionCard({ auction, isOwn }: AuctionCardProps): React.JSX.Element {
   const priceLabel = auction.currentBidCOP === null ? 'Starting at' : 'Current bid';
   const priceValue = auction.currentBidCOP ?? auction.priceCOP;
   const now = useNow();
   const timeLeft = formatTimeLeft(auction.bidEndsAt, now);
   const startedOn = START_DATE_FORMATTER.format(new Date(auction.createdAt));
+  const [photoFailed, setPhotoFailed] = useState(false);
 
   return (
     <Link
       to={`/auctions/${auction.id}`}
       className="block overflow-hidden rounded-lg border border-hairline bg-white shadow-sm hover:shadow-md"
     >
-      {auction.photoUrls[0] ? (
+      {auction.photoUrls[0] && !photoFailed ? (
         <img
           src={auction.photoUrls[0]}
           alt={auction.category}
+          onError={() => setPhotoFailed(true)}
           className="aspect-[4/5] w-full object-cover"
         />
       ) : (
-        <PhotoPlaceholder />
+        <PhotoPlaceholder className="aspect-[4/5]" />
       )}
       <div className="p-3">
         <div className="mb-1 flex items-center gap-2">

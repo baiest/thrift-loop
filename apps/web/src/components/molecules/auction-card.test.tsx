@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { PublicAuction } from '@thrift-loop/shared';
 import { AuctionCard } from './auction-card.js';
@@ -60,6 +60,15 @@ describe('AuctionCard', () => {
   it('shows the first photo when there is one', () => {
     renderCard(makeAuction({ photoUrls: ['/uploads/a.jpg'] }));
     expect(screen.getByRole('img')).toHaveAttribute('src', '/uploads/a.jpg');
+  });
+
+  it('falls back to the placeholder icon when the photo fails to load', () => {
+    renderCard(makeAuction({ photoUrls: ['/uploads/broken.jpg'] }));
+
+    fireEvent.error(screen.getByRole('img'));
+
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('No photo')).toBeInTheDocument();
   });
 
   it('shows the title', () => {
