@@ -110,11 +110,44 @@ Update: closed after an explicit request to match the Stitch designs more closel
 - [x] `pages/profile-page.tsx`: read-only display of country, editable first name/last name/city
       fields alongside existing address/category, "unsaved changes" indicator before save + tests
 
+## Phase 6 — Stitch parity pass
+
+Closed after re-comparing the running app against the Stitch "Auctions Browse" screen and finding
+gaps the earlier phases didn't cover: no brand block in the sidebar, no header CTA/subtitle, no
+result count or sort control, and leftover cool `gray-*` classes next to the warm token scale.
+
+- [x] `components/organisms/sidebar-nav.tsx` + test: add a `BrandBlock` ("Thrift Loop" +
+      "Secondhand Fashion" subtitle) above the nav list in `DesktopSidebar`; `TabletRail` gets the
+      name only (no subtitle, to fit the 72px rail)
+- [x] `pages/auctions-page.tsx` + test: header row gains a subtitle and a "Create auction" link
+      styled as a button, hidden below `sm` (the tab bar already has the same action)
+- [x] `packages/shared/src/auction-sort.ts` + test: `AUCTION_SORTS`, `AuctionSort`, `isAuctionSort`,
+      `DEFAULT_AUCTION_SORT` ('newest')
+- [x] `apps/api/src/repositories/auction.repository.json.ts` + test: `SORT_COMPARATORS` table
+      (ending-soon/newest/price-asc/price-desc), null `bidEndsAt` sorts last, tie-break by
+      newest-first then `id`; wired into `findAllPublished` only
+- [x] `apps/api/src/services/auction.service.ts` + test: `resolveSortFilter` — invalid/absent sort
+      falls back to the default, same sanitize-never-reject pattern as the other filters
+- [x] `apps/api/src/routes/auction.routes.ts` + test: `sort` added to `SEARCH_FIELDS`/
+      `AuctionSearchInput`
+- [x] `apps/web/src/lib/api-client.ts` + test: `sort` added to the `AuctionFilters` type and
+      query-string serialization
+- [x] `components/molecules/sort-control.tsx` + test: labeled `Select` over the 4 sort options
+- [x] `components/molecules/results-bar.tsx` + test: item count (singular/plural) + `SortControl`
+- [x] `pages/auctions-page.tsx` + test: `sort` added to `Filters`/`EMPTY_FILTERS`, read
+      un-debounced (bypasses the 300ms search debounce), `ResultsBar` mounted between filters and
+      grid; not counted in `FilterPanel`'s badge or rendered as a `FilterChips` chip
+- [x] Warm-token sweep: add `--color-ink-soft`/`--color-ink-faint` to `index.css`; replace
+      `gray-*` with token classes across `auction-card.tsx` (incl. `PhotoPlaceholder` →
+      `bg-linen`), `sidebar-nav.tsx`, `create-auction-wizard.tsx`, `auction-detail-page.tsx`,
+      `badge.tsx` (`neutral`/`ended` tones), and the remaining files the grep below finds
+- [x] `grep -rE '(gray|slate|zinc|stone)-[0-9]' apps/web/src` returns nothing
+
 ## Wrap-up
 
 - [x] `npm run verify` green (eol, typecheck, lint `--max-warnings=0`, prettier, test:cov ≥
       85.01%, build)
-- [ ] Manual pass at 1440px, 1024px, 768px, 390px against the Stitch screenshots referenced in
+- [x] Manual pass at 1440px, 1024px, 768px, 390px against the Stitch screenshots referenced in
       `spec.md`
 - [x] `grep -r emerald apps/web/src` and a check for any remaining user-visible "Loading" string
       both come back empty

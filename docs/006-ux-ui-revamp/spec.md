@@ -33,8 +33,9 @@ name or city. Finally, the brand color is Tailwind's `emerald-*` applied ad hoc 
   skeleton placeholders shaped like the content they replace.
 - On the auctions page, search is the dominant control; the other filters are collapsed behind a
   single "Filters" toggle and shown as removable chips once applied.
-- The auction card shows condition/size as pills, current price, time remaining until
-  `bidEndsAt`, and the auction's start date.
+- The auction card shows the condition as a pill, current price, time remaining until `bidEndsAt`,
+  and the auction's start date. (The reference design also shows a size pill, but `PublicAuction`
+  has no `size` field and adding one is a data migration — explicitly a non-goal here.)
 - Creating an auction is a multi-step wizard (photos, details, pricing, schedule, review) instead
   of one long form.
 - The photo step supports drag-and-drop upload with reorderable previews and a marked cover
@@ -66,6 +67,8 @@ name or city. Finally, the brand color is Tailwind's `emerald-*` applied ad hoc 
       primary, espresso ink, cream surface, linen muted, hairline border) and the two brand fonts;
       no component defines its own one-off hex color for brand purposes.
 - [ ] `grep -r emerald apps/web/src` returns no matches.
+- [ ] `grep -rE '(gray|slate|zinc|stone)-[0-9]' apps/web/src` returns no matches: neutral text and
+      surfaces come from the warm token scale, not Tailwind's cool default greys.
 - [ ] `Badge` supports distinct tones for condition, live, ended, draft, and "own listing" status,
       each visually distinguishable from the others.
 
@@ -79,6 +82,8 @@ name or city. Finally, the brand color is Tailwind's `emerald-*` applied ad hoc 
 - [ ] Every nav item renders an icon next to its label at desktop width.
 - [ ] The signed-in user's display name is visible in the shell (not only after navigating to
       Profile).
+- [ ] The desktop sidebar and tablet rail show a brand block ("Thrift Loop", plus a "Secondhand
+      Fashion" subtitle at desktop width only) above the nav items.
 - [ ] A "Log out" control is visible in the shell and calls the same logout flow previously wired
       only on the profile page; the profile page no longer needs its own logout button (the
       profile page may keep or drop it, but the shell has one either way).
@@ -92,6 +97,13 @@ name or city. Finally, the brand color is Tailwind's `emerald-*` applied ad hoc 
 
 ### Auctions browsing
 
+- [ ] The auctions page header shows a one-line subtitle under the "Auctions" heading and a
+      "Create auction" call-to-action at desktop width (the equivalent action already exists as a
+      sidebar/tab-bar nav item, so the header CTA is hidden below `sm`).
+- [ ] Below the filters, a results bar shows the item count ("N items available to bid", singular
+      for one) and a sort control with options Ending soon, Newest, Price low to high, Price high
+      to low; the default is Newest so today's ordering is unchanged unless the user picks a sort.
+      Sort is not a filter: it is excluded from the filter count badge and from the filter chips.
 - [ ] The search input is full-width and visually the largest control on the page; category,
       city, and min/max price controls are not visible by default.
 - [ ] A "Filters" control opens/closes the collapsed filter controls and shows a count of
