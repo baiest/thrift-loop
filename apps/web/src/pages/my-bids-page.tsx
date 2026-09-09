@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { PublicMyBid } from '@thrift-loop/shared';
 import { fetchCurrentUser, fetchMyBids } from '../lib/api-client.js';
-import { formatCOP } from '../lib/format.js';
+import { formatCOP, formatTimeLeft } from '../lib/format.js';
 import { useAuthStore } from '../stores/auth-store.js';
+import { useNow } from '../hooks/use-now.js';
 import { Badge } from '../components/atoms/badge.js';
 
 type BidStatus = 'Winning' | 'Outbid' | 'Won' | 'Lost';
@@ -31,6 +32,9 @@ function MyBidRow({
 }): React.JSX.Element {
   const status = resolveStatus(entry, currentUserId);
   const currentPrice = entry.auction.currentBidCOP ?? entry.auction.priceCOP;
+  const now = useNow();
+  const isOpen = entry.auction.status === 'published';
+  const timeLeft = formatTimeLeft(entry.auction.bidEndsAt, now);
 
   return (
     <li className="rounded-lg border border-hairline p-3">
@@ -41,7 +45,16 @@ function MyBidRow({
         <Badge tone={STATUS_TONE[status]}>{status}</Badge>
       </div>
       <p className="text-sm text-ink-soft">Your bid: {formatCOP(entry.myBidCOP)}</p>
-      <p className="text-sm text-ink-soft">Current price: {formatCOP(currentPrice)}</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm text-ink-soft">Current price: {formatCOP(currentPrice)}</p>
+        {isOpen && (
+          <p
+            className={`text-xs font-medium ${timeLeft.isUrgent ? 'text-brand-600' : 'text-ink-soft'}`}
+          >
+            {timeLeft.label}
+          </p>
+        )}
+      </div>
     </li>
   );
 }

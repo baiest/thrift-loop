@@ -94,6 +94,40 @@ describe('MyBidsPage', () => {
     expect(screen.getAllByText(/60\.000/).length).toBeGreaterThan(0);
   });
 
+  it('shows time remaining for a still-open auction', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+    vi.mocked(fetchMyBids).mockResolvedValue([
+      {
+        auction: {
+          ...baseAuction,
+          bidEndsAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        },
+        myBidCOP: 60_000,
+        isWinning: true,
+      },
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText(/\dm left/)).toBeInTheDocument();
+  });
+
+  it('shows no time remaining for a sold auction', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+    vi.mocked(fetchMyBids).mockResolvedValue([
+      {
+        auction: { ...baseAuction, status: 'sold', winnerUserId: 'USR-1' },
+        myBidCOP: 60_000,
+        isWinning: false,
+      },
+    ]);
+
+    renderPage();
+
+    await screen.findByText('Won');
+    expect(screen.queryByText(/left$/)).not.toBeInTheDocument();
+  });
+
   it('shows an Outbid row when someone else is ahead', async () => {
     vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
     vi.mocked(fetchMyBids).mockResolvedValue([
