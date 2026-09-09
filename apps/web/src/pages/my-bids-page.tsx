@@ -2,12 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { PublicMyBid } from '@thrift-loop/shared';
 import { fetchCurrentUser, fetchMyBids } from '../lib/api-client.js';
-import { formatCOP, formatTimeLeft } from '../lib/format.js';
 import { useAuthStore } from '../stores/auth-store.js';
-import { useNow } from '../hooks/use-now.js';
-import { Badge } from '../components/atoms/badge.js';
-
-type BidStatus = 'Winning' | 'Outbid' | 'Won' | 'Lost';
+import { AuctionCard, type BidStatus } from '../components/molecules/auction-card.js';
 
 function resolveStatus(entry: PublicMyBid, currentUserId: string): BidStatus {
   if (entry.auction.status === 'sold') {
@@ -16,47 +12,18 @@ function resolveStatus(entry: PublicMyBid, currentUserId: string): BidStatus {
   return entry.isWinning ? 'Winning' : 'Outbid';
 }
 
-const STATUS_TONE: Record<BidStatus, 'live' | 'ended' | 'draft'> = {
-  Winning: 'live',
-  Won: 'live',
-  Outbid: 'draft',
-  Lost: 'ended',
-};
+// Auctions still open sort soonest-ending-first (nulls, i.e. not yet bid on
+// by anyone, sort last among open ones); anything already sold sorts after
+// every open auction — "ending soon" is only meaningful while it's live.
+function endingSoonRank(entry: PublicMyBid): number {
+  if (entry.auction.status !== 'published') {
+    return Infinity;
+  }
+  return entry.auction.bidEndsAt ? new Date(entry.auction.bidEndsAt).getTime() : Infinity;
+}
 
-function MyBidRow({
-  entry,
-  currentUserId,
-}: {
-  readonly entry: PublicMyBid;
-  readonly currentUserId: string;
-}): React.JSX.Element {
-  const status = resolveStatus(entry, currentUserId);
-  const currentPrice = entry.auction.currentBidCOP ?? entry.auction.priceCOP;
-  const now = useNow();
-  const isOpen = entry.auction.status === 'published';
-  const timeLeft = formatTimeLeft(entry.auction.bidEndsAt, now);
-
-  return (
-    <li className="rounded-lg border border-hairline p-3">
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <p className="font-medium text-ink">{entry.auction.title}</p>
-        {/* status is narrowed to the fixed BidStatus union, not attacker input. */}
-        {/* eslint-disable-next-line security/detect-object-injection */}
-        <Badge tone={STATUS_TONE[status]}>{status}</Badge>
-      </div>
-      <p className="text-sm text-ink-soft">Your bid: {formatCOP(entry.myBidCOP)}</p>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-ink-soft">Current price: {formatCOP(currentPrice)}</p>
-        {isOpen && (
-          <p
-            className={`text-xs font-medium ${timeLeft.isUrgent ? 'text-brand-600' : 'text-ink-soft'}`}
-          >
-            {timeLeft.label}
-          </p>
-        )}
-      </div>
-    </li>
-  );
+function sortByEndingSoon(entries: readonly PublicMyBid[]): PublicMyBid[] {
+  return [...entries].sort((a, b) => endingSoonRank(a) - endingSoonRank(b));
 }
 
 export function MyBidsPage(): React.JSX.Element | null {
@@ -92,17 +59,25 @@ export function MyBidsPage(): React.JSX.Element | null {
     return null;
   }
 
+  const sortedBids = sortByEndingSoon(myBids);
+
   return (
-    <div className="mx-auto flex max-w-2xl flex-col py-6">
-      <h1 className="mb-4 font-display text-2xl font-bold text-ink">My bids</h1>
-      {myBids.length === 0 ? (
+    <div className="flex flex-col py-6">
+      <h1 className="mb-4 font-display text-3xl font-bold text-ink">My bids</h1>
+      {sortedBids.length === 0 ? (
         <p className="text-sm text-ink-soft">No bids yet.</p>
       ) : (
-        <ul className="space-y-3">
-          {myBids.map((entry) => (
-            <MyBidRow key={entry.auction.id} entry={entry} currentUserId={user.id} />
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {sortedBids.map((entry) => (
+            <AuctionCard
+              key={entry.auction.id}
+              auction={entry.auction}
+              isOwn={false}
+              myBidCOP={entry.myBidCOP}
+              bidStatus={resolveStatus(entry, user.id)}
+            />
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );

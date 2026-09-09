@@ -8,17 +8,57 @@ import { PhotoPlaceholder } from '../atoms/photo-placeholder.js';
 
 const START_DATE_FORMATTER = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
 
+export type BidStatus = 'Winning' | 'Outbid' | 'Won' | 'Lost';
+
 export interface AuctionCardProps {
   readonly auction: PublicAuction;
   readonly isOwn: boolean;
   readonly myBidCOP?: number | undefined;
+  readonly bidStatus?: BidStatus | undefined;
 }
+
+const BID_STATUS_TONE: Record<BidStatus, 'live' | 'ended' | 'draft'> = {
+  Winning: 'live',
+  Won: 'live',
+  Outbid: 'draft',
+  Lost: 'ended',
+};
 
 function humanizeCondition(condition: string): string {
   return condition.charAt(0).toUpperCase() + condition.slice(1).replace(/-/g, ' ');
 }
 
-export function AuctionCard({ auction, isOwn, myBidCOP }: AuctionCardProps): React.JSX.Element {
+function StatusBadges({
+  auction,
+  isOwn,
+  bidStatus,
+}: {
+  readonly auction: PublicAuction;
+  readonly isOwn: boolean;
+  readonly bidStatus: BidStatus | undefined;
+}): React.JSX.Element {
+  return (
+    <div className="mb-1 flex items-center gap-2">
+      <Badge tone="condition">{humanizeCondition(auction.condition)}</Badge>
+      {isOwn && <Badge tone="own">Yours</Badge>}
+      {bidStatus ? (
+        // bidStatus is narrowed to the fixed BidStatus union, not attacker input.
+        // eslint-disable-next-line security/detect-object-injection
+        <Badge tone={BID_STATUS_TONE[bidStatus]}>{bidStatus}</Badge>
+      ) : (
+        auction.status === 'sold' && <Badge tone="ended">Sold</Badge>
+      )}
+      {auction.status === 'draft' && <Badge tone="draft">Draft</Badge>}
+    </div>
+  );
+}
+
+export function AuctionCard({
+  auction,
+  isOwn,
+  myBidCOP,
+  bidStatus,
+}: AuctionCardProps): React.JSX.Element {
   const priceLabel = auction.currentBidCOP === null ? 'Starting at' : 'Current bid';
   const priceValue = auction.currentBidCOP ?? auction.priceCOP;
   const now = useNow();
@@ -42,12 +82,7 @@ export function AuctionCard({ auction, isOwn, myBidCOP }: AuctionCardProps): Rea
         <PhotoPlaceholder className="aspect-[4/5]" />
       )}
       <div className="p-3">
-        <div className="mb-1 flex items-center gap-2">
-          <Badge tone="condition">{humanizeCondition(auction.condition)}</Badge>
-          {isOwn && <Badge tone="own">Yours</Badge>}
-          {auction.status === 'sold' && <Badge tone="ended">Sold</Badge>}
-          {auction.status === 'draft' && <Badge tone="draft">Draft</Badge>}
-        </div>
+        <StatusBadges auction={auction} isOwn={isOwn} bidStatus={bidStatus} />
         <p className="truncate text-sm font-medium text-ink">{auction.title}</p>
         <div className="mt-1 flex items-end justify-between gap-2">
           <div>
