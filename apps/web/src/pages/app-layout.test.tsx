@@ -36,4 +36,19 @@ describe('AppLayout', () => {
 
     expect(screen.getByRole('main')).toHaveClass('pb-20');
   });
+
+  it('centers content in the space left over from the sidebar, not the full viewport', () => {
+    renderLayout();
+
+    const main = screen.getByRole('main');
+    // Centering (mx-auto) must live on an element INSIDE the offset `main`,
+    // not on `main` itself — mx-auto and the ml-64 offset both set
+    // margin-left, and ml-64 always wins, so combining them on one element
+    // pins content flush against the sidebar with all the slack on the right.
+    expect(main).not.toHaveClass('mx-auto');
+    expect(main).not.toHaveClass('max-w-7xl');
+
+    const centeredWrapper = screen.getByText('child content').closest('.mx-auto');
+    expect(centeredWrapper).toHaveClass('max-w-7xl');
+  });
 });
