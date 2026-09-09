@@ -262,7 +262,6 @@ function PricingStep({ priceCOP, error, onChange }: PricingStepProps): React.JSX
       <FormField id="priceCOP" label="Price (COP)" error={error}>
         <CurrencyInput
           id="priceCOP"
-          label="Price (COP)"
           value={priceCOP}
           invalid={Boolean(error)}
           onChange={onChange}
