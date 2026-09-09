@@ -38,7 +38,14 @@ describe('SidebarNav', () => {
       return screen.getByRole('navigation', { name: 'Main navigation' });
     }
 
-    it('has "Create auction" as the first item, linking to /auctions/new', () => {
+    it('shows the brand name and subtitle above the nav items', () => {
+      renderNav();
+      const nav = desktopNav();
+      expect(within(nav).getByText('Thrift Loop')).toBeInTheDocument();
+      expect(within(nav).getByText('Secondhand Fashion')).toBeInTheDocument();
+    });
+
+    it('has "Create auction" as the first nav link, linking to /auctions/new', () => {
       renderNav();
       const links = within(desktopNav()).getAllByRole('link');
       expect(links[0]).toHaveTextContent(/create auction/i);
@@ -105,6 +112,13 @@ describe('SidebarNav', () => {
     function tabletNav(): HTMLElement {
       return screen.getByRole('navigation', { name: 'Tablet navigation' });
     }
+
+    it('shows the brand name but not the subtitle, to fit the narrow rail', () => {
+      renderNav();
+      const nav = tabletNav();
+      expect(within(nav).getByText('Thrift Loop')).toBeInTheDocument();
+      expect(within(nav).queryByText('Secondhand Fashion')).not.toBeInTheDocument();
+    });
 
     it('renders every nav item as an icon-only link', () => {
       renderNav();
