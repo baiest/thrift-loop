@@ -10,7 +10,7 @@ export interface ResultsBarProps {
 export function ResultsBar({ count, sort, onSortChange }: ResultsBarProps): React.JSX.Element {
   const noun = count === 1 ? 'item' : 'items';
   return (
-    <div className="mb-4 flex items-center justify-between">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
       <p className="text-sm text-ink-soft">
         {count} {noun} available to bid
       </p>

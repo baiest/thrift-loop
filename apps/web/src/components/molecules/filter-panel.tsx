@@ -34,12 +34,12 @@ export function FilterPanel({ value, onChange }: FilterPanelProps): React.JSX.El
   }
 
   return (
-    <div>
+    <>
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
         aria-expanded={isOpen}
-        className="flex h-14 items-center gap-2 rounded-xl border border-hairline bg-white px-5 font-medium text-ink"
+        className="flex h-14 shrink-0 items-center gap-2 rounded-xl border border-hairline bg-white px-5 font-medium text-ink"
       >
         <Icon name="sliders" className="h-5 w-5" />
         Filters
@@ -51,7 +51,10 @@ export function FilterPanel({ value, onChange }: FilterPanelProps): React.JSX.El
       </button>
 
       {isOpen && (
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div
+          data-testid="filter-panel-content"
+          className="mt-4 grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
           <FormField id="auction-category" label="Category">
             <Select
               id="auction-category"
@@ -91,6 +94,6 @@ export function FilterPanel({ value, onChange }: FilterPanelProps): React.JSX.El
           </FormField>
         </div>
       )}
-    </div>
+    </>
   );
 }

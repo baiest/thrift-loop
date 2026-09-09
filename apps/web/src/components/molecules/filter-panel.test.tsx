@@ -49,6 +49,15 @@ describe('FilterPanel', () => {
     expect(screen.getByText('2')).toBeInTheDocument();
   });
 
+  it('renders the open panel full-width, not nested inside the toggle button', async () => {
+    render(<FilterPanel value={EMPTY_VALUE} onChange={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: /filters/i }));
+
+    const panel = screen.getByTestId('filter-panel-content');
+    expect(panel).toHaveClass('w-full');
+    expect(screen.getByRole('button', { name: /filters/i })).not.toContainElement(panel);
+  });
+
   it('forwards changes from an inner control', async () => {
     const onChange = vi.fn();
     render(<FilterPanel value={EMPTY_VALUE} onChange={onChange} />);
