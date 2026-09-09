@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { PublicAuction } from '@thrift-loop/shared';
+import { useRealtimeStore } from '../../stores/realtime-store.js';
 import { AuctionGrid } from './auction-grid.js';
 
 function makeAuction(overrides: Partial<PublicAuction> = {}): PublicAuction {
@@ -37,6 +38,45 @@ function renderGrid(props: Partial<React.ComponentProps<typeof AuctionGrid>> = {
 }
 
 describe('AuctionGrid', () => {
+  afterEach(() => {
+    useRealtimeStore.setState({
+      status: 'idle',
+      hasConnectedOnce: false,
+      resyncToken: 0,
+      unreadCount: 0,
+      auctionUpdates: {},
+      viewersByAuctionId: {},
+    });
+  });
+
+  it('reflects a live price/bid-count update for a rendered auction', () => {
+    useRealtimeStore.getState().applyServerMessage({
+      type: 'auction-updated',
+      auctionId: 'AUC-1',
+      currentBidCOP: 75_000,
+      bidCount: 3,
+      bidEndsAt: null,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+
+    renderGrid({ auctions: [makeAuction({ id: 'AUC-1', priceCOP: 50_000, currentBidCOP: null })] });
+
+    expect(screen.getByText(/75\.000/)).toBeInTheDocument();
+  });
+
+  it('flips a card to Sold once a live auction-closed arrives', () => {
+    useRealtimeStore.getState().applyServerMessage({
+      type: 'auction-closed',
+      auctionId: 'AUC-1',
+      winnerUserId: 'USR-winner',
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+
+    renderGrid({ auctions: [makeAuction({ id: 'AUC-1', status: 'published' })] });
+
+    expect(screen.getByText('Sold')).toBeInTheDocument();
+  });
+
   it('shows skeleton placeholders instead of a "Loading" string', () => {
     renderGrid({ isLoading: true });
     expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();

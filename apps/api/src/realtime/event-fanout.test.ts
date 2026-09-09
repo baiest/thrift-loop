@@ -138,6 +138,40 @@ describe('attachEventFanout', () => {
     });
   });
 
+  it('also broadcasts auction-updated to the grid room on bid-placed', async () => {
+    const eventBus = new FakeEventBus();
+    const hub = createRealtimeHub();
+    const fakeSocket = new FakeSocket();
+    const connection = hub.addConnection('USR-viewer', fakeSocket);
+    hub.joinRoom(connection, 'grid');
+    const notificationService = makeFakeNotificationService([]);
+    attachEventFanout(eventBus, hub, notificationService);
+
+    eventBus.publish(bidPlacedEvent);
+    await vi.waitFor(() => {
+      expect(fakeSocket.messages()).toContainEqual(
+        expect.objectContaining({ type: 'auction-updated', auctionId: 'AUC-1' }),
+      );
+    });
+  });
+
+  it('also broadcasts auction-closed to the grid room on auction-closed', async () => {
+    const eventBus = new FakeEventBus();
+    const hub = createRealtimeHub();
+    const fakeSocket = new FakeSocket();
+    const connection = hub.addConnection('USR-viewer', fakeSocket);
+    hub.joinRoom(connection, 'grid');
+    const notificationService = makeFakeNotificationService([]);
+    attachEventFanout(eventBus, hub, notificationService);
+
+    eventBus.publish(auctionClosedEvent);
+    await vi.waitFor(() => {
+      expect(fakeSocket.messages()).toContainEqual(
+        expect.objectContaining({ type: 'auction-closed', auctionId: 'AUC-1' }),
+      );
+    });
+  });
+
   it('broadcasts auction-closed to the auction room on auction-closed', async () => {
     const eventBus = new FakeEventBus();
     const hub = createRealtimeHub();
