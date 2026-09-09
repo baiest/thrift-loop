@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import type { PublicUser } from '@thrift-loop/shared';
 import { useAuthStore } from '../../stores/auth-store.js';
+import { useRealtimeStore } from '../../stores/realtime-store.js';
 import { NotificationBell } from './notification-bell.js';
 
 vi.mock('../../lib/api-client.js', async () => {
@@ -39,6 +40,14 @@ function renderBell(): void {
 describe('NotificationBell', () => {
   beforeEach(() => {
     useAuthStore.getState().clearUser();
+    useRealtimeStore.setState({
+      status: 'idle',
+      hasConnectedOnce: false,
+      resyncToken: 0,
+      unreadCount: 0,
+      auctionUpdates: {},
+      viewersByAuctionId: {},
+    });
     vi.mocked(fetchNotifications).mockReset();
     vi.mocked(fetchNotifications).mockResolvedValue({ notifications: [], unreadCount: 0 });
   });
@@ -71,6 +80,29 @@ describe('NotificationBell', () => {
     useAuthStore.getState().setUser(sampleUser);
     renderBell();
     expect(screen.queryByText('0')).not.toBeInTheDocument();
+  });
+
+  it('updates the badge when a notification is pushed live via the store', async () => {
+    useAuthStore.getState().setUser(sampleUser);
+    renderBell();
+    await screen.findByRole('button', { name: /notifications/i });
+
+    useRealtimeStore.getState().applyServerMessage({
+      type: 'notification',
+      notification: {
+        id: 'NTF-1',
+        type: 'outbid',
+        auctionId: 'AUC-1',
+        auctionTitle: 'Chaqueta',
+        amountCOP: 60_000,
+        actorFirstName: 'Ana',
+        readAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      },
+      unreadCount: 9,
+    });
+
+    expect(await screen.findByText('9')).toBeInTheDocument();
   });
 
   it('opens the panel when clicked', async () => {

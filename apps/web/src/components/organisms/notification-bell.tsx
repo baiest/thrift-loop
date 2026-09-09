@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../atoms/icon.js';
 import { useAuthStore } from '../../stores/auth-store.js';
+import { useRealtimeStore } from '../../stores/realtime-store.js';
 import { fetchNotifications } from '../../lib/api-client.js';
 import { NotificationPanel } from './notification-panel.js';
 
@@ -20,7 +21,8 @@ function UnreadBadge({ count }: { readonly count: number }): React.JSX.Element |
 
 export function NotificationBell(): React.JSX.Element | null {
   const user = useAuthStore((state) => state.user);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const unreadCount = useRealtimeStore((state) => state.unreadCount);
+  const setUnreadCount = useRealtimeStore((state) => state.setUnreadCount);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -28,7 +30,7 @@ export function NotificationBell(): React.JSX.Element | null {
       return;
     }
     void fetchNotifications().then((result) => setUnreadCount(result.unreadCount));
-  }, [user]);
+  }, [user, setUnreadCount]);
 
   if (!user) {
     return null;

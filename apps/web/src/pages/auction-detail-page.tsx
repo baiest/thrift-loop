@@ -14,8 +14,63 @@ import { BidForm } from '../components/organisms/bid-form.js';
 import { Button } from '../components/atoms/button.js';
 import { Skeleton } from '../components/atoms/skeleton.js';
 import { PhotoPlaceholder } from '../components/atoms/photo-placeholder.js';
+import { useAuctionRealtime } from '../hooks/use-auction-realtime.js';
+import { useRealtimeStore } from '../stores/realtime-store.js';
 
-const POLL_INTERVAL_MS = 5000;
+const STALE_AFTER_MS = 15_000;
+
+/** True once `status` has stayed 'reconnecting' for longer than `staleAfterMs`. */
+function useIsStaleConnection(status: string, staleAfterMs: number): boolean {
+  const [stale, setStale] = useState(false);
+
+  useEffect(() => {
+    if (status !== 'reconnecting') {
+      setStale(false);
+      return;
+    }
+    const timer = setTimeout(() => setStale(true), staleAfterMs);
+    return () => clearTimeout(timer);
+  }, [status, staleAfterMs]);
+
+  return stale;
+}
+
+function AuctionPhoto({
+  auction,
+  photoFailed,
+  onPhotoError,
+}: {
+  readonly auction: PublicAuction;
+  readonly photoFailed: boolean;
+  readonly onPhotoError: () => void;
+}): React.JSX.Element {
+  if (!auction.photoUrls[0] || photoFailed) {
+    return <PhotoPlaceholder className="aspect-square" />;
+  }
+  return (
+    <img
+      src={auction.photoUrls[0]}
+      alt={auction.category}
+      onError={onPhotoError}
+      className="aspect-square w-full rounded-lg object-cover"
+    />
+  );
+}
+
+function withLiveUpdate(
+  auction: PublicAuction,
+  update: { currentBidCOP: number; bidCount: number; bidEndsAt: string | null } | null,
+): PublicAuction {
+  if (!update) {
+    return auction;
+  }
+  return {
+    ...auction,
+    currentBidCOP: update.currentBidCOP,
+    bidCount: update.bidCount,
+    bidEndsAt: update.bidEndsAt,
+  };
+}
 
 interface DetailState {
   auction: PublicAuction;
@@ -38,6 +93,10 @@ export function AuctionDetailPage(): React.JSX.Element | null {
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
   const [photoFailed, setPhotoFailed] = useState(false);
+  const { update } = useAuctionRealtime(id);
+  const resyncToken = useRealtimeStore((state) => state.resyncToken);
+  const connectionStatus = useRealtimeStore((state) => state.status);
+  const showReconnecting = useIsStaleConnection(connectionStatus, STALE_AFTER_MS);
 
   const load = useCallback(async (): Promise<void> => {
     if (!id) {
@@ -63,15 +122,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
 
   useEffect(() => {
     void load();
-  }, [load]);
-
-  useEffect(() => {
-    if (!detail || detail.auction.status !== 'published') {
-      return;
-    }
-    const interval = setInterval(() => void load(), POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [detail, load]);
+  }, [load, resyncToken]);
 
   if (loading) {
     return (
@@ -97,7 +148,8 @@ export function AuctionDetailPage(): React.JSX.Element | null {
     );
   }
 
-  const { auction, serverOffsetMs } = detail;
+  const { serverOffsetMs } = detail;
+  const auction = withLiveUpdate(detail.auction, update);
   const canBid = canUserBid(user, auction);
   const canPublish = canUserPublish(user, auction);
 
@@ -108,17 +160,13 @@ export function AuctionDetailPage(): React.JSX.Element | null {
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col py-6">
+      {showReconnecting && <p className="mb-4 text-xs font-medium text-amber-700">Reconnecting…</p>}
       <div className="grid gap-8 lg:grid-cols-2">
-        {auction.photoUrls[0] && !photoFailed ? (
-          <img
-            src={auction.photoUrls[0]}
-            alt={auction.category}
-            onError={() => setPhotoFailed(true)}
-            className="aspect-square w-full rounded-lg object-cover"
-          />
-        ) : (
-          <PhotoPlaceholder className="aspect-square" />
-        )}
+        <AuctionPhoto
+          auction={auction}
+          photoFailed={photoFailed}
+          onPhotoError={() => setPhotoFailed(true)}
+        />
 
         <div className="flex flex-col">
           <h1 className="mb-1 text-xl font-bold text-ink">{auction.title}</h1>

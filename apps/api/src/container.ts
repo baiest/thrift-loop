@@ -60,13 +60,6 @@ export function buildContainer(): Container {
     join(dataDir, 'notifications.json'),
   );
   const notificationService = createNotificationService(notificationRepository, userRepository);
-  // Temporary direct wiring until PR 2 introduces the WebSocket hub and
-  // replaces this with realtime/event-fanout.ts.
-  eventBus.subscribe((event) => {
-    notificationService.recordForEvent(event).catch((error: unknown) => {
-      console.error('Failed to record notification for event', error);
-    });
-  });
 
   return {
     userRepository,

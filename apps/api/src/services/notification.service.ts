@@ -117,15 +117,30 @@ export function createNotificationService(
   notificationRepository: NotificationRepository,
   userRepository: UserRepository,
 ) {
+  async function buildAndPersist(event: DomainEvent): Promise<Notification[]> {
+    const notifications =
+      event.type === 'bid-placed'
+        ? await buildBidPlacedNotifications(userRepository, event)
+        : await buildAuctionClosedNotifications(userRepository, event);
+
+    await notificationRepository.saveMany(notifications);
+    return notifications;
+  }
+
   return {
     async recordForEvent(event: DomainEvent): Promise<PublicNotification[]> {
-      const notifications =
-        event.type === 'bid-placed'
-          ? await buildBidPlacedNotifications(userRepository, event)
-          : await buildAuctionClosedNotifications(userRepository, event);
-
-      await notificationRepository.saveMany(notifications);
+      const notifications = await buildAndPersist(event);
       return notifications.map(toPublicNotification);
+    },
+
+    async recordForEventWithRecipients(
+      event: DomainEvent,
+    ): Promise<{ userId: string; notification: PublicNotification }[]> {
+      const notifications = await buildAndPersist(event);
+      return notifications.map((notification) => ({
+        userId: notification.userId,
+        notification: toPublicNotification(notification),
+      }));
     },
 
     async list(

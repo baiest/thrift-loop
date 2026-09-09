@@ -250,6 +250,42 @@ describe('NotificationService', () => {
     });
   });
 
+  describe('recordForEventWithRecipients', () => {
+    it('pairs each created notification with its recipient userId', async () => {
+      const entries = await service.recordForEventWithRecipients(bidPlacedEvent);
+
+      expect(entries).toContainEqual({
+        userId: 'USR-previous',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest's objectContaining typing widens to `any`
+        notification: expect.objectContaining({ type: 'outbid' }),
+      });
+      expect(entries).toContainEqual({
+        userId: 'USR-owner',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- vitest's objectContaining typing widens to `any`
+        notification: expect.objectContaining({ type: 'bid-on-my-listing' }),
+      });
+    });
+
+    it('persists the same notifications recordForEvent would have', async () => {
+      await service.recordForEventWithRecipients(bidPlacedEvent);
+
+      expect(notificationRepository.items).toHaveLength(2);
+    });
+
+    it('respects preferences the same way recordForEvent does', async () => {
+      userRepository.seed(
+        makeUser({
+          id: 'USR-previous',
+          notificationPreferences: { ...DEFAULT_NOTIFICATION_PREFERENCES, outbid: false },
+        }),
+      );
+
+      const entries = await service.recordForEventWithRecipients(bidPlacedEvent);
+
+      expect(entries.some((entry) => entry.notification.type === 'outbid')).toBe(false);
+    });
+  });
+
   describe('list', () => {
     it('returns notifications and the unread count for a user', async () => {
       await service.recordForEvent(bidPlacedEvent);
