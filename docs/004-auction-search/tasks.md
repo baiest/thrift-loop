@@ -30,4 +30,4 @@
 
 - [x] `npm run verify` green (typecheck, lint, format, coverage >85.01%, build)
 - [x] Manual smoke test per `plan.md`'s test strategy, incl. the `<script>`-shaped search/title
-- [ ] Open PR, confirm all CI checks pass, leave merge to the user
+- [x] Open PR, confirm all CI checks pass, leave merge to the user
