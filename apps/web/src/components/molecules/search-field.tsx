@@ -17,7 +17,7 @@ export function SearchField({ value, onChange }: SearchFieldProps): React.JSX.El
     <div className="relative flex-1">
       <Icon
         name="search"
-        className="pointer-events-none absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-gray-400"
+        className="pointer-events-none absolute left-4 top-1/2 h-6 w-6 -translate-y-1/2 text-ink-faint"
       />
       <input
         role="searchbox"

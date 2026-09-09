@@ -19,14 +19,14 @@ function PhotoPlaceholder(): React.JSX.Element {
   return (
     <div
       aria-label="No photo"
-      className="flex aspect-[4/5] items-center justify-center rounded-lg bg-gray-100"
+      className="flex aspect-[4/5] items-center justify-center rounded-lg bg-linen"
     >
       <svg
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
         strokeWidth={2}
-        className="h-8 w-8 text-gray-400"
+        className="h-8 w-8 text-ink-faint"
       >
         <rect x="3" y="5" width="18" height="14" rx="2" />
         <circle cx="12" cy="12" r="3" />
@@ -63,19 +63,19 @@ export function AuctionCard({ auction, isOwn }: AuctionCardProps): React.JSX.Ele
           {auction.status === 'sold' && <Badge tone="ended">Sold</Badge>}
           {auction.status === 'draft' && <Badge tone="draft">Draft</Badge>}
         </div>
-        <p className="truncate text-sm font-medium text-gray-900">{auction.title}</p>
+        <p className="truncate text-sm font-medium text-ink">{auction.title}</p>
         <div className="mt-1 flex items-end justify-between gap-2">
           <div>
-            <p className="text-xs text-gray-500">{priceLabel}</p>
+            <p className="text-xs text-ink-soft">{priceLabel}</p>
             <p className="font-display text-lg font-semibold text-ink">{formatCOP(priceValue)}</p>
           </div>
           <p
-            className={`text-xs font-medium ${timeLeft.isUrgent ? 'text-brand-600' : 'text-gray-500'}`}
+            className={`text-xs font-medium ${timeLeft.isUrgent ? 'text-brand-600' : 'text-ink-soft'}`}
           >
             {timeLeft.label}
           </p>
         </div>
-        <p className="mt-2 text-[11px] text-gray-400">
+        <p className="mt-2 text-[11px] text-ink-faint">
           Started {startedOn} · {auction.location}
         </p>
       </div>

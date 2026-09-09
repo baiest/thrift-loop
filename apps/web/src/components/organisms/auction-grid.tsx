@@ -30,7 +30,7 @@ export function AuctionGrid({
     return <p className="text-sm text-red-600">{error}</p>;
   }
   if (auctions.length === 0) {
-    return <p className="text-sm text-gray-500">No auctions yet.</p>;
+    return <p className="text-sm text-ink-soft">No auctions yet.</p>;
   }
 
   return (

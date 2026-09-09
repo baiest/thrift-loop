@@ -13,13 +13,13 @@ function stateFor(index: number, currentIndex: number): StepState {
 const CIRCLE_CLASSES: Record<StepState, string> = {
   completed: 'bg-brand-500 text-white',
   current: 'bg-brand-500 text-white',
-  upcoming: 'bg-linen text-gray-500',
+  upcoming: 'bg-linen text-ink-soft',
 };
 
 const LABEL_CLASSES: Record<StepState, string> = {
   completed: 'text-ink',
   current: 'text-ink font-semibold',
-  upcoming: 'text-gray-400',
+  upcoming: 'text-ink-faint',
 };
 
 export interface StepperProps {

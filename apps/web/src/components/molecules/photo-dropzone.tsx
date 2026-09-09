@@ -101,9 +101,9 @@ export function PhotoDropzone({ files, onChange }: PhotoDropzoneProps): React.JS
           onChange={handleFileInput}
           className="sr-only"
         />
-        <p className="text-xs text-gray-500">JPG or PNG, up to 5 MB each, 10 photos max</p>
+        <p className="text-xs text-ink-soft">JPG or PNG, up to 5 MB each, 10 photos max</p>
       </div>
-      <p className="mt-1 text-xs text-gray-500">
+      <p className="mt-1 text-xs text-ink-soft">
         {files.length}/{MAX_PHOTOS_PER_AUCTION} photos
       </p>
       <FieldError message={error} />
