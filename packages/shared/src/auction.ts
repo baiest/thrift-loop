@@ -8,6 +8,7 @@ export interface PublicAuction {
   id: string;
   userId: string;
   title: string;
+  description: string;
   category: ItemCategory;
   condition: ItemCondition;
   priceCOP: number;
@@ -19,7 +20,7 @@ export interface PublicAuction {
   bidCount: number;
   bidEndsAt: string | null;
   winnerUserId: string | null;
-  sellerCity: string;
+  location: string;
   createdAt: string;
   updatedAt: string;
 }

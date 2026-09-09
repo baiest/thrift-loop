@@ -1,3 +1,5 @@
+import type { ItemCategory } from './item-category.js';
+
 export interface PublicUser {
   id: string;
   firstName: string;
@@ -5,4 +7,5 @@ export interface PublicUser {
   city: string;
   country: 'CO';
   address: string | null;
+  categoryPreference: ItemCategory | null;
 }

@@ -1,4 +1,5 @@
-export const ITEM_CONDITIONS = ['new', 'like-new', 'good', 'fair', 'worn'] as const;
+// Bueno, Nuevo con etiqueta, Sin usar, Con desgaste.
+export const ITEM_CONDITIONS = ['good', 'new-with-tag', 'unused', 'worn'] as const;
 
 export type ItemCondition = (typeof ITEM_CONDITIONS)[number];
 
