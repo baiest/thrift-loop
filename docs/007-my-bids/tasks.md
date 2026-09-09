@@ -40,4 +40,4 @@
 - [x] `npm run verify` green
 - [x] Manual: bid on an auction as one seed user, confirm it shows on Auctions grid and on
       My bids for that user, with the right status after being outbid by another seed user
-- [ ] Open PR, confirm CI is green, leave merge to the user
+- [x] Open PR, confirm CI is green, leave merge to the user
