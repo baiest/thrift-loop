@@ -11,7 +11,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={`w-full rounded-lg bg-emerald-600 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-gray-300 ${className}`}
+      className={`w-full rounded-lg bg-brand-500 px-4 py-3 text-base font-semibold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-gray-300 ${className}`}
       {...rest}
     >
       {children}

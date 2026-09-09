@@ -36,7 +36,7 @@ export function Select({
       onChange={handleChange}
       onBlur={onBlur}
       className={`w-full rounded-lg border bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 ${
-        invalid ? 'border-red-500 focus:ring-red-300' : 'border-gray-300 focus:ring-emerald-300'
+        invalid ? 'border-red-500 focus:ring-red-300' : 'border-gray-300 focus:ring-brand-300'
       }`}
     >
       <option value="" disabled>

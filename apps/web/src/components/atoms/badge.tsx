@@ -1,12 +1,15 @@
 export interface BadgeProps {
   readonly children: React.ReactNode;
-  readonly tone?: 'neutral' | 'emerald' | 'amber';
+  readonly tone?: 'neutral' | 'condition' | 'live' | 'ended' | 'draft' | 'own';
 }
 
 const TONE_CLASSES: Record<NonNullable<BadgeProps['tone']>, string> = {
   neutral: 'bg-gray-100 text-gray-700',
-  emerald: 'bg-emerald-100 text-emerald-700',
-  amber: 'bg-amber-100 text-amber-800',
+  condition: 'bg-linen text-ink',
+  live: 'bg-brand-100 text-brand-700',
+  ended: 'bg-gray-200 text-gray-600',
+  draft: 'bg-amber-100 text-amber-800',
+  own: 'border border-ink text-ink',
 };
 
 export function Badge({ children, tone = 'neutral' }: BadgeProps): React.JSX.Element {

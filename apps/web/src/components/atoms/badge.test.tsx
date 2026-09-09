@@ -13,13 +13,28 @@ describe('Badge', () => {
     expect(screen.getByText('Neutral')).toHaveClass('bg-gray-100');
   });
 
-  it('applies the emerald tone', () => {
-    render(<Badge tone="emerald">Active</Badge>);
-    expect(screen.getByText('Active')).toHaveClass('bg-emerald-100');
+  it('applies the condition tone', () => {
+    render(<Badge tone="condition">Very good</Badge>);
+    expect(screen.getByText('Very good')).toHaveClass('bg-linen');
   });
 
-  it('applies the amber tone', () => {
-    render(<Badge tone="amber">Sold</Badge>);
-    expect(screen.getByText('Sold')).toHaveClass('bg-amber-100');
+  it('applies the live tone', () => {
+    render(<Badge tone="live">Live</Badge>);
+    expect(screen.getByText('Live')).toHaveClass('bg-brand-100');
+  });
+
+  it('applies the ended tone', () => {
+    render(<Badge tone="ended">Ended</Badge>);
+    expect(screen.getByText('Ended')).toHaveClass('bg-gray-200');
+  });
+
+  it('applies the draft tone', () => {
+    render(<Badge tone="draft">Draft</Badge>);
+    expect(screen.getByText('Draft')).toHaveClass('bg-amber-100');
+  });
+
+  it('applies the own tone', () => {
+    render(<Badge tone="own">Yours</Badge>);
+    expect(screen.getByText('Yours')).toHaveClass('border-ink');
   });
 });
