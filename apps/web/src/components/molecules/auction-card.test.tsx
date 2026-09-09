@@ -28,10 +28,10 @@ function makeAuction(overrides: Partial<PublicAuction> = {}): PublicAuction {
   };
 }
 
-function renderCard(auction: PublicAuction, isOwn = false): void {
+function renderCard(auction: PublicAuction, isOwn = false, myBidCOP?: number): void {
   render(
     <MemoryRouter>
-      <AuctionCard auction={auction} isOwn={isOwn} />
+      <AuctionCard auction={auction} isOwn={isOwn} myBidCOP={myBidCOP} />
     </MemoryRouter>,
   );
 }
@@ -129,5 +129,16 @@ describe('AuctionCard', () => {
   it('marks urgent auctions under an hour left', () => {
     renderCard(makeAuction({ bidEndsAt: new Date(Date.now() + 5 * 60 * 1000).toISOString() }));
     expect(screen.getByText(/\dm left/)).toHaveClass('text-brand-600');
+  });
+
+  it('shows the viewer own bid when one is known', () => {
+    renderCard(makeAuction(), false, 45_000);
+    expect(screen.getByText(/you bid/i)).toBeInTheDocument();
+    expect(screen.getByText(/45\.000/)).toBeInTheDocument();
+  });
+
+  it('does not show a bid line when the viewer has not bid', () => {
+    renderCard(makeAuction());
+    expect(screen.queryByText(/you bid/i)).not.toBeInTheDocument();
   });
 });

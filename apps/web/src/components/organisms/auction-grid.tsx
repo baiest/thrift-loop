@@ -9,6 +9,7 @@ export interface AuctionGridProps {
   readonly isLoading: boolean;
   readonly error: string | null;
   readonly currentUserId: string | null;
+  readonly myBidsByAuctionId?: ReadonlyMap<string, number>;
 }
 
 export function AuctionGrid({
@@ -16,6 +17,7 @@ export function AuctionGrid({
   isLoading,
   error,
   currentUserId,
+  myBidsByAuctionId,
 }: AuctionGridProps): React.JSX.Element {
   if (isLoading) {
     return (
@@ -36,7 +38,12 @@ export function AuctionGrid({
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
       {auctions.map((auction) => (
-        <AuctionCard key={auction.id} auction={auction} isOwn={auction.userId === currentUserId} />
+        <AuctionCard
+          key={auction.id}
+          auction={auction}
+          isOwn={auction.userId === currentUserId}
+          myBidCOP={myBidsByAuctionId?.get(auction.id)}
+        />
       ))}
     </div>
   );

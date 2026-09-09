@@ -67,4 +67,12 @@ describe('AuctionGrid', () => {
     });
     expect(screen.getByText('Yours')).toBeInTheDocument();
   });
+
+  it('passes the viewer own bid to the matching card', () => {
+    renderGrid({
+      auctions: [makeAuction({ id: 'AUC-1' })],
+      myBidsByAuctionId: new Map([['AUC-1', 45_000]]),
+    });
+    expect(screen.getByText(/you bid/i)).toBeInTheDocument();
+  });
 });
