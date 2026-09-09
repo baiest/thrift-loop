@@ -286,6 +286,45 @@ describe('auction routes', () => {
 
       expect(body(response).auctions).toEqual([]);
     });
+
+    it('applies a valid sort query parameter', async () => {
+      // Created pricey-first so newest-first (the default) would list them in
+      // the WRONG order for price-desc — only forwarding `sort` fixes that.
+      const pricey = await withAuth(request(app).post('/api/auctions')).send({
+        ...validBody,
+        priceCOP: '90000',
+      });
+      const cheap = await withAuth(request(app).post('/api/auctions')).send({
+        ...validBody,
+        priceCOP: '10000',
+      });
+      await withAuth(request(app).patch(`/api/auctions/${body(cheap).auction?.id}`)).send({
+        status: 'published',
+      });
+      await withAuth(request(app).patch(`/api/auctions/${body(pricey).auction?.id}`)).send({
+        status: 'published',
+      });
+
+      const response = await request(app).get('/api/auctions?sort=price-desc');
+
+      expect(response.status).toBe(200);
+      expect(body(response).auctions?.map((a) => a.id)).toEqual([
+        body(pricey).auction?.id,
+        body(cheap).auction?.id,
+      ]);
+    });
+
+    it('ignores an unknown sort value instead of erroring', async () => {
+      const response = await request(app).get('/api/auctions?sort=bogus');
+
+      expect(response.status).toBe(200);
+    });
+
+    it('ignores a sort value sent as an array', async () => {
+      const response = await request(app).get('/api/auctions?sort[]=price-asc&sort[]=newest');
+
+      expect(response.status).toBe(200);
+    });
   });
 
   describe('GET /api/auctions/:id (public detail)', () => {

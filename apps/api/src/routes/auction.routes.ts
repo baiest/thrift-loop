@@ -49,6 +49,7 @@ const SEARCH_FIELDS = [
   'city',
   'minPriceCOP',
   'maxPriceCOP',
+  'sort',
 ] as const satisfies readonly (keyof AuctionSearchInput)[];
 
 const INVALID_FILE_TYPE_MESSAGE = `Only ${ALLOWED_PHOTO_MIME_TYPES.join(', ')} files are allowed`;

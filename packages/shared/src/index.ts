@@ -1,4 +1,5 @@
 export * from './auction.js';
+export * from './auction-sort.js';
 export * from './bid.js';
 export * from './colombia-cities.js';
 export * from './delivery-method.js';

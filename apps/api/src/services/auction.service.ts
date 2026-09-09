@@ -1,4 +1,6 @@
 import {
+  DEFAULT_AUCTION_SORT,
+  isAuctionSort,
   isColombiaCity,
   isDeliveryMethod,
   isItemCategory,
@@ -12,6 +14,7 @@ import {
   MAX_TITLE_LENGTH,
   MIN_PRICE_COP,
   TITLE_PATTERN,
+  type AuctionSort,
 } from '@thrift-loop/shared';
 import type { Auction } from '../models/auction.js';
 import type {
@@ -49,6 +52,7 @@ export interface AuctionSearchInput {
   city?: string;
   minPriceCOP?: string;
   maxPriceCOP?: string;
+  sort?: string;
 }
 
 export type UpdateAuctionInput = Partial<CreateAuctionInput> & { status?: string };
@@ -292,17 +296,23 @@ function resolveLocationFilter(input: AuctionSearchInput): string | undefined {
   return input.city && isColombiaCity(input.city) ? input.city : undefined;
 }
 
+function resolveSortFilter(input: AuctionSearchInput): AuctionSort {
+  return input.sort && isAuctionSort(input.sort) ? input.sort : DEFAULT_AUCTION_SORT;
+}
+
 function buildAuctionFilter(input: AuctionSearchInput): AuctionFilter {
   const search = input.search ? sanitizeSearch(input.search) : undefined;
   const category = resolveCategoryFilter(input);
   const location = resolveLocationFilter(input);
   const { minPriceCOP, maxPriceCOP } = resolvePriceRange(input);
+  const sort = resolveSortFilter(input);
   return {
     ...(search && { search }),
     ...(category && { category }),
     ...(location && { location }),
     ...(minPriceCOP !== undefined && { minPriceCOP }),
     ...(maxPriceCOP !== undefined && { maxPriceCOP }),
+    sort,
   };
 }
 
