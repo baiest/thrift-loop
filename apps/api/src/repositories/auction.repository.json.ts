@@ -1,4 +1,4 @@
-import type { ItemCondition } from '@thrift-loop/shared';
+import { DEFAULT_AUCTION_SORT, type AuctionSort, type ItemCondition } from '@thrift-loop/shared';
 import type { Auction } from '../models/auction.js';
 import { readJsonArray, writeJsonArrayAtomic } from '../lib/json-file-store.js';
 import type { AuctionFilter, AuctionPatch, AuctionRepository } from './auction.repository.js';
@@ -98,6 +98,39 @@ function byNewestFirst(a: Auction, b: Auction): number {
   return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
 }
 
+// Deterministic fallback for every sort comparator below: newest first, then
+// id, so fixtures with identical timestamps never depend on array order.
+function byRecency(a: Auction, b: Auction): number {
+  return byNewestFirst(a, b) || a.id.localeCompare(b.id);
+}
+
+function effectivePriceCOP(auction: Auction): number {
+  return auction.currentBidCOP ?? auction.priceCOP;
+}
+
+function bidEndsAtMillis(auction: Auction): number {
+  return auction.bidEndsAt === null ? Infinity : new Date(auction.bidEndsAt).getTime();
+}
+
+function byEndingSoon(a: Auction, b: Auction): number {
+  return bidEndsAtMillis(a) - bidEndsAtMillis(b) || byRecency(a, b);
+}
+
+function byPriceAscending(a: Auction, b: Auction): number {
+  return effectivePriceCOP(a) - effectivePriceCOP(b) || byRecency(a, b);
+}
+
+function byPriceDescending(a: Auction, b: Auction): number {
+  return effectivePriceCOP(b) - effectivePriceCOP(a) || byRecency(a, b);
+}
+
+const SORT_COMPARATORS: Record<AuctionSort, (a: Auction, b: Auction) => number> = {
+  'ending-soon': byEndingSoon,
+  newest: byRecency,
+  'price-asc': byPriceAscending,
+  'price-desc': byPriceDescending,
+};
+
 // filePath is trusted app configuration (from container.ts), never user input.
 export function createJsonAuctionRepository(filePath: string): AuctionRepository {
   return {
@@ -121,7 +154,8 @@ export function createJsonAuctionRepository(filePath: string): AuctionRepository
       return auctions
         .filter((auction) => auction.status === 'published' || auction.status === 'sold')
         .filter((auction) => matchesFilter(auction, filter))
-        .sort(byNewestFirst);
+
+        .sort(SORT_COMPARATORS[filter.sort ?? DEFAULT_AUCTION_SORT]);
     },
 
     async findDueForClose(before) {

@@ -299,4 +299,97 @@ describe('createJsonAuctionRepository', () => {
 
     expect(won.map((auction) => auction.id)).toEqual(['AUC-1']);
   });
+
+  it('sorts published auctions by ending-soon, nulls last', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(makeAuction({ id: 'AUC-no-end', status: 'published', bidEndsAt: null }));
+    await repository.save(
+      makeAuction({
+        id: 'AUC-later',
+        status: 'published',
+        bidEndsAt: '2026-06-01T00:00:00.000Z',
+      }),
+    );
+    await repository.save(
+      makeAuction({
+        id: 'AUC-soonest',
+        status: 'published',
+        bidEndsAt: '2026-01-05T00:00:00.000Z',
+      }),
+    );
+
+    const found = await repository.findAllPublished({ sort: 'ending-soon' });
+
+    expect(found.map((auction) => auction.id)).toEqual(['AUC-soonest', 'AUC-later', 'AUC-no-end']);
+  });
+
+  it('falls back to newest-first when both bidEndsAt values are null', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(
+      makeAuction({
+        id: 'AUC-older',
+        status: 'published',
+        bidEndsAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+    );
+    await repository.save(
+      makeAuction({
+        id: 'AUC-newer',
+        status: 'published',
+        bidEndsAt: null,
+        createdAt: '2026-01-02T00:00:00.000Z',
+      }),
+    );
+
+    const found = await repository.findAllPublished({ sort: 'ending-soon' });
+
+    expect(found.map((auction) => auction.id)).toEqual(['AUC-newer', 'AUC-older']);
+  });
+
+  it('sorts published auctions by price ascending, using the current bid over the price', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(
+      makeAuction({ id: 'AUC-high', status: 'published', priceCOP: 90_000, currentBidCOP: null }),
+    );
+    await repository.save(
+      makeAuction({
+        id: 'AUC-bid-low',
+        status: 'published',
+        priceCOP: 80_000,
+        currentBidCOP: 10_000,
+      }),
+    );
+    await repository.save(
+      makeAuction({ id: 'AUC-mid', status: 'published', priceCOP: 50_000, currentBidCOP: null }),
+    );
+
+    const found = await repository.findAllPublished({ sort: 'price-asc' });
+
+    expect(found.map((auction) => auction.id)).toEqual(['AUC-bid-low', 'AUC-mid', 'AUC-high']);
+  });
+
+  it('sorts published auctions by price descending', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(makeAuction({ id: 'AUC-low', status: 'published', priceCOP: 10_000 }));
+    await repository.save(makeAuction({ id: 'AUC-high', status: 'published', priceCOP: 90_000 }));
+
+    const found = await repository.findAllPublished({ sort: 'price-desc' });
+
+    expect(found.map((auction) => auction.id)).toEqual(['AUC-high', 'AUC-low']);
+  });
+
+  it('defaults to newest-first when sort is omitted', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(
+      makeAuction({ id: 'AUC-older', status: 'published', createdAt: '2026-01-01T00:00:00.000Z' }),
+    );
+    await repository.save(
+      makeAuction({ id: 'AUC-newer', status: 'published', createdAt: '2026-01-02T00:00:00.000Z' }),
+    );
+
+    const found = await repository.findAllPublished({ sort: 'newest' });
+
+    expect(found.map((auction) => auction.id)).toEqual(['AUC-newer', 'AUC-older']);
+  });
 });

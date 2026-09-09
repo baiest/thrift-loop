@@ -11,6 +11,7 @@ import { createAuctionService, type CreateAuctionInput } from './auction.service
 
 class FakeAuctionRepository implements AuctionRepository {
   private readonly auctions = new Map<string, Auction>();
+  lastFindAllPublishedFilter: AuctionFilter | undefined;
 
   findById(id: string): Promise<Auction | null> {
     return Promise.resolve(this.auctions.get(id) ?? null);
@@ -59,6 +60,7 @@ class FakeAuctionRepository implements AuctionRepository {
   }
 
   findAllPublished(filter: AuctionFilter = {}): Promise<Auction[]> {
+    this.lastFindAllPublishedFilter = filter;
     return Promise.resolve(
       [...this.auctions.values()]
         .filter((a) => a.status === 'published' || a.status === 'sold')
@@ -506,6 +508,24 @@ describe('AuctionService', () => {
       const list = await service.listPublishedAuctions({ city: 'Not A Real City' });
 
       expect(list.map((a) => a.id)).toEqual([auction.id]);
+    });
+
+    it('forwards a valid sort option to the repository', async () => {
+      await service.listPublishedAuctions({ sort: 'price-asc' });
+
+      expect(repository.lastFindAllPublishedFilter?.sort).toBe('price-asc');
+    });
+
+    it('falls back to the default sort for an invalid value instead of erroring', async () => {
+      await service.listPublishedAuctions({ sort: 'bogus' });
+
+      expect(repository.lastFindAllPublishedFilter?.sort).toBe('newest');
+    });
+
+    it('falls back to the default sort when none is given', async () => {
+      await service.listPublishedAuctions();
+
+      expect(repository.lastFindAllPublishedFilter?.sort).toBe('newest');
     });
   });
 

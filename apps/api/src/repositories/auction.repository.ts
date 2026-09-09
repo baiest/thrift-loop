@@ -1,4 +1,4 @@
-import type { ItemCategory } from '@thrift-loop/shared';
+import type { AuctionSort, ItemCategory } from '@thrift-loop/shared';
 import type { Auction } from '../models/auction.js';
 
 export type AuctionPatch = Partial<
@@ -33,6 +33,7 @@ export interface AuctionFilter {
   location?: string;
   minPriceCOP?: number;
   maxPriceCOP?: number;
+  sort?: AuctionSort;
 }
 
 export interface AuctionRepository {
