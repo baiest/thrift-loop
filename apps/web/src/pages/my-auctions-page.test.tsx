@@ -64,6 +64,14 @@ describe('MyAuctionsPage', () => {
     vi.restoreAllMocks();
   });
 
+  it('shows a skeleton instead of a blank screen while the session loads', () => {
+    vi.mocked(fetchCurrentUser).mockReturnValue(new Promise(() => {}));
+
+    renderPage();
+
+    expect(screen.getByLabelText('Loading my auctions')).toBeInTheDocument();
+  });
+
   it('redirects to /login when there is no session', async () => {
     vi.mocked(fetchCurrentUser).mockResolvedValue(null);
 

@@ -73,6 +73,16 @@ describe('AuctionDetailPage', () => {
     vi.restoreAllMocks();
   });
 
+  it('shows a skeleton instead of a blank screen while loading', () => {
+    vi.mocked(fetchAuctionDetail).mockReturnValue(new Promise(() => {}));
+    vi.mocked(fetchBids).mockReturnValue(new Promise(() => {}));
+    vi.mocked(fetchCurrentUser).mockReturnValue(new Promise(() => {}));
+
+    renderPage();
+
+    expect(screen.getByLabelText('Loading auction details')).toBeInTheDocument();
+  });
+
   it('shows the auction details and bid history', async () => {
     vi.mocked(fetchAuctionDetail).mockResolvedValue({
       auction: publicAuction,
