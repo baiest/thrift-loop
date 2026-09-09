@@ -86,4 +86,14 @@ describe('AuctionCard', () => {
     renderCard(makeAuction({ status: 'sold' }));
     expect(screen.getByText('Sold')).toBeInTheDocument();
   });
+
+  it('shows a "Draft" badge while still a draft', () => {
+    renderCard(makeAuction({ status: 'draft' }));
+    expect(screen.getByText('Draft')).toBeInTheDocument();
+  });
+
+  it('does not show a "Draft" badge once published', () => {
+    renderCard(makeAuction({ status: 'published' }));
+    expect(screen.queryByText('Draft')).not.toBeInTheDocument();
+  });
 });

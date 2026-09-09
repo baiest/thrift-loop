@@ -40,6 +40,14 @@
 - [x] `pages/auction-detail-page.tsx`: "Publish now" button, owner + draft only, calls
       `updateAuction(id, { status: 'published' })` and reloads + tests
 
+## apps/web — My auctions (found after initial pass: no way to see your own drafts)
+
+- [x] `components/molecules/auction-card.tsx`: "Draft" badge for `status === 'draft'` + tests
+- [x] `pages/my-auctions-page.tsx`: lists `fetchMyAuctions()`, redirects anonymous viewers to
+      `/login`, reuses `AuctionGrid` + tests
+- [x] `app.tsx`: `/auctions/mine` route (declared before `/auctions/:id`)
+- [x] `components/organisms/sidebar-nav.tsx`: "My auctions" link + test
+
 ## Wrap-up
 
 - [x] `npm run verify` green (typecheck, lint, format, coverage >85.01%, build)
