@@ -11,7 +11,7 @@ export interface AuctionFiltersProps {
 export function AuctionFilters({ value, onChange }: AuctionFiltersProps): React.JSX.Element {
   return (
     <div className="mb-6">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <SearchField
           value={value.search ?? ''}
           onChange={(next) => onChange({ ...value, search: next })}
