@@ -12,6 +12,7 @@ import { Countdown } from '../components/molecules/countdown.js';
 import { BidHistory } from '../components/molecules/bid-history.js';
 import { BidForm } from '../components/organisms/bid-form.js';
 import { Button } from '../components/atoms/button.js';
+import { Skeleton } from '../components/atoms/skeleton.js';
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -71,14 +72,24 @@ export function AuctionDetailPage(): React.JSX.Element | null {
   }, [detail, load]);
 
   if (loading) {
-    return null;
+    return (
+      <div
+        aria-label="Loading auction details"
+        className="mx-auto flex max-w-2xl flex-col gap-3 py-6"
+      >
+        <Skeleton className="aspect-square w-full" />
+        <Skeleton className="h-6 w-2/3" />
+        <Skeleton className="h-4 w-1/3" />
+        <Skeleton className="h-10 w-1/2" />
+      </div>
+    );
   }
 
   if (notFound || !detail) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-2xl flex-col px-4 py-6 pt-20">
+      <div className="mx-auto flex max-w-2xl flex-col py-6">
         <p className="text-sm text-gray-500">Auction not found.</p>
-      </main>
+      </div>
     );
   }
 
@@ -92,7 +103,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col px-4 py-6 pt-20">
+    <div className="mx-auto flex max-w-2xl flex-col py-6">
       {auction.photoUrls[0] && (
         <img
           src={auction.photoUrls[0]}
@@ -138,6 +149,6 @@ export function AuctionDetailPage(): React.JSX.Element | null {
 
       <h2 className="mb-2 text-lg font-semibold text-gray-900">Bid history</h2>
       <BidHistory bids={bids} />
-    </main>
+    </div>
   );
 }
