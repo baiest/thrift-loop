@@ -1,17 +1,31 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import type { PublicAuction, PublicBid, PublicUser } from '@thrift-loop/shared';
-import { fetchAuctionDetail, fetchBids, fetchCurrentUser } from '../lib/api-client.js';
+import {
+  fetchAuctionDetail,
+  fetchBids,
+  fetchCurrentUser,
+  updateAuction,
+} from '../lib/api-client.js';
 import { formatCOP } from '../lib/format.js';
 import { Countdown } from '../components/molecules/countdown.js';
 import { BidHistory } from '../components/molecules/bid-history.js';
 import { BidForm } from '../components/organisms/bid-form.js';
+import { Button } from '../components/atoms/button.js';
 
 const POLL_INTERVAL_MS = 5000;
 
 interface DetailState {
   auction: PublicAuction;
   serverOffsetMs: number;
+}
+
+function canUserBid(user: PublicUser | null, auction: PublicAuction): boolean {
+  return user !== null && user.id !== auction.userId && auction.status === 'published';
+}
+
+function canUserPublish(user: PublicUser | null, auction: PublicAuction): boolean {
+  return user !== null && user.id === auction.userId && auction.status === 'draft';
 }
 
 export function AuctionDetailPage(): React.JSX.Element | null {
@@ -69,7 +83,13 @@ export function AuctionDetailPage(): React.JSX.Element | null {
   }
 
   const { auction, serverOffsetMs } = detail;
-  const canBid = user !== null && user.id !== auction.userId && auction.status === 'published';
+  const canBid = canUserBid(user, auction);
+  const canPublish = canUserPublish(user, auction);
+
+  async function handlePublish(): Promise<void> {
+    await updateAuction(auction.id, { status: 'published' });
+    await load();
+  }
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col px-4 py-6 pt-20">
@@ -96,6 +116,14 @@ export function AuctionDetailPage(): React.JSX.Element | null {
           onExpire={() => void load()}
         />
       </div>
+
+      {canPublish && (
+        <div className="mb-6">
+          <Button type="button" onClick={() => void handlePublish()}>
+            Publish now
+          </Button>
+        </div>
+      )}
 
       {canBid && (
         <div className="mb-6">

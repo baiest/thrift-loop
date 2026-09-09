@@ -104,7 +104,7 @@ describe('CreateAuctionForm', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /create auction/i }));
 
-    await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
+    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith('AUC-1'));
     expect(uploadAuctionPhotos).not.toHaveBeenCalled();
   });
 

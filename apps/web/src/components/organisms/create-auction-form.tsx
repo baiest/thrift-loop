@@ -120,7 +120,7 @@ function validateAll(values: FormValues): FormErrors {
 }
 
 export interface CreateAuctionFormProps {
-  readonly onSuccess?: (() => void) | undefined;
+  readonly onSuccess?: ((auctionId: string) => void) | undefined;
 }
 
 export function CreateAuctionForm({ onSuccess }: CreateAuctionFormProps): React.JSX.Element {
@@ -166,7 +166,7 @@ export function CreateAuctionForm({ onSuccess }: CreateAuctionFormProps): React.
       if (photos.length > 0) {
         await uploadAuctionPhotos(auction.id, photos);
       }
-      onSuccess?.();
+      onSuccess?.(auction.id);
     } catch (error) {
       if (error instanceof ApiError && error.fields) {
         setErrors(error.fields);
