@@ -96,4 +96,29 @@ describe('AuctionCard', () => {
     renderCard(makeAuction({ status: 'published' }));
     expect(screen.queryByText('Draft')).not.toBeInTheDocument();
   });
+
+  it('shows the auction start date', () => {
+    renderCard(makeAuction({ createdAt: '2026-03-03T10:00:00.000Z' }));
+    expect(screen.getByText(/^started/i)).toHaveTextContent(/mar 3/i);
+  });
+
+  it('shows the location', () => {
+    renderCard(makeAuction({ location: 'Medellín' }));
+    expect(screen.getByText(/medellín/i)).toBeInTheDocument();
+  });
+
+  it('shows the time remaining until the bid window ends', () => {
+    renderCard(makeAuction({ bidEndsAt: new Date(Date.now() + 90 * 60 * 1000).toISOString() }));
+    expect(screen.getByText(/1h \d\dm left/)).toBeInTheDocument();
+  });
+
+  it('shows "Ended" once the bid window has passed', () => {
+    renderCard(makeAuction({ bidEndsAt: new Date(Date.now() - 1000).toISOString() }));
+    expect(screen.getByText('Ended')).toBeInTheDocument();
+  });
+
+  it('marks urgent auctions under an hour left', () => {
+    renderCard(makeAuction({ bidEndsAt: new Date(Date.now() + 5 * 60 * 1000).toISOString() }));
+    expect(screen.getByText(/\dm left/)).toHaveClass('text-brand-600');
+  });
 });

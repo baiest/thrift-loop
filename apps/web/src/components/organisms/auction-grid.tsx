@@ -1,5 +1,8 @@
 import type { PublicAuction } from '@thrift-loop/shared';
 import { AuctionCard } from '../molecules/auction-card.js';
+import { AuctionCardSkeleton } from '../molecules/auction-card-skeleton.js';
+
+const SKELETON_CARD_COUNT = 8;
 
 export interface AuctionGridProps {
   readonly auctions: readonly PublicAuction[];
@@ -15,7 +18,13 @@ export function AuctionGrid({
   currentUserId,
 }: AuctionGridProps): React.JSX.Element {
   if (isLoading) {
-    return <p className="text-sm text-gray-500">Loading auctions…</p>;
+    return (
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
+          <AuctionCardSkeleton key={index} />
+        ))}
+      </div>
+    );
   }
   if (error) {
     return <p className="text-sm text-red-600">{error}</p>;
