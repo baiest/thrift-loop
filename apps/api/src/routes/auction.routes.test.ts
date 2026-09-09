@@ -36,11 +36,13 @@ function body(response: SupertestResponse): AuctionResponseBody {
 
 const validBody = {
   title: 'Chaqueta de cuero',
+  description: 'Chaqueta de cuero en excelente estado.',
   category: 'jeans',
   condition: 'good',
   deliveryMethod: 'pickup',
   priceCOP: '50000',
   publishAt: '',
+  location: 'Cali',
 };
 
 class FakeUserRepository implements UserRepository {
@@ -84,6 +86,7 @@ function makeUser(overrides: Partial<User> = {}): User {
     country: 'CO',
     passwordHash: 'x',
     address: null,
+    categoryPreference: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -140,7 +143,7 @@ describe('auction routes', () => {
     userRepository = new FakeUserRepository();
     userRepository.seed(makeUser({ id: 'USR-1' }));
     userRepository.seed(makeUser({ id: 'USR-2', phone: '3000000001' }));
-    const auctionService = createAuctionService(auctionRepository, photoStorage, userRepository);
+    const auctionService = createAuctionService(auctionRepository, photoStorage);
     const bidService = createBidService(
       auctionRepository,
       bidRepository,

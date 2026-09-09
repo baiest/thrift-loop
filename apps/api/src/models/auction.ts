@@ -9,6 +9,7 @@ export interface Auction {
   id: string;
   userId: string;
   title: string;
+  description: string;
   category: ItemCategory;
   condition: ItemCondition;
   priceCOP: number;
@@ -20,6 +21,7 @@ export interface Auction {
   bidCount: number;
   bidEndsAt: string | null;
   winnerUserId: string | null;
+  location: string;
   createdAt: string;
   updatedAt: string;
 }

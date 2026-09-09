@@ -10,6 +10,7 @@ function makeAuction(overrides: Partial<Auction> = {}): Auction {
     id: 'AUC-1',
     userId: 'USR-1',
     title: 'Chaqueta de cuero',
+    description: 'Chaqueta de cuero en excelente estado.',
     category: 'jeans',
     condition: 'good',
     priceCOP: 50_000,
@@ -21,6 +22,7 @@ function makeAuction(overrides: Partial<Auction> = {}): Auction {
     bidCount: 0,
     bidEndsAt: null,
     winnerUserId: null,
+    location: 'Cali',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -139,11 +141,37 @@ describe('createJsonAuctionRepository', () => {
     await expect(repository.findById('AUC-legacy')).resolves.toEqual({
       ...legacyRow,
       title: 'Jeans',
+      description: '',
+      location: '',
       currentBidCOP: null,
       bidCount: 0,
       bidEndsAt: null,
       winnerUserId: null,
     });
+  });
+
+  it('remaps a legacy condition value to the current taxonomy', async () => {
+    const legacyRow = {
+      id: 'AUC-legacy-condition',
+      userId: 'USR-1',
+      category: 'jeans',
+      condition: 'fair',
+      priceCOP: 50_000,
+      publishAt: null,
+      status: 'published',
+      deliveryMethod: 'pickup',
+      photoKeys: [],
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    // filePath is built from mkdtemp's own return value, not attacker-controlled input.
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    await writeFile(filePath, JSON.stringify([legacyRow]), 'utf8');
+
+    const repository = createJsonAuctionRepository(filePath);
+    const found = await repository.findById('AUC-legacy-condition');
+
+    expect(found?.condition).toBe('worn');
   });
 
   it('finds published and sold auctions, newest first', async () => {
@@ -198,6 +226,18 @@ describe('createJsonAuctionRepository', () => {
     const found = await repository.findAllPublished({ minPriceCOP: 20_000, maxPriceCOP: 60_000 });
 
     expect(found.map((auction) => auction.id)).toEqual(['AUC-mid']);
+  });
+
+  it('filters published auctions by location', async () => {
+    const repository = createJsonAuctionRepository(filePath);
+    await repository.save(makeAuction({ id: 'AUC-cali', status: 'published', location: 'Cali' }));
+    await repository.save(
+      makeAuction({ id: 'AUC-medellin', status: 'published', location: 'Medellín' }),
+    );
+
+    const found = await repository.findAllPublished({ location: 'Medellín' });
+
+    expect(found.map((auction) => auction.id)).toEqual(['AUC-medellin']);
   });
 
   it('combines multiple filters', async () => {

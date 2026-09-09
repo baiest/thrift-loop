@@ -4,7 +4,9 @@ import {
   isItemCategory,
   isItemCondition,
   isValidCopPrice,
+  isValidDescription,
   isValidTitle,
+  MAX_DESCRIPTION_LENGTH,
   MAX_PHOTOS_PER_AUCTION,
   MAX_PRICE_COP,
   MAX_TITLE_LENGTH,
@@ -18,7 +20,6 @@ import type {
   AuctionRepository,
 } from '../repositories/auction.repository.js';
 import type { PhotoStorage, UploadedFile } from '../lib/photo-storage.js';
-import type { UserRepository } from '../repositories/user.repository.js';
 import { createPrefixedId } from '../lib/prefixed-id.js';
 import { HttpError } from '../lib/http-error.js';
 import { HTTP_STATUS } from '../lib/http-status.js';
@@ -28,14 +29,18 @@ const AUCTION_NOT_FOUND_MESSAGE = 'Auction not found';
 const CANNOT_EDIT_PUBLISHED_MESSAGE = 'Cannot edit a published auction';
 const TOO_MANY_PHOTOS_MESSAGE = `An auction can have at most ${MAX_PHOTOS_PER_AUCTION} photos`;
 const TITLE_ERROR_MESSAGE = 'Enter a title up to 80 characters, letters and numbers only';
+const DESCRIPTION_ERROR_MESSAGE = `Enter a description up to ${MAX_DESCRIPTION_LENGTH} characters, letters and numbers only`;
+const LOCATION_ERROR_MESSAGE = 'Select a valid city';
 
 export interface CreateAuctionInput {
   title: string;
+  description: string;
   category: string;
   condition: string;
   deliveryMethod: string;
   priceCOP: string;
   publishAt: string;
+  location: string;
 }
 
 export interface AuctionSearchInput {
@@ -82,6 +87,12 @@ function validateCreateInput(input: CreateAuctionInput): {
 
   if (!isValidTitle(input.title)) {
     errors['title'] = TITLE_ERROR_MESSAGE;
+  }
+  if (!isValidDescription(input.description)) {
+    errors['description'] = DESCRIPTION_ERROR_MESSAGE;
+  }
+  if (!isColombiaCity(input.location)) {
+    errors['location'] = LOCATION_ERROR_MESSAGE;
   }
   if (!isItemCategory(input.category)) {
     errors['category'] = 'Select a valid category';
@@ -146,6 +157,30 @@ function applyTitlePatch(
   }
 }
 
+function applyDescriptionPatch(
+  value: string,
+  repoPatch: AuctionPatch,
+  errors: Record<string, string>,
+): void {
+  if (isValidDescription(value)) {
+    repoPatch.description = value;
+  } else {
+    errors['description'] = DESCRIPTION_ERROR_MESSAGE;
+  }
+}
+
+function applyLocationPatch(
+  value: string,
+  repoPatch: AuctionPatch,
+  errors: Record<string, string>,
+): void {
+  if (isColombiaCity(value)) {
+    repoPatch.location = value;
+  } else {
+    errors['location'] = LOCATION_ERROR_MESSAGE;
+  }
+}
+
 function applyStatusPatch(
   value: string,
   repoPatch: AuctionPatch,
@@ -158,16 +193,27 @@ function applyStatusPatch(
   }
 }
 
-function validateUpdatePatch(patch: UpdateAuctionInput): {
-  errors: Record<string, string>;
-  repoPatch: AuctionPatch;
-} {
-  const errors: Record<string, string> = {};
-  const repoPatch: AuctionPatch = {};
-
+function applyTextPatches(
+  patch: UpdateAuctionInput,
+  repoPatch: AuctionPatch,
+  errors: Record<string, string>,
+): void {
   if (patch.title !== undefined) {
     applyTitlePatch(patch.title, repoPatch, errors);
   }
+  if (patch.description !== undefined) {
+    applyDescriptionPatch(patch.description, repoPatch, errors);
+  }
+  if (patch.location !== undefined) {
+    applyLocationPatch(patch.location, repoPatch, errors);
+  }
+}
+
+function applyEnumPatches(
+  patch: UpdateAuctionInput,
+  repoPatch: AuctionPatch,
+  errors: Record<string, string>,
+): void {
   if (patch.category !== undefined) {
     applyCategoryPatch(patch.category, repoPatch, errors);
   }
@@ -177,6 +223,20 @@ function validateUpdatePatch(patch: UpdateAuctionInput): {
   if (patch.deliveryMethod !== undefined) {
     applyDeliveryMethodPatch(patch.deliveryMethod, repoPatch, errors);
   }
+  if (patch.status !== undefined) {
+    applyStatusPatch(patch.status, repoPatch, errors);
+  }
+}
+
+function validateUpdatePatch(patch: UpdateAuctionInput): {
+  errors: Record<string, string>;
+  repoPatch: AuctionPatch;
+} {
+  const errors: Record<string, string> = {};
+  const repoPatch: AuctionPatch = {};
+
+  applyTextPatches(patch, repoPatch, errors);
+  applyEnumPatches(patch, repoPatch, errors);
   if (patch.priceCOP !== undefined) {
     const priceCOP = validatePrice(patch.priceCOP, errors);
     if (priceCOP !== undefined) {
@@ -185,9 +245,6 @@ function validateUpdatePatch(patch: UpdateAuctionInput): {
   }
   if (patch.publishAt !== undefined) {
     repoPatch.publishAt = validatePublishAt(patch.publishAt, errors);
-  }
-  if (patch.status !== undefined) {
-    applyStatusPatch(patch.status, repoPatch, errors);
   }
 
   return { errors, repoPatch };
@@ -227,13 +284,23 @@ function resolvePriceRange(input: AuctionSearchInput): {
     : { minPriceCOP, maxPriceCOP };
 }
 
+function resolveCategoryFilter(input: AuctionSearchInput): Auction['category'] | undefined {
+  return input.category && isItemCategory(input.category) ? input.category : undefined;
+}
+
+function resolveLocationFilter(input: AuctionSearchInput): string | undefined {
+  return input.city && isColombiaCity(input.city) ? input.city : undefined;
+}
+
 function buildAuctionFilter(input: AuctionSearchInput): AuctionFilter {
   const search = input.search ? sanitizeSearch(input.search) : undefined;
-  const category = input.category && isItemCategory(input.category) ? input.category : undefined;
+  const category = resolveCategoryFilter(input);
+  const location = resolveLocationFilter(input);
   const { minPriceCOP, maxPriceCOP } = resolvePriceRange(input);
   return {
     ...(search && { search }),
     ...(category && { category }),
+    ...(location && { location }),
     ...(minPriceCOP !== undefined && { minPriceCOP }),
     ...(maxPriceCOP !== undefined && { maxPriceCOP }),
   };
@@ -242,7 +309,6 @@ function buildAuctionFilter(input: AuctionSearchInput): AuctionFilter {
 export function createAuctionService(
   auctionRepository: AuctionRepository,
   photoStorage: PhotoStorage,
-  userRepository: UserRepository,
 ) {
   async function getOwnedAuction(userId: string, auctionId: string): Promise<Auction> {
     const auction = await auctionRepository.findById(auctionId);
@@ -264,6 +330,8 @@ export function createAuctionService(
         id: createPrefixedId(AUCTION_ID_PREFIX),
         userId,
         title: input.title.trim(),
+        description: input.description.trim(),
+        location: input.location,
         category: input.category as Auction['category'],
         condition: input.condition as Auction['condition'],
         deliveryMethod: input.deliveryMethod as Auction['deliveryMethod'],
@@ -333,22 +401,7 @@ export function createAuctionService(
     },
 
     async listPublishedAuctions(input: AuctionSearchInput = {}): Promise<Auction[]> {
-      const auctions = await auctionRepository.findAllPublished(buildAuctionFilter(input));
-
-      const city = input.city && isColombiaCity(input.city) ? input.city : undefined;
-      if (!city) {
-        return auctions;
-      }
-
-      const withSellerCity = await Promise.all(
-        auctions.map(async (auction) => ({
-          auction,
-          sellerCity: (await userRepository.findById(auction.userId))?.city,
-        })),
-      );
-      return withSellerCity
-        .filter((entry) => entry.sellerCity === city)
-        .map((entry) => entry.auction);
+      return auctionRepository.findAllPublished(buildAuctionFilter(input));
     },
 
     async getAuctionForViewer(viewerId: string | null, auctionId: string): Promise<Auction> {

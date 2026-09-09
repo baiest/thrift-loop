@@ -1,21 +1,60 @@
+import type { ItemCondition } from '@thrift-loop/shared';
 import type { Auction } from '../models/auction.js';
 import { readJsonArray, writeJsonArrayAtomic } from '../lib/json-file-store.js';
 import type { AuctionFilter, AuctionPatch, AuctionRepository } from './auction.repository.js';
 
 type LegacyAuction = Omit<
   Auction,
-  'title' | 'currentBidCOP' | 'bidCount' | 'bidEndsAt' | 'winnerUserId'
+  | 'title'
+  | 'description'
+  | 'condition'
+  | 'location'
+  | 'currentBidCOP'
+  | 'bidCount'
+  | 'bidEndsAt'
+  | 'winnerUserId'
 > &
-  Partial<Pick<Auction, 'title' | 'currentBidCOP' | 'bidCount' | 'bidEndsAt' | 'winnerUserId'>>;
+  Partial<
+    Pick<
+      Auction,
+      | 'title'
+      | 'description'
+      | 'location'
+      | 'currentBidCOP'
+      | 'bidCount'
+      | 'bidEndsAt'
+      | 'winnerUserId'
+    >
+  > & { condition: string };
 
 function humanize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).replace(/-/g, ' ');
+}
+
+// Maps condition values written before the taxonomy changed to Good/New with
+// tag/Unused/Worn onto the closest current value. Applied at read time, no
+// migration script — same approach as the title/bid-field legacy defaults.
+const LEGACY_CONDITION_MAP: Record<string, ItemCondition> = {
+  new: 'new-with-tag',
+  'like-new': 'unused',
+  good: 'good',
+  fair: 'worn',
+  worn: 'worn',
+};
+
+function normalizeCondition(value: string): ItemCondition {
+  // value is one of a small fixed set of legacy strings, not attacker input.
+  // eslint-disable-next-line security/detect-object-injection
+  return LEGACY_CONDITION_MAP[value] ?? 'good';
 }
 
 function normalize(raw: LegacyAuction): Auction {
   return {
     ...raw,
     title: raw.title ?? humanize(raw.category),
+    description: raw.description ?? '',
+    condition: normalizeCondition(raw.condition),
+    location: raw.location ?? '',
     currentBidCOP: raw.currentBidCOP ?? null,
     bidCount: raw.bidCount ?? 0,
     bidEndsAt: raw.bidEndsAt ?? null,
@@ -23,20 +62,17 @@ function normalize(raw: LegacyAuction): Auction {
   };
 }
 
+const FILTER_PREDICATES: readonly ((auction: Auction, filter: AuctionFilter) => boolean)[] = [
+  (auction, filter) =>
+    !filter.search || auction.title.toLowerCase().includes(filter.search.toLowerCase()),
+  (auction, filter) => !filter.category || auction.category === filter.category,
+  (auction, filter) => !filter.location || auction.location === filter.location,
+  (auction, filter) => filter.minPriceCOP === undefined || auction.priceCOP >= filter.minPriceCOP,
+  (auction, filter) => filter.maxPriceCOP === undefined || auction.priceCOP <= filter.maxPriceCOP,
+];
+
 function matchesFilter(auction: Auction, filter: AuctionFilter): boolean {
-  if (filter.search && !auction.title.toLowerCase().includes(filter.search.toLowerCase())) {
-    return false;
-  }
-  if (filter.category && auction.category !== filter.category) {
-    return false;
-  }
-  if (filter.minPriceCOP !== undefined && auction.priceCOP < filter.minPriceCOP) {
-    return false;
-  }
-  if (filter.maxPriceCOP !== undefined && auction.priceCOP > filter.maxPriceCOP) {
-    return false;
-  }
-  return true;
+  return FILTER_PREDICATES.every((predicate) => predicate(auction, filter));
 }
 
 async function readAll(filePath: string): Promise<Auction[]> {

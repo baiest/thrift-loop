@@ -6,8 +6,6 @@ import type {
   AuctionRepository,
 } from '../repositories/auction.repository.js';
 import type { PhotoStorage, UploadedFile } from '../lib/photo-storage.js';
-import type { User } from '../models/user.js';
-import type { UserPatch, UserRepository } from '../repositories/user.repository.js';
 import { HttpError } from '../lib/http-error.js';
 import { createAuctionService, type CreateAuctionInput } from './auction.service.js';
 
@@ -68,6 +66,7 @@ class FakeAuctionRepository implements AuctionRepository {
           filter.search ? a.title.toLowerCase().includes(filter.search.toLowerCase()) : true,
         )
         .filter((a) => (filter.category ? a.category === filter.category : true))
+        .filter((a) => (filter.location ? a.location === filter.location : true))
         .filter((a) => (filter.minPriceCOP !== undefined ? a.priceCOP >= filter.minPriceCOP : true))
         .filter((a) =>
           filter.maxPriceCOP !== undefined ? a.priceCOP <= filter.maxPriceCOP : true,
@@ -105,60 +104,15 @@ class FakePhotoStorage implements PhotoStorage {
   }
 }
 
-class FakeUserRepository implements UserRepository {
-  private readonly users = new Map<string, User>();
-
-  seed(user: User): void {
-    this.users.set(user.id, user);
-  }
-
-  findByPhone(): Promise<User | null> {
-    return Promise.resolve(null);
-  }
-
-  findById(id: string): Promise<User | null> {
-    return Promise.resolve(this.users.get(id) ?? null);
-  }
-
-  save(user: User): Promise<void> {
-    this.users.set(user.id, user);
-    return Promise.resolve();
-  }
-
-  update(id: string, patch: UserPatch): Promise<User | null> {
-    const existing = this.users.get(id);
-    if (!existing) {
-      return Promise.resolve(null);
-    }
-    const updated = { ...existing, ...patch };
-    this.users.set(id, updated);
-    return Promise.resolve(updated);
-  }
-}
-
-function makeUser(overrides: Partial<User> = {}): User {
-  return {
-    id: 'USR-1',
-    phone: '3000000000',
-    firstName: 'Ana',
-    lastName: 'Gómez',
-    city: 'Bogotá D.C.',
-    country: 'CO',
-    passwordHash: 'x',
-    address: null,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
-
 const validInput: CreateAuctionInput = {
   title: 'Chaqueta de cuero',
+  description: 'Chaqueta de cuero en excelente estado.',
   category: 'jeans',
   condition: 'good',
   deliveryMethod: 'pickup',
   priceCOP: '50000',
   publishAt: '',
+  location: 'Cali',
 };
 
 async function catchHttpError(promise: Promise<unknown>): Promise<HttpError> {
@@ -176,14 +130,12 @@ async function catchHttpError(promise: Promise<unknown>): Promise<HttpError> {
 describe('AuctionService', () => {
   let repository: FakeAuctionRepository;
   let photoStorage: FakePhotoStorage;
-  let userRepository: FakeUserRepository;
   let service: ReturnType<typeof createAuctionService>;
 
   beforeEach(() => {
     repository = new FakeAuctionRepository();
     photoStorage = new FakePhotoStorage();
-    userRepository = new FakeUserRepository();
-    service = createAuctionService(repository, photoStorage, userRepository);
+    service = createAuctionService(repository, photoStorage);
   });
 
   afterEach(() => {});
@@ -236,6 +188,50 @@ describe('AuctionService', () => {
         title: 'Pantalón niño',
       });
       expect(auction.title).toBe('Pantalón niño');
+    });
+
+    it('rejects an empty description', async () => {
+      const error = await catchHttpError(
+        service.createAuction('USR-1', { ...validInput, description: '' }),
+      );
+      expect(error.fields?.['description']).toBeDefined();
+    });
+
+    it('rejects a description longer than the max length', async () => {
+      const error = await catchHttpError(
+        service.createAuction('USR-1', { ...validInput, description: 'a'.repeat(501) }),
+      );
+      expect(error.fields?.['description']).toBeDefined();
+    });
+
+    it('rejects a script-tag-shaped description', async () => {
+      const error = await catchHttpError(
+        service.createAuction('USR-1', {
+          ...validInput,
+          description: '<script>alert(1)</script>',
+        }),
+      );
+      expect(error.fields?.['description']).toBeDefined();
+    });
+
+    it('accepts a multi-line description', async () => {
+      const auction = await service.createAuction('USR-1', {
+        ...validInput,
+        description: 'Línea uno\nLínea dos',
+      });
+      expect(auction.description).toBe('Línea uno\nLínea dos');
+    });
+
+    it('rejects an invalid location', async () => {
+      const error = await catchHttpError(
+        service.createAuction('USR-1', { ...validInput, location: 'Not A Real City' }),
+      );
+      expect(error.fields?.['location']).toBeDefined();
+    });
+
+    it('accepts a valid location', async () => {
+      const auction = await service.createAuction('USR-1', { ...validInput, location: 'Cali' });
+      expect(auction.location).toBe('Cali');
     });
 
     it('rejects an invalid category', async () => {
@@ -486,13 +482,17 @@ describe('AuctionService', () => {
       expect(list).toEqual([]);
     });
 
-    it('filters by the seller city, joining through the user repository', async () => {
-      userRepository.seed(makeUser({ id: 'USR-1', city: 'Cali' }));
-      userRepository.seed(makeUser({ id: 'USR-2', city: 'Medellín' }));
-      const auctionInCali = await service.createAuction('USR-1', validInput);
+    it('filters by location natively, no join required', async () => {
+      const auctionInCali = await service.createAuction('USR-1', {
+        ...validInput,
+        location: 'Cali',
+      });
       await service.updateAuction('USR-1', auctionInCali.id, { status: 'published' });
-      const auctionInMedellin = await service.createAuction('USR-2', validInput);
-      await service.updateAuction('USR-2', auctionInMedellin.id, { status: 'published' });
+      const auctionInMedellin = await service.createAuction('USR-1', {
+        ...validInput,
+        location: 'Medellín',
+      });
+      await service.updateAuction('USR-1', auctionInMedellin.id, { status: 'published' });
 
       const list = await service.listPublishedAuctions({ city: 'Cali' });
 
@@ -500,7 +500,6 @@ describe('AuctionService', () => {
     });
 
     it('ignores an invalid city filter instead of erroring', async () => {
-      userRepository.seed(makeUser({ id: 'USR-1', city: 'Cali' }));
       const auction = await service.createAuction('USR-1', validInput);
       await service.updateAuction('USR-1', auction.id, { status: 'published' });
 
