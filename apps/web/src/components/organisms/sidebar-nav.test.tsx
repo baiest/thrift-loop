@@ -1,62 +1,171 @@
-import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { afterEach, describe, expect, it } from 'vitest';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import type { PublicUser } from '@thrift-loop/shared';
 import { SidebarNav } from './sidebar-nav.js';
+import { useAuthStore } from '../../stores/auth-store.js';
 
-function renderNav(): void {
+const SAMPLE_USER: PublicUser = {
+  id: 'USR-1',
+  firstName: 'Juan',
+  lastName: 'Ballesteros',
+  city: 'Bogotá D.C.',
+  country: 'CO',
+  address: null,
+  categoryPreference: null,
+};
+
+function renderNav(initialEntries: string[] = ['/']): void {
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <SidebarNav />
     </MemoryRouter>,
   );
 }
 
 describe('SidebarNav', () => {
-  it('starts closed on small screens, with a toggle button', () => {
-    renderNav();
-    expect(screen.getByRole('button', { name: /menu/i })).toBeInTheDocument();
-    expect(screen.queryByRole('navigation', { hidden: true })).not.toBeVisible();
+  afterEach(() => {
+    useAuthStore.getState().clearUser();
   });
 
-  it('opens the drawer when the toggle is clicked', async () => {
+  it('renders no hamburger menu button at any breakpoint', () => {
     renderNav();
-
-    await userEvent.click(screen.getByRole('button', { name: /menu/i }));
-
-    expect(screen.getByRole('navigation')).toBeVisible();
+    expect(screen.queryByRole('button', { name: /menu/i })).not.toBeInTheDocument();
   });
 
-  it('has "Create auction" as the first nav item, linking to /auctions/new', async () => {
-    renderNav();
-    await userEvent.click(screen.getByRole('button', { name: /menu/i }));
+  describe('desktop navigation (lg+)', () => {
+    function desktopNav(): HTMLElement {
+      return screen.getByRole('navigation', { name: 'Main navigation' });
+    }
 
-    const links = screen.getAllByRole('link');
-    expect(links[0]).toHaveTextContent(/create auction/i);
-    expect(links[0]).toHaveAttribute('href', '/auctions/new');
+    it('has "Create auction" as the first item, linking to /auctions/new', () => {
+      renderNav();
+      const links = within(desktopNav()).getAllByRole('link');
+      expect(links[0]).toHaveTextContent(/create auction/i);
+      expect(links[0]).toHaveAttribute('href', '/auctions/new');
+    });
+
+    it('links to auctions, purchases, and profile', () => {
+      renderNav();
+      const nav = desktopNav();
+      expect(within(nav).getByRole('link', { name: /^auctions$/i })).toHaveAttribute('href', '/');
+      expect(within(nav).getByRole('link', { name: /my auctions/i })).toHaveAttribute(
+        'href',
+        '/auctions/mine',
+      );
+      expect(within(nav).getByRole('link', { name: /my purchases/i })).toHaveAttribute(
+        'href',
+        '/purchases',
+      );
+      expect(within(nav).getByRole('link', { name: /my profile/i })).toHaveAttribute(
+        'href',
+        '/profile',
+      );
+    });
+
+    it('every nav item renders an icon', () => {
+      renderNav();
+      const links = within(desktopNav()).getAllByRole('link');
+      for (const link of links) {
+        expect(link.querySelector('svg')).toBeInTheDocument();
+      }
+    });
+
+    it('marks the current route as the active nav item', () => {
+      renderNav(['/auctions/mine']);
+      const nav = desktopNav();
+      expect(within(nav).getByRole('link', { name: /my auctions/i })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+      expect(within(nav).getByRole('link', { name: /^auctions$/i })).not.toHaveAttribute(
+        'aria-current',
+      );
+    });
+
+    it('shows nothing in the user block when signed out', () => {
+      renderNav();
+      expect(
+        within(desktopNav()).queryByRole('button', { name: /log out/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows the signed-in user and a visible log out action', () => {
+      useAuthStore.getState().setUser(SAMPLE_USER);
+      renderNav();
+
+      const nav = desktopNav();
+      expect(within(nav).getByText('Juan Ballesteros')).toBeInTheDocument();
+      expect(within(nav).getByText('Bogotá D.C.')).toBeInTheDocument();
+      expect(within(nav).getByRole('button', { name: /log out/i })).toBeInTheDocument();
+    });
   });
 
-  it('links to auctions, purchases, and profile', async () => {
-    renderNav();
-    await userEvent.click(screen.getByRole('button', { name: /menu/i }));
+  describe('tablet icon rail (md..lg)', () => {
+    function tabletNav(): HTMLElement {
+      return screen.getByRole('navigation', { name: 'Tablet navigation' });
+    }
 
-    expect(screen.getByRole('link', { name: /^auctions$/i })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: /my auctions/i })).toHaveAttribute(
-      'href',
-      '/auctions/mine',
-    );
-    expect(screen.getByRole('link', { name: /my purchases/i })).toHaveAttribute(
-      'href',
-      '/purchases',
-    );
-    expect(screen.getByRole('link', { name: /my profile/i })).toHaveAttribute('href', '/profile');
+    it('renders every nav item as an icon-only link', () => {
+      renderNav();
+      const nav = tabletNav();
+      expect(within(nav).getByRole('link', { name: /^auctions$/i })).toBeInTheDocument();
+      expect(within(nav).getByRole('link', { name: /create auction/i })).toBeInTheDocument();
+      expect(within(nav).getByRole('link', { name: /my auctions/i })).toBeInTheDocument();
+      expect(within(nav).getByRole('link', { name: /my profile/i })).toBeInTheDocument();
+    });
+
+    it('marks the current route as active', () => {
+      renderNav(['/profile']);
+      expect(within(tabletNav()).getByRole('link', { name: /my profile/i })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+    });
+
+    it('shows a log out icon button when signed in', () => {
+      useAuthStore.getState().setUser(SAMPLE_USER);
+      renderNav();
+      expect(within(tabletNav()).getByRole('button', { name: /log out/i })).toBeInTheDocument();
+    });
   });
 
-  it('closes the drawer after a nav link is clicked', async () => {
-    renderNav();
-    await userEvent.click(screen.getByRole('button', { name: /menu/i }));
-    await userEvent.click(screen.getByRole('link', { name: /create auction/i }));
+  describe('mobile bottom tab bar (<md)', () => {
+    function mobileNav(): HTMLElement {
+      return screen.getByRole('navigation', { name: 'Mobile navigation' });
+    }
 
-    expect(screen.queryByRole('navigation', { hidden: true })).not.toBeVisible();
+    it('renders the four primary tabs', () => {
+      renderNav();
+      const nav = mobileNav();
+      expect(within(nav).getByRole('link', { name: /^auctions$/i })).toHaveAttribute('href', '/');
+      expect(within(nav).getByRole('link', { name: /my auctions/i })).toHaveAttribute(
+        'href',
+        '/auctions/mine',
+      );
+      expect(within(nav).getByRole('link', { name: /create/i })).toHaveAttribute(
+        'href',
+        '/auctions/new',
+      );
+      expect(within(nav).getByRole('link', { name: /profile/i })).toHaveAttribute(
+        'href',
+        '/profile',
+      );
+    });
+
+    it('marks the current route as active', () => {
+      renderNav(['/auctions/new']);
+      expect(within(mobileNav()).getByRole('link', { name: /create/i })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+    });
+
+    it('does not show My purchases (kept off the 4-tab bar)', () => {
+      renderNav();
+      expect(
+        within(mobileNav()).queryByRole('link', { name: /purchases/i }),
+      ).not.toBeInTheDocument();
+    });
   });
 });
