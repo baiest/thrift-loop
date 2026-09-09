@@ -314,6 +314,21 @@ describe('api-client', () => {
     expect(params.has('maxPriceCOP')).toBe(false);
   });
 
+  it('fetchAuctions includes a non-empty sort in the query string', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ auctions: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await fetchAuctions({ sort: 'price-desc' });
+
+    const [url] = fetchMock.mock.calls[0] as [string];
+    const params = new URLSearchParams(url.split('?')[1]);
+    expect(params.get('sort')).toBe('price-desc');
+  });
+
   it('fetchAuctions hits the plain path when all filters are empty', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -322,7 +337,14 @@ describe('api-client', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await fetchAuctions({ search: '', category: '', city: '', minPriceCOP: '', maxPriceCOP: '' });
+    await fetchAuctions({
+      search: '',
+      category: '',
+      city: '',
+      minPriceCOP: '',
+      maxPriceCOP: '',
+      sort: '',
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/auctions',
