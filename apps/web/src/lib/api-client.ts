@@ -243,6 +243,9 @@ export async function fetchMyPurchases(): Promise<PublicPurchase[]> {
 }
 
 export interface UpdateProfilePayload {
+  firstName?: string;
+  lastName?: string;
+  city?: string;
   address?: string;
   categoryPreference?: string;
 }
