@@ -135,6 +135,14 @@ describe('CreateAuctionWizard', () => {
     expect(screen.getByLabelText('Price (COP)')).toBeInTheDocument();
   });
 
+  it('shows the "Price (COP)" label only once on the Pricing step', async () => {
+    render(<CreateAuctionWizard />);
+    await goToDetails();
+    await fillDetailsAndContinue();
+
+    expect(screen.getAllByText('Price (COP)')).toHaveLength(1);
+  });
+
   it('reaches the review step and submits with the entered values', async () => {
     render(<CreateAuctionWizard />);
     await advanceThroughToReview();
