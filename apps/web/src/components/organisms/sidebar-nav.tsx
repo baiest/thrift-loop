@@ -26,11 +26,20 @@ const MOBILE_TAB_ITEMS: readonly NavItem[] = [
 ];
 
 const LINK_BASE_CLASSES = 'flex items-center gap-3 rounded-lg px-3 py-2 font-medium';
-const LINK_INACTIVE_CLASSES = 'text-gray-700 hover:bg-brand-50';
+const LINK_INACTIVE_CLASSES = 'text-ink-soft hover:bg-brand-50';
 const LINK_ACTIVE_CLASSES = 'border-l-4 border-brand-500 bg-brand-100 text-brand-700';
 
 function initials(firstName: string, lastName: string): string {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+}
+
+function BrandBlock({ withSubtitle }: { readonly withSubtitle: boolean }): React.JSX.Element {
+  return (
+    <div className="mb-6">
+      <p className="font-display text-xl font-bold text-ink">Thrift Loop</p>
+      {withSubtitle && <p className="text-xs font-medium text-ink-soft">Secondhand Fashion</p>}
+    </div>
+  );
 }
 
 function DesktopUserBlock(): React.JSX.Element | null {
@@ -49,13 +58,13 @@ function DesktopUserBlock(): React.JSX.Element | null {
         </span>
         <div>
           <p className="text-sm font-semibold text-ink">{`${user.firstName} ${user.lastName}`}</p>
-          <p className="text-xs text-gray-500">{user.city}</p>
+          <p className="text-xs text-ink-soft">{user.city}</p>
         </div>
       </div>
       <button
         type="button"
         onClick={() => void logout()}
-        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left font-medium text-gray-700 hover:bg-brand-50"
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left font-medium text-ink-soft hover:bg-brand-50"
       >
         <Icon name="log-out" className="h-5 w-5" />
         Log out
@@ -77,7 +86,7 @@ function TabletLogoutButton(): React.JSX.Element | null {
       type="button"
       aria-label="Log out"
       onClick={() => void logout()}
-      className="mt-auto flex h-11 w-11 items-center justify-center rounded-lg text-gray-500 hover:bg-brand-50"
+      className="mt-auto flex h-11 w-11 items-center justify-center rounded-lg text-ink-soft hover:bg-brand-50"
     >
       <Icon name="log-out" className="h-5 w-5" />
     </button>
@@ -90,6 +99,7 @@ function DesktopSidebar(): React.JSX.Element {
       aria-label="Main navigation"
       className="fixed inset-y-0 left-0 z-10 hidden w-64 flex-col bg-white p-6 shadow-none lg:flex"
     >
+      <BrandBlock withSubtitle />
       <ul className="space-y-2">
         {NAV_ITEMS.map((item) => (
           <li key={item.to}>
@@ -117,6 +127,7 @@ function TabletRail(): React.JSX.Element {
       aria-label="Tablet navigation"
       className="fixed inset-y-0 left-0 z-10 hidden w-[72px] flex-col items-center gap-2 bg-white py-6 md:flex lg:hidden"
     >
+      <BrandBlock withSubtitle={false} />
       {NAV_ITEMS.map((item) => (
         <NavLink
           key={item.to}
@@ -126,7 +137,7 @@ function TabletRail(): React.JSX.Element {
           title={item.label}
           className={({ isActive }) =>
             `flex h-11 w-11 items-center justify-center rounded-lg ${
-              isActive ? 'bg-brand-100 text-brand-700' : 'text-gray-500 hover:bg-brand-50'
+              isActive ? 'bg-brand-100 text-brand-700' : 'text-ink-soft hover:bg-brand-50'
             }`
           }
         >
@@ -151,7 +162,7 @@ function MobileTabBar(): React.JSX.Element {
           end={item.end}
           className={({ isActive }) =>
             `flex flex-col items-center gap-0.5 px-3 py-1 text-xs font-medium ${
-              isActive ? 'text-brand-600' : 'text-gray-500'
+              isActive ? 'text-brand-600' : 'text-ink-soft'
             }`
           }
         >
