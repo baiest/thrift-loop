@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request, { type Response as SupertestResponse } from 'supertest';
 import express, { type Express, type Request, type Response } from 'express';
 import cookieParser from 'cookie-parser';
-import type { PublicAuction, PublicBid, PublicPurchase } from '@thrift-loop/shared';
+import type { PublicAuction, PublicBid, PublicMyBid, PublicPurchase } from '@thrift-loop/shared';
 import { signSessionToken } from '../lib/jwt.js';
 import { SESSION_COOKIE_NAME } from '../lib/cookies.js';
 import { attachCsrfCookie, CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from '../lib/csrf.js';
@@ -24,6 +24,7 @@ interface AuctionResponseBody {
   auctions?: PublicAuction[];
   bids?: PublicBid[];
   purchases?: PublicPurchase[];
+  myBids?: PublicMyBid[];
   bid?: PublicBid;
   serverTime?: string;
   error?: string;
@@ -454,6 +455,34 @@ describe('auction routes', () => {
 
     it('returns 401 without a session', async () => {
       const response = await request(app).get('/api/auctions/purchases');
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('GET /api/auctions/my-bids', () => {
+    it('lists auctions the caller has bid on, with their own bid and winning status', async () => {
+      userRepository.seed(makeUser({ id: 'USR-2', phone: '3000000001' }));
+      const created = await withAuth(request(app).post('/api/auctions')).send(validBody);
+      const id = body(created).auction?.id as string;
+      await withAuth(request(app).patch(`/api/auctions/${id}`)).send({ status: 'published' });
+      await withAuth(request(app).post(`/api/auctions/${id}/bids`), 'USR-2').send({
+        amountCOP: '50000',
+      });
+
+      const response = await request(app)
+        .get('/api/auctions/my-bids')
+        .set('Cookie', authAndCsrfCookies('USR-2').cookieHeader);
+
+      expect(response.status).toBe(200);
+      const myBids = body(response).myBids ?? [];
+      expect(myBids).toHaveLength(1);
+      expect(myBids[0]?.auction.id).toBe(id);
+      expect(myBids[0]?.myBidCOP).toBe(50_000);
+      expect(myBids[0]?.isWinning).toBe(true);
+    });
+
+    it('returns 401 without a session', async () => {
+      const response = await request(app).get('/api/auctions/my-bids');
       expect(response.status).toBe(401);
     });
   });

@@ -57,4 +57,41 @@ describe('createJsonBidRepository', () => {
 
     expect(bids.map((bid) => bid.id)).toEqual(['BID-2', 'BID-1']);
   });
+
+  it('returns an empty list for a user with no bids', async () => {
+    const repository = createJsonBidRepository(filePath);
+    await expect(repository.findByUserId('USR-1')).resolves.toEqual([]);
+  });
+
+  it('returns bids placed by one user only, newest first', async () => {
+    const repository = createJsonBidRepository(filePath);
+    await repository.save(
+      makeBid({
+        id: 'BID-1',
+        userId: 'USR-1',
+        auctionId: 'AUC-1',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+    );
+    await repository.save(
+      makeBid({
+        id: 'BID-2',
+        userId: 'USR-1',
+        auctionId: 'AUC-2',
+        createdAt: '2026-01-02T00:00:00.000Z',
+      }),
+    );
+    await repository.save(
+      makeBid({
+        id: 'BID-other-user',
+        userId: 'USR-2',
+        auctionId: 'AUC-1',
+        createdAt: '2026-01-03T00:00:00.000Z',
+      }),
+    );
+
+    const bids = await repository.findByUserId('USR-1');
+
+    expect(bids.map((bid) => bid.id)).toEqual(['BID-2', 'BID-1']);
+  });
 });

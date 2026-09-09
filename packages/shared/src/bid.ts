@@ -1,4 +1,5 @@
 import { MAX_PRICE_COP } from './price.js';
+import type { PublicAuction } from './auction.js';
 
 const SECONDS_PER_MINUTE = 60;
 const MILLISECONDS_PER_SECOND = 1000;
@@ -14,6 +15,12 @@ export interface PublicBid {
   bidderFirstName: string;
   amountCOP: number;
   createdAt: string;
+}
+
+export interface PublicMyBid {
+  auction: PublicAuction;
+  myBidCOP: number;
+  isWinning: boolean;
 }
 
 export function minimumNextBid(currentBidCOP: number | null, startPriceCOP: number): number {
