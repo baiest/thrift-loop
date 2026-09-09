@@ -19,7 +19,7 @@ export function LoginPage(): React.JSX.Element {
 
       <p className="mt-6 text-center text-sm text-gray-600">
         New here?{' '}
-        <Link to="/register" className="font-semibold text-emerald-700">
+        <Link to="/register" className="font-semibold text-brand-700">
           Create an account
         </Link>
       </p>
