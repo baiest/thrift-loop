@@ -168,4 +168,52 @@ describe('MyBidsPage', () => {
 
     expect(await screen.findByText('Lost')).toBeInTheDocument();
   });
+
+  it('renders as a photo grid, not a list', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+    vi.mocked(fetchMyBids).mockResolvedValue([
+      { auction: baseAuction, myBidCOP: 60_000, isWinning: true },
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByLabelText('No photo')).toBeInTheDocument();
+    expect(document.querySelector('ul')).not.toBeInTheDocument();
+  });
+
+  it('orders auctions by soonest to end first', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+    vi.mocked(fetchMyBids).mockResolvedValue([
+      {
+        auction: {
+          ...baseAuction,
+          id: 'AUC-far',
+          title: 'Ends later',
+          bidEndsAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        },
+        myBidCOP: 60_000,
+        isWinning: true,
+      },
+      {
+        auction: { ...baseAuction, id: 'AUC-sold', title: 'Already sold', status: 'sold' },
+        myBidCOP: 60_000,
+        isWinning: false,
+      },
+      {
+        auction: {
+          ...baseAuction,
+          id: 'AUC-soon',
+          title: 'Ends soon',
+          bidEndsAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        },
+        myBidCOP: 60_000,
+        isWinning: true,
+      },
+    ]);
+
+    renderPage();
+
+    const titles = (await screen.findAllByText(/^Ends|^Already/)).map((el) => el.textContent);
+    expect(titles).toEqual(['Ends soon', 'Ends later', 'Already sold']);
+  });
 });

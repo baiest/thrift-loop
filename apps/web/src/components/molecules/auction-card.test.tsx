@@ -28,10 +28,15 @@ function makeAuction(overrides: Partial<PublicAuction> = {}): PublicAuction {
   };
 }
 
-function renderCard(auction: PublicAuction, isOwn = false, myBidCOP?: number): void {
+function renderCard(
+  auction: PublicAuction,
+  isOwn = false,
+  myBidCOP?: number,
+  bidStatus?: 'Winning' | 'Outbid' | 'Won' | 'Lost',
+): void {
   render(
     <MemoryRouter>
-      <AuctionCard auction={auction} isOwn={isOwn} myBidCOP={myBidCOP} />
+      <AuctionCard auction={auction} isOwn={isOwn} myBidCOP={myBidCOP} bidStatus={bidStatus} />
     </MemoryRouter>,
   );
 }
@@ -99,6 +104,17 @@ describe('AuctionCard', () => {
   it('shows a "Draft" badge while still a draft', () => {
     renderCard(makeAuction({ status: 'draft' }));
     expect(screen.getByText('Draft')).toBeInTheDocument();
+  });
+
+  it('shows a bid status badge when one is given', () => {
+    renderCard(makeAuction(), false, 45_000, 'Winning');
+    expect(screen.getByText('Winning')).toBeInTheDocument();
+  });
+
+  it('shows the bid status instead of the generic "Sold" badge once sold', () => {
+    renderCard(makeAuction({ status: 'sold' }), false, 45_000, 'Lost');
+    expect(screen.getByText('Lost')).toBeInTheDocument();
+    expect(screen.queryByText('Sold')).not.toBeInTheDocument();
   });
 
   it('does not show a "Draft" badge once published', () => {
