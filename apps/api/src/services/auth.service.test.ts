@@ -22,7 +22,9 @@ class FakeUserRepository implements UserRepository {
 
   async update(
     id: string,
-    patch: Partial<Pick<User, 'address' | 'categoryPreference'>>,
+    patch: Partial<
+      Pick<User, 'address' | 'categoryPreference' | 'firstName' | 'lastName' | 'city'>
+    >,
   ): Promise<User | null> {
     const existing = await this.findById(id);
     if (!existing) {
@@ -294,6 +296,63 @@ describe('AuthService', () => {
       });
 
       expect(updated.address).toBe('Calle 1');
+    });
+
+    it('sets the first name', async () => {
+      const registered = await service.register(validInput);
+      const updated = await service.updateProfile(registered.user.id, { firstName: 'Sofía' });
+
+      expect(updated.firstName).toBe('Sofía');
+    });
+
+    it('trims the first name', async () => {
+      const registered = await service.register(validInput);
+      const updated = await service.updateProfile(registered.user.id, {
+        firstName: '  Sofía  ',
+      });
+
+      expect(updated.firstName).toBe('Sofía');
+    });
+
+    it('rejects an empty first name', async () => {
+      const registered = await service.register(validInput);
+      await expectHttpError(
+        service.updateProfile(registered.user.id, { firstName: '   ' }),
+        400,
+        'firstName',
+      );
+    });
+
+    it('sets the last name', async () => {
+      const registered = await service.register(validInput);
+      const updated = await service.updateProfile(registered.user.id, { lastName: 'Restrepo' });
+
+      expect(updated.lastName).toBe('Restrepo');
+    });
+
+    it('rejects an empty last name', async () => {
+      const registered = await service.register(validInput);
+      await expectHttpError(
+        service.updateProfile(registered.user.id, { lastName: '   ' }),
+        400,
+        'lastName',
+      );
+    });
+
+    it('sets the city', async () => {
+      const registered = await service.register(validInput);
+      const updated = await service.updateProfile(registered.user.id, { city: 'Medellín' });
+
+      expect(updated.city).toBe('Medellín');
+    });
+
+    it('rejects an invalid city', async () => {
+      const registered = await service.register(validInput);
+      await expectHttpError(
+        service.updateProfile(registered.user.id, { city: 'Not a real city' }),
+        400,
+        'city',
+      );
     });
   });
 });
