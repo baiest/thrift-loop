@@ -9,6 +9,7 @@ interface NavItem {
 const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Create auction', to: '/auctions/new' },
   { label: 'Auctions', to: '/' },
+  { label: 'My auctions', to: '/auctions/mine' },
   { label: 'My purchases', to: '/purchases' },
   { label: 'My profile', to: '/profile' },
 ];

@@ -55,6 +55,7 @@ export function AuctionCard({ auction, isOwn }: AuctionCardProps): React.JSX.Ele
           <Badge tone="neutral">{humanizeCondition(auction.condition)}</Badge>
           {isOwn && <Badge tone="emerald">Yours</Badge>}
           {auction.status === 'sold' && <Badge tone="amber">Sold</Badge>}
+          {auction.status === 'draft' && <Badge tone="amber">Draft</Badge>}
         </div>
         <p className="truncate text-sm font-medium text-gray-900">{auction.title}</p>
         <p className="text-xs text-gray-500">{priceLabel}</p>
