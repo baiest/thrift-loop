@@ -78,22 +78,20 @@ describe('AuctionsPage', () => {
     expect(await screen.findByText(/no auctions/i)).toBeInTheDocument();
   });
 
-  it('renders the filter bar', async () => {
+  it('renders the search field, with the other filters collapsed behind Filters', async () => {
     renderPage();
 
-    expect(await screen.findByLabelText('Search')).toBeInTheDocument();
-    expect(screen.getByLabelText('Category')).toBeInTheDocument();
-    expect(screen.getByLabelText('City')).toBeInTheDocument();
-    expect(screen.getByLabelText('Min price (COP)')).toBeInTheDocument();
-    expect(screen.getByLabelText('Max price (COP)')).toBeInTheDocument();
+    expect(await screen.findByRole('searchbox')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /filters/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Category')).not.toBeInTheDocument();
   });
 
-  it('defaults the city filter to the logged-in user own city', async () => {
+  it('defaults the city filter to the logged-in user own city, shown as a chip', async () => {
     vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
 
     renderPage();
 
-    expect(await screen.findByLabelText('City')).toHaveValue('Cali');
+    expect(await screen.findByText('Cali')).toBeInTheDocument();
     await vi.waitFor(() =>
       expect(fetchAuctions).toHaveBeenCalledWith(expect.objectContaining({ city: 'Cali' })),
     );
@@ -105,7 +103,7 @@ describe('AuctionsPage', () => {
     await vi.waitFor(() => expect(fetchAuctions).toHaveBeenCalledTimes(1));
     vi.mocked(fetchAuctions).mockClear();
 
-    const search = await screen.findByLabelText('Search');
+    const search = await screen.findByRole('searchbox');
     act(() => {
       fireEvent.change(search, { target: { value: 'c' } });
       fireEvent.change(search, { target: { value: 'ch' } });
