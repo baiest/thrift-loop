@@ -8,6 +8,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': API_PROXY_TARGET,
+      '/uploads': API_PROXY_TARGET,
     },
   },
 });
