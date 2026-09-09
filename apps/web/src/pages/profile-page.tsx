@@ -119,7 +119,7 @@ export function ProfilePage(): React.JSX.Element {
 
   if (checkingSession || !user || !fields) {
     return (
-      <div aria-label="Loading profile" className="mx-auto flex max-w-md flex-col gap-3 py-6">
+      <div aria-label="Loading profile" className="mx-auto flex max-w-2xl flex-col gap-3 py-6">
         <Skeleton className="h-8 w-40" />
         <Skeleton className="h-10 w-full" />
         <Skeleton className="h-10 w-full" />
@@ -129,7 +129,7 @@ export function ProfilePage(): React.JSX.Element {
   }
 
   return (
-    <div className="mx-auto flex max-w-md flex-col py-6">
+    <div className="mx-auto flex max-w-2xl flex-col py-6">
       <h1 className="mb-4 font-display text-2xl font-bold text-ink">My profile</h1>
 
       <div className="mb-6 rounded-lg border border-hairline p-4">
