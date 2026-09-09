@@ -11,7 +11,6 @@ interface NavItem {
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
-  { label: 'Create auction', to: '/auctions/new', icon: 'plus-circle', end: false },
   { label: 'Auctions', to: '/', icon: 'compass', end: true },
   { label: 'My auctions', to: '/auctions/mine', icon: 'tag', end: false },
   { label: 'My purchases', to: '/purchases', icon: 'grip', end: false },
@@ -53,7 +52,7 @@ function DesktopUserBlock(): React.JSX.Element | null {
   return (
     <div className="mt-auto border-t border-hairline pt-4">
       <div className="mb-2 flex items-center gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-linen text-sm font-semibold text-ink">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linen text-sm font-semibold text-ink">
           {initials(user.firstName, user.lastName)}
         </span>
         <div>

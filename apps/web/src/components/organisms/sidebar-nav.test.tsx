@@ -45,11 +45,18 @@ describe('SidebarNav', () => {
       expect(within(nav).getByText('Secondhand Fashion')).toBeInTheDocument();
     });
 
-    it('has "Create auction" as the first nav link, linking to /auctions/new', () => {
+    it('does not duplicate Create auction (it lives in the page header CTA)', () => {
+      renderNav();
+      expect(
+        within(desktopNav()).queryByRole('link', { name: /create auction/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('has Auctions as the first nav link, linking to /', () => {
       renderNav();
       const links = within(desktopNav()).getAllByRole('link');
-      expect(links[0]).toHaveTextContent(/create auction/i);
-      expect(links[0]).toHaveAttribute('href', '/auctions/new');
+      expect(links[0]).toHaveTextContent(/^auctions$/i);
+      expect(links[0]).toHaveAttribute('href', '/');
     });
 
     it('links to auctions, purchases, and profile', () => {
@@ -106,6 +113,13 @@ describe('SidebarNav', () => {
       expect(within(nav).getByText('Bogotá D.C.')).toBeInTheDocument();
       expect(within(nav).getByRole('button', { name: /log out/i })).toBeInTheDocument();
     });
+
+    it('keeps the avatar circle from shrinking next to a long name', () => {
+      useAuthStore.getState().setUser(SAMPLE_USER);
+      renderNav();
+
+      expect(within(desktopNav()).getByText('JB')).toHaveClass('shrink-0');
+    });
   });
 
   describe('tablet icon rail (md..lg)', () => {
@@ -120,13 +134,13 @@ describe('SidebarNav', () => {
       expect(within(nav).queryByText('Secondhand Fashion')).not.toBeInTheDocument();
     });
 
-    it('renders every nav item as an icon-only link', () => {
+    it('renders every nav item as an icon-only link, without a duplicate Create auction', () => {
       renderNav();
       const nav = tabletNav();
       expect(within(nav).getByRole('link', { name: /^auctions$/i })).toBeInTheDocument();
-      expect(within(nav).getByRole('link', { name: /create auction/i })).toBeInTheDocument();
       expect(within(nav).getByRole('link', { name: /my auctions/i })).toBeInTheDocument();
       expect(within(nav).getByRole('link', { name: /my profile/i })).toBeInTheDocument();
+      expect(within(nav).queryByRole('link', { name: /create auction/i })).not.toBeInTheDocument();
     });
 
     it('marks the current route as active', () => {
