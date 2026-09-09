@@ -37,6 +37,7 @@ describe('App', () => {
             city: 'Bogotá D.C.',
             country: 'CO',
             address: null,
+            categoryPreference: null,
           },
         }),
     } as Response);
@@ -48,13 +49,13 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /menu/i })).toBeInTheDocument();
   });
 
-  it('renders the public auctions grid at /auctions', async () => {
+  it('renders the public auctions grid at /', async () => {
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       status: 200,
       json: () => Promise.resolve({ auctions: [] }),
     } as Response);
-    window.history.pushState({}, '', '/auctions');
+    window.history.pushState({}, '', '/');
 
     render(<App />);
 

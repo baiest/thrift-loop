@@ -53,6 +53,7 @@ export interface RegisterPayload {
   city: string;
   password: string;
   confirmPassword: string;
+  categoryPreference: string;
 }
 
 export interface LoginPayload {
@@ -94,11 +95,13 @@ interface AuctionResponseBody {
 
 export interface CreateAuctionPayload {
   title: string;
+  description: string;
   category: string;
   condition: string;
   deliveryMethod: string;
   priceCOP: string;
   publishAt: string;
+  location: string;
 }
 
 export type UpdateAuctionPayload = Partial<CreateAuctionPayload> & { status?: string };
@@ -240,7 +243,8 @@ export async function fetchMyPurchases(): Promise<PublicPurchase[]> {
 }
 
 export interface UpdateProfilePayload {
-  address: string;
+  address?: string;
+  categoryPreference?: string;
 }
 
 export async function updateProfile(payload: UpdateProfilePayload): Promise<PublicUser> {

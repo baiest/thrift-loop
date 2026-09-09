@@ -18,6 +18,7 @@ const sampleUser = {
   city: 'Bogotá D.C.',
   country: 'CO' as const,
   address: null,
+  categoryPreference: null,
 };
 
 const publicPurchase = {
@@ -25,6 +26,7 @@ const publicPurchase = {
     id: 'AUC-1',
     userId: 'USR-seller',
     title: 'Chaqueta de cuero',
+    description: 'Chaqueta de cuero en excelente estado.',
     category: 'jeans' as const,
     condition: 'good' as const,
     priceCOP: 50_000,
@@ -36,7 +38,7 @@ const publicPurchase = {
     bidCount: 2,
     bidEndsAt: null,
     winnerUserId: 'USR-1',
-    sellerCity: 'Medellín',
+    location: 'Medellín',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
   },

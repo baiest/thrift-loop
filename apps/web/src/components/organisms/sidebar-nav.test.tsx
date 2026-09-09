@@ -40,7 +40,7 @@ describe('SidebarNav', () => {
     renderNav();
     await userEvent.click(screen.getByRole('button', { name: /menu/i }));
 
-    expect(screen.getByRole('link', { name: /^auctions$/i })).toHaveAttribute('href', '/auctions');
+    expect(screen.getByRole('link', { name: /^auctions$/i })).toHaveAttribute('href', '/');
     expect(screen.getByRole('link', { name: /my purchases/i })).toHaveAttribute(
       'href',
       '/purchases',

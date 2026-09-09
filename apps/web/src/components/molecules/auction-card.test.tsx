@@ -9,6 +9,7 @@ function makeAuction(overrides: Partial<PublicAuction> = {}): PublicAuction {
     id: 'AUC-1',
     userId: 'USR-1',
     title: 'Chaqueta de cuero',
+    description: 'Chaqueta de cuero en excelente estado.',
     category: 'jeans',
     condition: 'good',
     priceCOP: 50_000,
@@ -20,7 +21,7 @@ function makeAuction(overrides: Partial<PublicAuction> = {}): PublicAuction {
     bidCount: 0,
     bidEndsAt: null,
     winnerUserId: null,
-    sellerCity: 'Bogotá D.C.',
+    location: 'Bogotá D.C.',
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
@@ -67,8 +68,8 @@ describe('AuctionCard', () => {
   });
 
   it('shows the condition', () => {
-    renderCard(makeAuction({ condition: 'like-new' }));
-    expect(screen.getByText('Like new')).toBeInTheDocument();
+    renderCard(makeAuction({ condition: 'new-with-tag' }));
+    expect(screen.getByText('New with tag')).toBeInTheDocument();
   });
 
   it('shows a "Yours" badge for the caller own auction', () => {

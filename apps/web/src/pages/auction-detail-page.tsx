@@ -81,6 +81,8 @@ export function AuctionDetailPage(): React.JSX.Element | null {
         />
       )}
       <h1 className="mb-1 text-xl font-bold text-gray-900">{auction.title}</h1>
+      <p className="mb-2 text-sm text-gray-600">{auction.location}</p>
+      <p className="mb-4 whitespace-pre-wrap text-sm text-gray-700">{auction.description}</p>
       <p className="text-sm text-gray-500">
         {auction.currentBidCOP === null ? 'Starting at' : 'Current bid'}
       </p>
