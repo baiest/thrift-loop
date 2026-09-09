@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { AuctionDetailPage } from './auction-detail-page.js';
 import { useAuthStore } from '../stores/auth-store.js';
+import { useRealtimeStore } from '../stores/realtime-store.js';
 
 vi.mock('../lib/api-client.js', async () => {
   const actual = await vi.importActual('../lib/api-client.js');
@@ -64,6 +65,14 @@ function renderPage(id = 'AUC-1'): void {
 describe('AuctionDetailPage', () => {
   beforeEach(() => {
     useAuthStore.getState().clearUser();
+    useRealtimeStore.setState({
+      status: 'idle',
+      hasConnectedOnce: false,
+      resyncToken: 0,
+      unreadCount: 0,
+      auctionUpdates: {},
+      viewersByAuctionId: {},
+    });
     vi.mocked(fetchAuctionDetail).mockReset();
     vi.mocked(fetchBids).mockReset();
     vi.mocked(fetchCurrentUser).mockReset();
@@ -71,7 +80,89 @@ describe('AuctionDetailPage', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it('does not poll for updates on an interval anymore', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+
+    renderPage();
+    await vi.waitFor(() => expect(fetchAuctionDetail).toHaveBeenCalledTimes(1));
+
+    await vi.advanceTimersByTimeAsync(20_000);
+
+    expect(fetchAuctionDetail).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
+  it('reflects a live auction-updated message without an extra fetch', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+
+    renderPage();
+    await screen.findByText(/50\.000/);
+
+    useRealtimeStore.getState().applyServerMessage({
+      type: 'auction-updated',
+      auctionId: 'AUC-1',
+      currentBidCOP: 75_000,
+      bidCount: 1,
+      bidEndsAt: null,
+      serverTime: '2026-01-01T00:00:05.000Z',
+    });
+
+    expect(await screen.findByText(/75\.000/)).toBeInTheDocument();
+    expect(fetchAuctionDetail).toHaveBeenCalledTimes(1);
+  });
+
+  it('refetches when the connection resyncs after a reconnect', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+
+    renderPage();
+    await screen.findByText(/50\.000/);
+
+    useRealtimeStore.getState().setStatus('open');
+    useRealtimeStore.getState().setStatus('reconnecting');
+    useRealtimeStore.getState().setStatus('open');
+
+    await vi.waitFor(() => expect(fetchAuctionDetail).toHaveBeenCalledTimes(2));
+  });
+
+  it('shows a reconnecting hint after the connection has been down a while', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+
+    renderPage();
+    await vi.waitFor(() => expect(fetchAuctionDetail).toHaveBeenCalled());
+
+    useRealtimeStore.getState().setStatus('reconnecting');
+    expect(screen.queryByText(/reconnecting/i)).not.toBeInTheDocument();
+
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(screen.getByText(/reconnecting/i)).toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 
   it('shows a skeleton instead of a blank screen while loading', () => {

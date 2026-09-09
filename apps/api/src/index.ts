@@ -1,12 +1,13 @@
 import 'dotenv/config';
 import { join } from 'node:path';
 import { buildContainer } from './container.js';
-import { createApp } from './create-app.js';
+import { createServer } from './create-server.js';
 import { startAuctionScheduler } from './lib/publish-scheduler.js';
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_WEB_DIST_PATH = '../web/dist';
 const AUCTION_SCHEDULER_INTERVAL_MS = 60_000;
+const DEFAULT_ALLOWED_ORIGINS = 'http://localhost:5173';
 
 function requireEnv(name: string): string {
   // Only ever called with fixed literal names in this file, not user input.
@@ -22,6 +23,11 @@ requireEnv('JWT_SECRET');
 
 const port = process.env['PORT'] ? Number(process.env['PORT']) : DEFAULT_PORT;
 const webDistPath = join(process.cwd(), process.env['WEB_DIST_PATH'] ?? DEFAULT_WEB_DIST_PATH);
+const allowedOrigins = (process.env['ALLOWED_ORIGINS'] ?? DEFAULT_ALLOWED_ORIGINS)
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter((origin) => origin.length > 0);
+
 const {
   authService,
   userRepository,
@@ -35,7 +41,7 @@ const {
   uploadsDir,
 } = buildContainer();
 
-createApp({
+const { server } = createServer({
   authService,
   userRepository,
   webDistPath,
@@ -43,7 +49,11 @@ createApp({
   bidService,
   notificationService,
   uploadsDir,
-}).listen(port, () => {
+  allowedOrigins,
+  eventBus,
+});
+
+server.listen(port, () => {
   console.log(`API listening on port ${port}`);
 });
 
