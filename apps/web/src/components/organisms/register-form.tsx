@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import {
   COLOMBIA_CITIES,
+  ITEM_CATEGORIES,
   isColombiaCity,
   isColombianMobilePhone,
   validatePassword,
@@ -10,10 +11,20 @@ import { ApiError, register, type RegisterPayload } from '../../lib/api-client.j
 import { useAuthStore } from '../../stores/auth-store.js';
 import { TextInput } from '../atoms/text-input.js';
 import { PasswordInput } from '../atoms/password-input.js';
+import { Select, type SelectOption } from '../atoms/select.js';
 import { Button } from '../atoms/button.js';
 import { FormField } from '../molecules/form-field.js';
 import { SearchableSelect } from '../molecules/searchable-select.js';
 import { PasswordStrengthMeter } from '../molecules/password-strength-meter.js';
+
+function humanize(value: string): string {
+  return value.charAt(0).toUpperCase() + value.slice(1).replace(/-/g, ' ');
+}
+
+const CATEGORY_PREFERENCE_OPTIONS: SelectOption[] = ITEM_CATEGORIES.map((value) => ({
+  value,
+  label: humanize(value),
+}));
 
 const PASSWORD_RULE_MESSAGES: Record<PasswordRule, string> = {
   minLength: 'Password must be at least 8 characters',
@@ -32,6 +43,7 @@ const EMPTY_VALUES: FormValues = {
   city: '',
   password: '',
   confirmPassword: '',
+  categoryPreference: '',
 };
 
 function validatePhoneField(values: FormValues): string | undefined {
@@ -63,6 +75,10 @@ function validateConfirmPasswordField(values: FormValues): string | undefined {
   return values.password !== values.confirmPassword ? 'Passwords do not match' : undefined;
 }
 
+function validateCategoryPreferenceField(): string | undefined {
+  return undefined;
+}
+
 const FIELD_VALIDATORS: Record<keyof FormValues, (values: FormValues) => string | undefined> = {
   phone: validatePhoneField,
   firstName: validateFirstNameField,
@@ -70,6 +86,7 @@ const FIELD_VALIDATORS: Record<keyof FormValues, (values: FormValues) => string 
   city: validateCityField,
   password: validatePasswordField,
   confirmPassword: validateConfirmPasswordField,
+  categoryPreference: validateCategoryPreferenceField,
 };
 
 function validateField(field: keyof FormValues, values: FormValues): string | undefined {
@@ -183,6 +200,20 @@ export function RegisterForm({ onSuccess }: RegisterFormProps): React.JSX.Elemen
           invalid={Boolean(errors.city)}
           onChange={(value) => updateField('city', value)}
           onBlur={() => handleBlur('city')}
+        />
+      </FormField>
+
+      <FormField
+        id="categoryPreference"
+        label="Category preference"
+        error={errors.categoryPreference}
+      >
+        <Select
+          id="categoryPreference"
+          options={CATEGORY_PREFERENCE_OPTIONS}
+          value={values.categoryPreference}
+          placeholder="No preference"
+          onChange={(value) => updateField('categoryPreference', value)}
         />
       </FormField>
 

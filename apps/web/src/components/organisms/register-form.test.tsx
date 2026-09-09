@@ -18,6 +18,7 @@ const validUser = {
   city: 'Bogotá D.C.',
   country: 'CO' as const,
   address: null,
+  categoryPreference: null,
 };
 
 async function fillValidForm(): Promise<void> {
@@ -117,5 +118,32 @@ describe('RegisterForm', () => {
     await userEvent.click(screen.getByRole('button', { name: /create account/i }));
 
     await waitFor(() => expect(screen.getByText('Something went wrong')).toBeInTheDocument());
+  });
+
+  it('submits with no category preference selected', async () => {
+    vi.mocked(register).mockResolvedValue(validUser);
+    render(<RegisterForm />);
+
+    await fillValidForm();
+    await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() =>
+      expect(register).toHaveBeenCalledWith(expect.objectContaining({ categoryPreference: '' })),
+    );
+  });
+
+  it('submits the selected category preference', async () => {
+    vi.mocked(register).mockResolvedValue(validUser);
+    render(<RegisterForm />);
+
+    await fillValidForm();
+    await userEvent.selectOptions(screen.getByLabelText('Category preference'), 'jeans');
+    await userEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+    await waitFor(() =>
+      expect(register).toHaveBeenCalledWith(
+        expect.objectContaining({ categoryPreference: 'jeans' }),
+      ),
+    );
   });
 });

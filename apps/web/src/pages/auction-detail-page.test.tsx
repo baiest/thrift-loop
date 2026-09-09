@@ -20,6 +20,7 @@ const publicAuction = {
   id: 'AUC-1',
   userId: 'USR-seller',
   title: 'Chaqueta de cuero',
+  description: 'Chaqueta de cuero en excelente estado.',
   category: 'jeans' as const,
   condition: 'good' as const,
   priceCOP: 50_000,
@@ -31,7 +32,7 @@ const publicAuction = {
   bidCount: 0,
   bidEndsAt: null,
   winnerUserId: null,
-  sellerCity: 'Bogotá D.C.',
+  location: 'Bogotá D.C.',
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
@@ -43,6 +44,7 @@ const sampleUser = {
   city: 'Bogotá D.C.',
   country: 'CO' as const,
   address: null,
+  categoryPreference: null,
 };
 
 function renderPage(id = 'AUC-1'): void {
@@ -80,6 +82,8 @@ describe('AuctionDetailPage', () => {
     expect(await screen.findByText(/50\.000/)).toBeInTheDocument();
     expect(screen.getByText('No bids yet — be the first.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: publicAuction.title })).toBeInTheDocument();
+    expect(screen.getByText(publicAuction.description)).toBeInTheDocument();
+    expect(screen.getByText(publicAuction.location)).toBeInTheDocument();
   });
 
   it('shows a 404 message when the auction does not exist', async () => {

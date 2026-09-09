@@ -7,10 +7,10 @@ import { useAuthStore } from '../stores/auth-store.js';
 
 vi.mock('../lib/api-client.js', async () => {
   const actual = await vi.importActual('../lib/api-client.js');
-  return { ...actual, fetchCurrentUser: vi.fn(), updateProfile: vi.fn() };
+  return { ...actual, fetchCurrentUser: vi.fn(), updateProfile: vi.fn(), logout: vi.fn() };
 });
 
-const { fetchCurrentUser, updateProfile } = await import('../lib/api-client.js');
+const { fetchCurrentUser, updateProfile, logout } = await import('../lib/api-client.js');
 
 const sampleUser = {
   id: 'USR-1',
@@ -19,6 +19,7 @@ const sampleUser = {
   city: 'Bogotá D.C.',
   country: 'CO' as const,
   address: null,
+  categoryPreference: null,
 };
 
 function renderPage(): void {
@@ -37,6 +38,7 @@ describe('ProfilePage', () => {
     useAuthStore.getState().clearUser();
     vi.mocked(fetchCurrentUser).mockReset();
     vi.mocked(updateProfile).mockReset();
+    vi.mocked(logout).mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -68,7 +70,43 @@ describe('ProfilePage', () => {
     await userEvent.type(input, 'Calle 2');
     await userEvent.click(screen.getByRole('button', { name: /save/i }));
 
-    await waitFor(() => expect(updateProfile).toHaveBeenCalledWith({ address: 'Calle 2' }));
+    await waitFor(() =>
+      expect(updateProfile).toHaveBeenCalledWith({ address: 'Calle 2', categoryPreference: '' }),
+    );
     expect(await screen.findByText(/saved/i)).toBeInTheDocument();
+  });
+
+  it('pre-fills the category preference field from the current user', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue({ ...sampleUser, categoryPreference: 'jeans' });
+
+    renderPage();
+
+    expect(await screen.findByLabelText('Category preference')).toHaveValue('jeans');
+  });
+
+  it('saves a changed category preference', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+    vi.mocked(updateProfile).mockResolvedValue({ ...sampleUser, categoryPreference: 'jeans' });
+
+    renderPage();
+    await screen.findByLabelText('Address');
+    await userEvent.selectOptions(screen.getByLabelText('Category preference'), 'jeans');
+    await userEvent.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() =>
+      expect(updateProfile).toHaveBeenCalledWith({ address: '', categoryPreference: 'jeans' }),
+    );
+  });
+
+  it('logs out and redirects to /login', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+    await screen.findByLabelText('Address');
+    await userEvent.click(screen.getByRole('button', { name: /log out/i }));
+
+    expect(await screen.findByText('login screen')).toBeInTheDocument();
+    expect(logout).toHaveBeenCalledOnce();
+    expect(useAuthStore.getState().user).toBeNull();
   });
 });

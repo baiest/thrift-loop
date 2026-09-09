@@ -8,6 +8,7 @@ const sampleUser = {
   city: 'Bogotá D.C.',
   country: 'CO' as const,
   address: null,
+  categoryPreference: null,
 };
 
 describe('useAuthStore', () => {

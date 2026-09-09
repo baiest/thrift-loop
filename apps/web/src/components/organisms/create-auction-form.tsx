@@ -1,26 +1,33 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import {
+  COLOMBIA_CITIES,
   DELIVERY_METHODS,
   ITEM_CATEGORIES,
   ITEM_CONDITIONS,
+  MAX_DESCRIPTION_LENGTH,
   MAX_TITLE_LENGTH,
+  isColombiaCity,
   isDeliveryMethod,
   isItemCategory,
   isItemCondition,
   isValidCopPrice,
+  isValidDescription,
   isValidTitle,
 } from '@thrift-loop/shared';
 import {
   ApiError,
   createAuction,
+  fetchCurrentUser,
   uploadAuctionPhotos,
   type CreateAuctionPayload,
 } from '../../lib/api-client.js';
 import { Select, type SelectOption } from '../atoms/select.js';
 import { TextInput } from '../atoms/text-input.js';
+import { Textarea } from '../atoms/textarea.js';
 import { Button } from '../atoms/button.js';
 import { FormField } from '../molecules/form-field.js';
 import { PhotoUploader } from '../molecules/photo-uploader.js';
+import { SearchableSelect } from '../molecules/searchable-select.js';
 
 function humanize(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).replace(/-/g, ' ');
@@ -39,17 +46,29 @@ type FormErrors = Partial<Record<keyof FormValues, string>>;
 
 const EMPTY_VALUES: FormValues = {
   title: '',
+  description: '',
   category: '',
   condition: '',
   deliveryMethod: '',
   priceCOP: '',
   publishAt: '',
+  location: '',
 };
 
 function validateTitle(values: FormValues): string | undefined {
   return isValidTitle(values.title)
     ? undefined
     : `Enter a title up to ${MAX_TITLE_LENGTH} characters, letters and numbers only`;
+}
+
+function validateDescription(values: FormValues): string | undefined {
+  return isValidDescription(values.description)
+    ? undefined
+    : `Enter a description up to ${MAX_DESCRIPTION_LENGTH} characters`;
+}
+
+function validateLocation(values: FormValues): string | undefined {
+  return isColombiaCity(values.location) ? undefined : 'Select a valid location';
 }
 
 function validateCategory(values: FormValues): string | undefined {
@@ -76,10 +95,12 @@ const REQUIRED_FIELD_VALIDATORS: Record<
   (values: FormValues) => string | undefined
 > = {
   title: validateTitle,
+  description: validateDescription,
   category: validateCategory,
   condition: validateCondition,
   deliveryMethod: validateDeliveryMethod,
   priceCOP: validatePrice,
+  location: validateLocation,
 };
 
 function validateAll(values: FormValues): FormErrors {
@@ -108,8 +129,24 @@ export function CreateAuctionForm({ onSuccess }: CreateAuctionFormProps): React.
   const [photos, setPhotos] = useState<File[]>([]);
   const [serverError, setServerError] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
+  const locationTouched = useRef(false);
+
+  useEffect(() => {
+    let isActive = true;
+    void fetchCurrentUser().then((user) => {
+      if (isActive && user?.city && !locationTouched.current) {
+        setValues((current) => ({ ...current, location: user.city }));
+      }
+    });
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   function updateField(field: keyof FormValues, value: string): void {
+    if (field === 'location') {
+      locationTouched.current = true;
+    }
     setValues((current) => ({ ...current, [field]: value }));
   }
 
@@ -157,6 +194,18 @@ export function CreateAuctionForm({ onSuccess }: CreateAuctionFormProps): React.
         </p>
       </FormField>
 
+      <FormField id="description" label="Description" error={errors.description}>
+        <Textarea
+          id="description"
+          value={values.description}
+          invalid={Boolean(errors.description)}
+          onChange={(value) => updateField('description', value)}
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          {values.description.length}/{MAX_DESCRIPTION_LENGTH} characters
+        </p>
+      </FormField>
+
       <FormField id="category" label="Category" error={errors.category}>
         <Select
           id="category"
@@ -194,6 +243,17 @@ export function CreateAuctionForm({ onSuccess }: CreateAuctionFormProps): React.
           value={values.priceCOP}
           invalid={Boolean(errors.priceCOP)}
           onChange={(value) => updateField('priceCOP', value)}
+        />
+      </FormField>
+
+      <FormField id="location" label="Location" error={errors.location}>
+        <SearchableSelect
+          id="location"
+          options={COLOMBIA_CITIES}
+          value={values.location}
+          placeholder="Search a city"
+          invalid={Boolean(errors.location)}
+          onChange={(value) => updateField('location', value)}
         />
       </FormField>
 

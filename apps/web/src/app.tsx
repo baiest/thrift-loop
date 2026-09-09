@@ -1,6 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './pages/app-layout.js';
-import { HomePage } from './pages/home-page.js';
 import { LoginPage } from './pages/login-page.js';
 import { RegisterPage } from './pages/register-page.js';
 import { CreateAuctionPage } from './pages/create-auction-page.js';
@@ -14,10 +13,9 @@ export function App(): React.JSX.Element {
     <BrowserRouter>
       <Routes>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<AuctionsPage />} />
           <Route path="/auctions/new" element={<CreateAuctionPage />} />
           <Route path="/auctions/:id" element={<AuctionDetailPage />} />
-          <Route path="/auctions" element={<AuctionsPage />} />
           <Route path="/purchases" element={<PurchasesPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
