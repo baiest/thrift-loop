@@ -162,6 +162,7 @@ export interface AuctionFilters {
   city?: string;
   minPriceCOP?: string;
   maxPriceCOP?: string;
+  sort?: string;
 }
 
 export async function fetchAuctions(filters: AuctionFilters = {}): Promise<PublicAuction[]> {

@@ -97,6 +97,40 @@ describe('AuctionsPage', () => {
     );
   });
 
+  it('renders a subtitle and a Create auction link in the header', async () => {
+    renderPage();
+
+    expect(
+      screen.getByText(/curated vintage pieces|second-hand clothing|secondhand fashion/i),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /create auction/i })).toHaveAttribute(
+      'href',
+      '/auctions/new',
+    );
+  });
+
+  it('shows the result count and defaults the sort to newest', async () => {
+    vi.mocked(fetchAuctions).mockResolvedValue([publicAuction]);
+
+    renderPage();
+
+    expect(await screen.findByText('1 item available to bid')).toBeInTheDocument();
+    expect(screen.getByLabelText(/sort/i)).toHaveValue('newest');
+  });
+
+  it('refetches immediately when the sort changes, without waiting for the debounce', async () => {
+    renderPage();
+    await vi.waitFor(() => expect(fetchAuctions).toHaveBeenCalledTimes(1));
+    vi.mocked(fetchAuctions).mockClear();
+
+    const sortSelect = await screen.findByLabelText(/sort/i);
+    fireEvent.change(sortSelect, { target: { value: 'price-asc' } });
+
+    await vi.waitFor(() =>
+      expect(fetchAuctions).toHaveBeenCalledWith(expect.objectContaining({ sort: 'price-asc' })),
+    );
+  });
+
   it('debounces the search box before fetching', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     renderPage();
