@@ -14,6 +14,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Auctions', to: '/', icon: 'compass', end: true },
   { label: 'My auctions', to: '/auctions/mine', icon: 'tag', end: false },
   { label: 'My purchases', to: '/purchases', icon: 'grip', end: false },
+  { label: 'My bids', to: '/my-bids', icon: 'gavel', end: false },
   { label: 'My profile', to: '/profile', icon: 'user', end: false },
 ];
 

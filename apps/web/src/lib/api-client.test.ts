@@ -9,6 +9,7 @@ import {
   fetchBids,
   fetchCurrentUser,
   fetchMyAuctions,
+  fetchMyBids,
   fetchMyPurchases,
   login,
   logout,
@@ -405,6 +406,17 @@ describe('api-client', () => {
   it('fetchMyPurchases resolves with the caller purchases', async () => {
     mockFetchOnce(200, { purchases: [publicPurchase] });
     await expect(fetchMyPurchases()).resolves.toEqual([publicPurchase]);
+  });
+
+  it('fetchMyBids resolves with the caller bids', async () => {
+    const publicMyBid = { auction: publicAuction, myBidCOP: 50_000, isWinning: true };
+    mockFetchOnce(200, { myBids: [publicMyBid] });
+    await expect(fetchMyBids()).resolves.toEqual([publicMyBid]);
+  });
+
+  it('fetchMyBids resolves with an empty list when the response has none', async () => {
+    mockFetchOnce(200, {});
+    await expect(fetchMyBids()).resolves.toEqual([]);
   });
 
   it('updateProfile patches /api/auth/me with the CSRF header', async () => {

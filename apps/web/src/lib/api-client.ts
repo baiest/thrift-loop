@@ -1,4 +1,10 @@
-import type { PublicAuction, PublicBid, PublicPurchase, PublicUser } from '@thrift-loop/shared';
+import type {
+  PublicAuction,
+  PublicBid,
+  PublicMyBid,
+  PublicPurchase,
+  PublicUser,
+} from '@thrift-loop/shared';
 
 const CSRF_COOKIE_NAME = 'csrf_token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
@@ -241,6 +247,16 @@ export async function fetchMyPurchases(): Promise<PublicPurchase[]> {
   const response = await fetch('/api/auctions/purchases', { credentials: 'include' });
   const data = (await response.json()) as PurchasesResponseBody;
   return data.purchases ?? [];
+}
+
+interface MyBidsResponseBody {
+  myBids?: PublicMyBid[];
+}
+
+export async function fetchMyBids(): Promise<PublicMyBid[]> {
+  const response = await fetch('/api/auctions/my-bids', { credentials: 'include' });
+  const data = (await response.json()) as MyBidsResponseBody;
+  return data.myBids ?? [];
 }
 
 export interface UpdateProfilePayload {
