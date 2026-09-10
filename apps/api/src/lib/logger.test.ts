@@ -76,6 +76,22 @@ describe('logger', () => {
     expect(line).not.toHaveProperty('requestId');
   });
 
+  it('includes ip when the request context carries one', async () => {
+    runWithRequestId('REQ-1', () => logger.info('bid_placed', {}), '127.0.0.1');
+    await logger.close();
+
+    const [line] = await readLines(filePath);
+    expect(line?.['ip']).toBe('127.0.0.1');
+  });
+
+  it('omits ip when the request context carries none', async () => {
+    runWithRequestId('REQ-1', () => logger.info('bid_placed', {}));
+    await logger.close();
+
+    const [line] = await readLines(filePath);
+    expect(line).not.toHaveProperty('ip');
+  });
+
   it('throws on an invalid (non-snake_case) event name and writes nothing', async () => {
     expect(() => logger.info('BidPlaced', {})).toThrow();
     expect(() => logger.info('bid placed', {})).toThrow();

@@ -1,6 +1,7 @@
 import rateLimit, { type Options } from 'express-rate-limit';
 import type { RequestHandler } from 'express';
 import { HTTP_STATUS } from '../lib/http-status.js';
+import { NOOP_LOGGER, type Logger } from '../lib/logger.js';
 
 const SECONDS_PER_MINUTE = 60;
 const MILLISECONDS_PER_SECOND = 1000;
@@ -26,12 +27,16 @@ export const BROWSE_RATE_LIMIT: Partial<Options> = {
   limit: BROWSE_MAX_REQUESTS,
 };
 
-export function createRateLimiter(options: Partial<Options> = {}): RequestHandler {
+export function createRateLimiter(
+  options: Partial<Options> = {},
+  logger: Logger = NOOP_LOGGER,
+): RequestHandler {
   return rateLimit({
     ...AUTH_RATE_LIMIT,
     standardHeaders: true,
     legacyHeaders: false,
-    handler: (_req, res) => {
+    handler: (req, res) => {
+      logger.warning('rate_limit_exceeded', { path: req.path });
       res.status(HTTP_STATUS.TOO_MANY_REQUESTS).json({ error: TOO_MANY_REQUESTS_MESSAGE });
     },
     ...options,

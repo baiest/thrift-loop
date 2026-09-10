@@ -7,7 +7,34 @@ import type {
 } from '../repositories/auction.repository.js';
 import type { PhotoStorage, UploadedFile } from '../lib/photo-storage.js';
 import { HttpError } from '../lib/http-error.js';
+import type { Logger } from '../lib/logger.js';
 import { createAuctionService, type CreateAuctionInput } from './auction.service.js';
+
+interface RecordedLogCall {
+  level: string;
+  event: string;
+  fields: Record<string, unknown>;
+}
+
+function createFakeLogger(): { logger: Logger; calls: RecordedLogCall[] } {
+  const calls: RecordedLogCall[] = [];
+  const record =
+    (level: string) =>
+    (event: string, fields: Record<string, unknown> = {}) => {
+      calls.push({ level, event, fields });
+    };
+  return {
+    calls,
+    logger: {
+      info: record('info'),
+      warning: record('warning'),
+      error: record('error'),
+      critical: record('critical'),
+      time: async (_event, _fields, fn) => fn(),
+      close: async () => {},
+    },
+  };
+}
 
 class FakeAuctionRepository implements AuctionRepository {
   private readonly auctions = new Map<string, Auction>();
@@ -132,12 +159,15 @@ async function catchHttpError(promise: Promise<unknown>): Promise<HttpError> {
 describe('AuctionService', () => {
   let repository: FakeAuctionRepository;
   let photoStorage: FakePhotoStorage;
+  let logCalls: RecordedLogCall[];
   let service: ReturnType<typeof createAuctionService>;
 
   beforeEach(() => {
     repository = new FakeAuctionRepository();
     photoStorage = new FakePhotoStorage();
-    service = createAuctionService(repository, photoStorage);
+    const fakeLogger = createFakeLogger();
+    logCalls = fakeLogger.calls;
+    service = createAuctionService(repository, photoStorage, fakeLogger.logger);
   });
 
   afterEach(() => {});
@@ -285,6 +315,16 @@ describe('AuctionService', () => {
       );
       expect(error.fields?.['publishAt']).toBeDefined();
     });
+
+    it('logs auction_created on success', async () => {
+      const auction = await service.createAuction('USR-1', validInput);
+
+      expect(logCalls).toContainEqual({
+        level: 'info',
+        event: 'auction_created',
+        fields: { auctionId: auction.id, userId: 'USR-1' },
+      });
+    });
   });
 
   describe('updateAuction', () => {
@@ -326,6 +366,19 @@ describe('AuctionService', () => {
       );
       expect(error.status).toBe(404);
     });
+
+    it('logs auction_updated on success', async () => {
+      const auction = await service.createAuction('USR-1', validInput);
+      logCalls.length = 0;
+
+      await service.updateAuction('USR-1', auction.id, { priceCOP: '75000' });
+
+      expect(logCalls).toContainEqual({
+        level: 'info',
+        event: 'auction_updated',
+        fields: { auctionId: auction.id, userId: 'USR-1' },
+      });
+    });
   });
 
   describe('deleteAuction', () => {
@@ -350,6 +403,19 @@ describe('AuctionService', () => {
       const auction = await service.createAuction('USR-1', validInput);
       const error = await catchHttpError(service.deleteAuction('USR-2', auction.id));
       expect(error.status).toBe(404);
+    });
+
+    it('logs auction_deleted on success', async () => {
+      const auction = await service.createAuction('USR-1', validInput);
+      logCalls.length = 0;
+
+      await service.deleteAuction('USR-1', auction.id);
+
+      expect(logCalls).toContainEqual({
+        level: 'info',
+        event: 'auction_deleted',
+        fields: { auctionId: auction.id, userId: 'USR-1' },
+      });
     });
   });
 
@@ -404,6 +470,36 @@ describe('AuctionService', () => {
 
       const error = await catchHttpError(service.addPhotos('USR-1', auction.id, makeFiles(1)));
       expect(error.status).toBe(409);
+    });
+
+    it('logs photos_uploaded on success', async () => {
+      const auction = await service.createAuction('USR-1', validInput);
+      logCalls.length = 0;
+
+      await service.addPhotos('USR-1', auction.id, makeFiles(3));
+
+      expect(logCalls).toContainEqual({
+        level: 'info',
+        event: 'photos_uploaded',
+        fields: { auctionId: auction.id, userId: 'USR-1', count: 3 },
+      });
+    });
+
+    it('logs photo_upload_failed and rethrows when photo storage fails', async () => {
+      const auction = await service.createAuction('USR-1', validInput);
+      logCalls.length = 0;
+      const failure = new Error('disk full');
+      photoStorage.savePhotos = () => Promise.reject(failure);
+
+      await expect(service.addPhotos('USR-1', auction.id, makeFiles(1))).rejects.toThrow(
+        'disk full',
+      );
+
+      expect(logCalls).toContainEqual({
+        level: 'error',
+        event: 'photo_upload_failed',
+        fields: { auctionId: auction.id, userId: 'USR-1', message: 'disk full' },
+      });
     });
   });
 

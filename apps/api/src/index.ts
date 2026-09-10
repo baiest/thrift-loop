@@ -4,6 +4,7 @@ import { buildContainer } from './container.js';
 import { createServer } from './create-server.js';
 import { startAuctionScheduler } from './lib/publish-scheduler.js';
 import { setDefaultAsyncHandlerLogger } from './lib/async-handler.js';
+import { setCsrfLogger } from './lib/csrf.js';
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_WEB_DIST_PATH = '../web/dist';
@@ -47,6 +48,7 @@ const {
 } = buildContainer();
 
 setDefaultAsyncHandlerLogger(logger);
+setCsrfLogger(logger);
 
 process.on('uncaughtException', (error) => {
   logger.critical('uncaught_exception', { message: error.message, stack: error.stack });
