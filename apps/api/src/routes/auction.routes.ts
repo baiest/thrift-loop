@@ -6,6 +6,7 @@ import {
   MAX_PHOTOS_PER_AUCTION,
   MAX_PHOTO_SIZE_BYTES,
   resolveHandover,
+  type AllowedPhotoMimeType,
   type PublicAuction,
   type PublicMyBid,
   type PublicPurchase,
@@ -274,7 +275,13 @@ export function createAuctionRouter(
       const auction = await auctionService.addPhotos(
         userId,
         req.params['id'] as string,
-        files.map((file) => ({ originalName: file.originalname, buffer: file.buffer })),
+        files.map((file) => ({
+          originalName: file.originalname,
+          // multer's fileFilter above already rejected anything not in
+          // ALLOWED_PHOTO_MIME_TYPES, so this narrowing is safe here.
+          mimeType: file.mimetype as AllowedPhotoMimeType,
+          buffer: file.buffer,
+        })),
       );
       res.status(HTTP_STATUS.OK).json({ auction: toPublicAuction(auction) });
     }),

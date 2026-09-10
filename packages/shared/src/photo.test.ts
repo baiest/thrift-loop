@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { ALLOWED_PHOTO_MIME_TYPES, isAllowedPhotoMimeType } from './photo.js';
+import {
+  ALLOWED_PHOTO_MIME_TYPES,
+  extensionForPhotoMimeType,
+  isAllowedPhotoMimeType,
+} from './photo.js';
 
 describe('isAllowedPhotoMimeType', () => {
   it('accepts every allowed mime type', () => {
@@ -14,5 +18,13 @@ describe('isAllowedPhotoMimeType', () => {
 
   it('rejects a non-image mime type', () => {
     expect(isAllowedPhotoMimeType('application/pdf')).toBe(false);
+  });
+});
+
+describe('extensionForPhotoMimeType', () => {
+  it('maps every allowed mime type to a distinct, safe image extension', () => {
+    const extensions = ALLOWED_PHOTO_MIME_TYPES.map(extensionForPhotoMimeType);
+    expect(extensions).toEqual(['.jpg', '.png', '.webp']);
+    expect(new Set(extensions).size).toBe(ALLOWED_PHOTO_MIME_TYPES.length);
   });
 });

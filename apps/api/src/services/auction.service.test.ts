@@ -439,6 +439,7 @@ describe('AuctionService', () => {
     function makeFiles(count: number): UploadedFile[] {
       return Array.from({ length: count }, (_unused, index) => ({
         originalName: `photo-${index}.jpg`,
+        mimeType: 'image/jpeg',
         buffer: Buffer.from('x'),
       }));
     }
