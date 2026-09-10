@@ -8,6 +8,9 @@ import { setDefaultAsyncHandlerLogger } from './lib/async-handler.js';
 const DEFAULT_PORT = 3000;
 const DEFAULT_WEB_DIST_PATH = '../web/dist';
 const AUCTION_SCHEDULER_INTERVAL_MS = 60_000;
+const HEARTBEAT_INTERVAL_MINUTES = 5;
+const MILLISECONDS_PER_MINUTE = 60_000;
+const HEARTBEAT_INTERVAL_MS = HEARTBEAT_INTERVAL_MINUTES * MILLISECONDS_PER_MINUTE;
 const DEFAULT_ALLOWED_ORIGINS = 'http://localhost:5173';
 
 function requireEnv(name: string): string {
@@ -80,4 +83,9 @@ startAuctionScheduler(
   mutex,
   eventBus,
   AUCTION_SCHEDULER_INTERVAL_MS,
+  logger,
 );
+
+setInterval(() => {
+  logger.info('system_heartbeat', { uptimeSeconds: Math.round(process.uptime()) });
+}, HEARTBEAT_INTERVAL_MS);

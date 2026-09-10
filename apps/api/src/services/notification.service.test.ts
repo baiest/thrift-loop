@@ -6,7 +6,34 @@ import type { NotificationRepository } from '../repositories/notification.reposi
 import type { User } from '../models/user.js';
 import type { UserPatch, UserRepository } from '../repositories/user.repository.js';
 import { HttpError } from '../lib/http-error.js';
+import type { Logger } from '../lib/logger.js';
 import { createNotificationService } from './notification.service.js';
+
+interface RecordedLogCall {
+  level: string;
+  event: string;
+  fields: Record<string, unknown>;
+}
+
+function createFakeLogger(): { logger: Logger; calls: RecordedLogCall[] } {
+  const calls: RecordedLogCall[] = [];
+  const record =
+    (level: string) =>
+    (event: string, fields: Record<string, unknown> = {}) => {
+      calls.push({ level, event, fields });
+    };
+  return {
+    calls,
+    logger: {
+      info: record('info'),
+      warning: record('warning'),
+      error: record('error'),
+      critical: record('critical'),
+      time: async (_event, _fields, fn) => fn(),
+      close: async () => {},
+    },
+  };
+}
 
 class FakeNotificationRepository implements NotificationRepository {
   readonly items: Notification[] = [];
@@ -142,6 +169,7 @@ const auctionClosedEvent: DomainEvent = {
 describe('NotificationService', () => {
   let notificationRepository: FakeNotificationRepository;
   let userRepository: FakeUserRepository;
+  let logCalls: RecordedLogCall[];
   let service: ReturnType<typeof createNotificationService>;
 
   beforeEach(() => {
@@ -150,7 +178,9 @@ describe('NotificationService', () => {
     userRepository.seed(makeUser({ id: 'USR-owner' }));
     userRepository.seed(makeUser({ id: 'USR-previous' }));
     userRepository.seed(makeUser({ id: 'USR-winner' }));
-    service = createNotificationService(notificationRepository, userRepository);
+    const fakeLogger = createFakeLogger();
+    logCalls = fakeLogger.calls;
+    service = createNotificationService(notificationRepository, userRepository, fakeLogger.logger);
   });
 
   describe('recordForEvent', () => {
@@ -248,6 +278,34 @@ describe('NotificationService', () => {
 
       expect(notificationRepository.items).toHaveLength(2);
     });
+
+    it('logs notification_created for each saved notification', async () => {
+      await service.recordForEvent(bidPlacedEvent);
+
+      const createdEvents = logCalls.filter((call) => call.event === 'notification_created');
+      expect(createdEvents).toHaveLength(2);
+      expect(createdEvents[0]).toMatchObject({ level: 'info' });
+    });
+
+    it('logs notification_skipped when a recipient has the preference off', async () => {
+      userRepository.seed(
+        makeUser({
+          id: 'USR-previous',
+          notificationPreferences: { ...DEFAULT_NOTIFICATION_PREFERENCES, outbid: false },
+        }),
+      );
+
+      await service.recordForEvent(bidPlacedEvent);
+
+      expect(logCalls).toContainEqual({
+        level: 'info',
+        event: 'notification_skipped',
+        fields: expect.objectContaining({
+          reason: 'preference_disabled',
+          userId: 'USR-previous',
+        }) as Record<string, unknown>,
+      });
+    });
   });
 
   describe('recordForEventWithRecipients', () => {
@@ -310,6 +368,18 @@ describe('NotificationService', () => {
       const [created] = await service.recordForEvent(auctionClosedEvent);
 
       await expect(service.markRead('USR-other', created?.id ?? '')).rejects.toThrow(HttpError);
+    });
+
+    it('logs notification_mark_read_failed when the notification cannot be found for that user', async () => {
+      const [created] = await service.recordForEvent(auctionClosedEvent);
+
+      await expect(service.markRead('USR-other', created?.id ?? '')).rejects.toThrow(HttpError);
+
+      expect(logCalls).toContainEqual({
+        level: 'warning',
+        event: 'notification_mark_read_failed',
+        fields: expect.objectContaining({ userId: 'USR-other' }) as Record<string, unknown>,
+      });
     });
   });
 

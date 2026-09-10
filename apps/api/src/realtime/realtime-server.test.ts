@@ -5,9 +5,36 @@ import { WebSocket } from 'ws';
 import { REALTIME_PATH, type ServerMessage } from '@thrift-loop/shared';
 import { signSessionToken } from '../lib/jwt.js';
 import { SESSION_COOKIE_NAME } from '../lib/cookies.js';
+import { NOOP_LOGGER, type Logger } from '../lib/logger.js';
 import { attachRealtime, type RealtimeHandle } from './realtime-server.js';
 
 const WAIT_TIMEOUT_MS = 2000;
+
+interface RecordedLogCall {
+  level: string;
+  event: string;
+  fields: Record<string, unknown>;
+}
+
+function createFakeLogger(): { logger: Logger; calls: RecordedLogCall[] } {
+  const calls: RecordedLogCall[] = [];
+  const record =
+    (level: string) =>
+    (event: string, fields: Record<string, unknown> = {}) => {
+      calls.push({ level, event, fields });
+    };
+  return {
+    calls,
+    logger: {
+      info: record('info'),
+      warning: record('warning'),
+      error: record('error'),
+      critical: record('critical'),
+      time: async (_event, _fields, fn) => fn(),
+      close: async () => {},
+    },
+  };
+}
 
 function waitForMessage(ws: WebSocket): Promise<ServerMessage> {
   return new Promise((resolve, reject) => {
@@ -37,7 +64,7 @@ describe('attachRealtime', () => {
   beforeEach(async () => {
     vi.stubEnv('JWT_SECRET', 'test-secret');
     server = http.createServer((_req, res) => res.end());
-    realtime = attachRealtime(server, { allowedOrigins: [] });
+    realtime = attachRealtime(server, { allowedOrigins: [] }, NOOP_LOGGER);
     await new Promise<void>((resolve) => server.listen(0, resolve));
     port = (server.address() as AddressInfo).port;
   });
@@ -146,5 +173,79 @@ describe('attachRealtime', () => {
     realtime.close();
 
     await expect(closePromise).resolves.toBeUndefined();
+  });
+});
+
+describe('attachRealtime logging', () => {
+  let server: http.Server;
+  let realtime: RealtimeHandle;
+  let port: number;
+  let calls: RecordedLogCall[];
+
+  beforeEach(async () => {
+    vi.stubEnv('JWT_SECRET', 'test-secret');
+    server = http.createServer((_req, res) => res.end());
+    const fakeLogger = createFakeLogger();
+    calls = fakeLogger.calls;
+    realtime = attachRealtime(server, { allowedOrigins: [] }, fakeLogger.logger);
+    await new Promise<void>((resolve) => server.listen(0, resolve));
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterEach(async () => {
+    realtime.close();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    vi.unstubAllEnvs();
+  });
+
+  it('logs ws_connection_opened and ws_connection_closed', async () => {
+    const ws = connect(port, 'USR-1');
+    await waitForMessage(ws);
+
+    const closePromise = new Promise<void>((resolve) => ws.once('close', () => resolve()));
+    ws.close();
+    await closePromise;
+
+    await vi.waitFor(() => {
+      expect(calls).toContainEqual({
+        level: 'info',
+        event: 'ws_connection_opened',
+        fields: { userId: 'USR-1' },
+      });
+      expect(calls).toContainEqual({
+        level: 'info',
+        event: 'ws_connection_closed',
+        fields: { userId: 'USR-1' },
+      });
+    });
+  });
+
+  it('logs ws_message_invalid for an unparseable message', async () => {
+    const ws = connect(port, 'USR-1');
+    await waitForMessage(ws);
+
+    ws.send('not json');
+    await waitForMessage(ws);
+
+    expect(calls).toContainEqual({
+      level: 'warning',
+      event: 'ws_message_invalid',
+      fields: { userId: 'USR-1' },
+    });
+    ws.close();
+  });
+
+  it('logs ws_upgrade_rejected for an unauthenticated upgrade', async () => {
+    const ws = new WebSocket(`ws://127.0.0.1:${port}${REALTIME_PATH}`);
+    await new Promise<void>((resolve) => {
+      ws.once('close', () => resolve());
+      ws.once('error', () => resolve());
+    });
+
+    expect(calls).toContainEqual({
+      level: 'warning',
+      event: 'ws_upgrade_rejected',
+      fields: { reason: 'unauthenticated' },
+    });
   });
 });

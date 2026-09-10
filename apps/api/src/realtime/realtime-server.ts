@@ -1,6 +1,9 @@
 import type { Server } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
 import { parseClientMessage, REALTIME_PATH, type ServerMessage } from '@thrift-loop/shared';
+import type { Logger } from '../lib/logger.js';
+import { createPrefixedId } from '../lib/prefixed-id.js';
+import { runWithRequestId } from '../lib/request-context.js';
 import { authenticateUpgrade } from './authenticate-upgrade.js';
 import {
   createRealtimeHub,
@@ -48,9 +51,12 @@ function handleClientMessage(
   connection: Connection,
   ws: TrackedSocket,
   raw: string,
+  logger: Logger,
+  userId: string,
 ): void {
   ws.messageCount = (ws.messageCount ?? 0) + 1;
   if (ws.messageCount > MAX_MESSAGES_PER_WINDOW) {
+    logger.warning('ws_rate_limited', { userId });
     send(ws, { type: 'error', message: RATE_LIMIT_EXCEEDED });
     ws.close(POLICY_VIOLATION_CLOSE_CODE);
     return;
@@ -58,6 +64,7 @@ function handleClientMessage(
 
   const message = parseClientMessage(raw);
   if (!message) {
+    logger.warning('ws_message_invalid', { userId });
     send(ws, { type: 'error', message: INVALID_MESSAGE });
     return;
   }
@@ -84,6 +91,7 @@ function handleUpgrade(
   server: Server,
   wss: WebSocketServer,
   allowedOrigins: readonly string[],
+  logger: Logger,
 ): void {
   server.on('upgrade', (req, socket, head) => {
     const { pathname } = new URL(req.url ?? '', 'http://localhost');
@@ -96,6 +104,7 @@ function handleUpgrade(
 
     const userId = authenticateUpgrade(req, allowedOrigins);
     if (!userId) {
+      logger.warning('ws_upgrade_rejected', { reason: 'unauthenticated' });
       socket.write(HTTP_UNAUTHORIZED_RESPONSE);
       socket.destroy();
       return;
@@ -122,16 +131,21 @@ function attachHeartbeat(wss: WebSocketServer): () => void {
   return () => clearInterval(timer);
 }
 
-export function attachRealtime(server: Server, options: RealtimeOptions): RealtimeHandle {
+export function attachRealtime(
+  server: Server,
+  options: RealtimeOptions,
+  logger: Logger,
+): RealtimeHandle {
   const hub = createRealtimeHub();
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_PAYLOAD_BYTES });
 
-  handleUpgrade(server, wss, options.allowedOrigins);
+  handleUpgrade(server, wss, options.allowedOrigins, logger);
 
   wss.on('connection', (ws: TrackedSocket, userId: string) => {
     const connection = hub.addConnection(userId, toSocketLike(ws));
     ws.isAlive = true;
     ws.messageCount = 0;
+    logger.info('ws_connection_opened', { userId });
     const resetRate = setInterval(() => {
       ws.messageCount = 0;
     }, RATE_WINDOW_MS);
@@ -140,11 +154,14 @@ export function attachRealtime(server: Server, options: RealtimeOptions): Realti
       ws.isAlive = true;
     });
     ws.on('message', (data: Buffer) => {
-      handleClientMessage(hub, connection, ws, data.toString());
+      runWithRequestId(createPrefixedId('WS'), () => {
+        handleClientMessage(hub, connection, ws, data.toString(), logger, userId);
+      });
     });
     ws.on('close', () => {
       clearInterval(resetRate);
       hub.removeConnection(connection);
+      logger.info('ws_connection_closed', { userId });
     });
 
     send(ws, { type: 'ready', userId, serverTime: new Date().toISOString() });

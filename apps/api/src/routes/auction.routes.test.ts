@@ -24,6 +24,7 @@ import { createLocalPhotoStorage } from '../lib/photo-storage.js';
 import { createAuctionService } from '../services/auction.service.js';
 import { createBidService } from '../services/bid.service.js';
 import { createEventBus } from '../lib/event-bus.js';
+import { NOOP_LOGGER } from '../lib/logger.js';
 import { createAuctionRouter } from './auction.routes.js';
 
 interface AuctionResponseBody {
@@ -158,7 +159,8 @@ describe('auction routes', () => {
       bidRepository,
       userRepository,
       createKeyedMutex(),
-      createEventBus(),
+      createEventBus(NOOP_LOGGER),
+      NOOP_LOGGER,
     );
 
     app = express();

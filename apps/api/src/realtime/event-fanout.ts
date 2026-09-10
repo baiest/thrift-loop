@@ -1,5 +1,6 @@
 import type { ServerMessage } from '@thrift-loop/shared';
 import type { DomainEvent, EventBus } from '../lib/event-bus.js';
+import type { Logger } from '../lib/logger.js';
 import type { NotificationService } from '../services/notification.service.js';
 import type { RealtimeHub } from './realtime-hub.js';
 
@@ -42,10 +43,14 @@ export function attachEventFanout(
   eventBus: EventBus,
   hub: RealtimeHub,
   notificationService: NotificationService,
+  logger: Logger,
 ): () => void {
   return eventBus.subscribe((event) => {
     pushNotifications(hub, notificationService, event).catch((error: unknown) => {
-      console.error('Failed to push notification for event', error);
+      logger.error('notification_push_failed', {
+        eventType: event.type,
+        message: error instanceof Error ? error.message : String(error),
+      });
     });
     broadcastAuctionUpdate(hub, event);
   });

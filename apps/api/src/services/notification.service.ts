@@ -10,6 +10,7 @@ import type { UserRepository } from '../repositories/user.repository.js';
 import { createPrefixedId } from '../lib/prefixed-id.js';
 import { HttpError } from '../lib/http-error.js';
 import { HTTP_STATUS } from '../lib/http-status.js';
+import type { Logger } from '../lib/logger.js';
 import { toPublicUser } from './auth.service.js';
 
 const NOTIFICATION_ID_PREFIX = 'NTF';
@@ -44,8 +45,13 @@ function makeNotification(
   };
 }
 
+function logSkipped(logger: Logger, userId: string, type: string): void {
+  logger.info('notification_skipped', { userId, type, reason: 'preference_disabled' });
+}
+
 async function buildBidPlacedNotifications(
   userRepository: UserRepository,
+  logger: Logger,
   event: Extract<DomainEvent, { type: 'bid-placed' }>,
 ): Promise<Notification[]> {
   const notifications: Notification[] = [];
@@ -67,6 +73,8 @@ async function buildBidPlacedNotifications(
           event.occurredAt,
         ),
       );
+    } else if (previousBidder) {
+      logSkipped(logger, event.previousTopBidderId, 'outbid');
     }
   }
 
@@ -85,6 +93,8 @@ async function buildBidPlacedNotifications(
         event.occurredAt,
       ),
     );
+  } else if (owner) {
+    logSkipped(logger, event.ownerUserId, 'bid-on-my-listing');
   }
 
   return notifications;
@@ -92,10 +102,14 @@ async function buildBidPlacedNotifications(
 
 async function buildAuctionClosedNotifications(
   userRepository: UserRepository,
+  logger: Logger,
   event: Extract<DomainEvent, { type: 'auction-closed' }>,
 ): Promise<Notification[]> {
   const winner = await userRepository.findById(event.winnerUserId);
   if (!winner?.notificationPreferences.auctionWon) {
+    if (winner) {
+      logSkipped(logger, event.winnerUserId, 'auction-won');
+    }
     return [];
   }
   return [
@@ -116,14 +130,22 @@ async function buildAuctionClosedNotifications(
 export function createNotificationService(
   notificationRepository: NotificationRepository,
   userRepository: UserRepository,
+  logger: Logger,
 ) {
   async function buildAndPersist(event: DomainEvent): Promise<Notification[]> {
     const notifications =
       event.type === 'bid-placed'
-        ? await buildBidPlacedNotifications(userRepository, event)
-        : await buildAuctionClosedNotifications(userRepository, event);
+        ? await buildBidPlacedNotifications(userRepository, logger, event)
+        : await buildAuctionClosedNotifications(userRepository, logger, event);
 
     await notificationRepository.saveMany(notifications);
+    for (const notification of notifications) {
+      logger.info('notification_created', {
+        userId: notification.userId,
+        type: notification.type,
+        auctionId: notification.auctionId,
+      });
+    }
     return notifications;
   }
 
@@ -156,6 +178,7 @@ export function createNotificationService(
     async markRead(userId: string, id: string): Promise<PublicNotification> {
       const updated = await notificationRepository.markRead(userId, id);
       if (!updated) {
+        logger.warning('notification_mark_read_failed', { userId, notificationId: id });
         throw new HttpError(NOTIFICATION_NOT_FOUND_MESSAGE, HTTP_STATUS.NOT_FOUND);
       }
       return toPublicNotification(updated);

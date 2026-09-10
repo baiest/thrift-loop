@@ -11,6 +11,7 @@ import type { UserPatch, UserRepository } from '../repositories/user.repository.
 import type { Notification } from '../models/notification.js';
 import type { NotificationRepository } from '../repositories/notification.repository.js';
 import { createNotificationService } from '../services/notification.service.js';
+import { NOOP_LOGGER } from '../lib/logger.js';
 import { createNotificationRouter } from './notification.routes.js';
 
 interface NotificationResponseBody {
@@ -196,7 +197,11 @@ describe('notification routes', () => {
     userRepository = new FakeUserRepository();
     userRepository.seed(makeUser({ id: 'USR-1' }));
     userRepository.seed(makeUser({ id: 'USR-2' }));
-    const notificationService = createNotificationService(notificationRepository, userRepository);
+    const notificationService = createNotificationService(
+      notificationRepository,
+      userRepository,
+      NOOP_LOGGER,
+    );
 
     app = express();
     app.use(express.json());

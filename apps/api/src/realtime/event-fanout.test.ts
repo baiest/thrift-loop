@@ -1,9 +1,36 @@
-import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ServerMessage } from '@thrift-loop/shared';
 import type { DomainEvent, EventBus } from '../lib/event-bus.js';
+import { NOOP_LOGGER, type Logger } from '../lib/logger.js';
 import type { NotificationService } from '../services/notification.service.js';
 import { createRealtimeHub, type SocketLike } from './realtime-hub.js';
 import { attachEventFanout } from './event-fanout.js';
+
+interface RecordedLogCall {
+  level: string;
+  event: string;
+  fields: Record<string, unknown>;
+}
+
+function createFakeLogger(): { logger: Logger; calls: RecordedLogCall[] } {
+  const calls: RecordedLogCall[] = [];
+  const record =
+    (level: string) =>
+    (event: string, fields: Record<string, unknown> = {}) => {
+      calls.push({ level, event, fields });
+    };
+  return {
+    calls,
+    logger: {
+      info: record('info'),
+      warning: record('warning'),
+      error: record('error'),
+      critical: record('critical'),
+      time: async (_event, _fields, fn) => fn(),
+      close: async () => {},
+    },
+  };
+}
 
 class FakeSocket implements SocketLike {
   readonly sent: string[] = [];
@@ -83,16 +110,6 @@ function makeFakeNotificationService(
 }
 
 describe('attachEventFanout', () => {
-  let consoleErrorSpy: MockInstance<(...args: unknown[]) => void>;
-
-  beforeEach(() => {
-    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-  });
-
-  afterEach(() => {
-    consoleErrorSpy.mockRestore();
-  });
-
   it('pushes a notification message with the unread count to the recipient user room', async () => {
     const eventBus = new FakeEventBus();
     const hub = createRealtimeHub();
@@ -101,7 +118,7 @@ describe('attachEventFanout', () => {
     const notificationService = makeFakeNotificationService([
       { userId: 'USR-previous', type: 'outbid' },
     ]);
-    attachEventFanout(eventBus, hub, notificationService);
+    attachEventFanout(eventBus, hub, notificationService, NOOP_LOGGER);
 
     eventBus.publish(bidPlacedEvent);
     await vi.waitFor(() => {
@@ -123,7 +140,7 @@ describe('attachEventFanout', () => {
     const connection = hub.addConnection('USR-viewer', fakeSocket);
     hub.joinRoom(connection, 'auction:AUC-1');
     const notificationService = makeFakeNotificationService([]);
-    attachEventFanout(eventBus, hub, notificationService);
+    attachEventFanout(eventBus, hub, notificationService, NOOP_LOGGER);
 
     eventBus.publish(bidPlacedEvent);
     await vi.waitFor(() => {
@@ -145,7 +162,7 @@ describe('attachEventFanout', () => {
     const connection = hub.addConnection('USR-viewer', fakeSocket);
     hub.joinRoom(connection, 'grid');
     const notificationService = makeFakeNotificationService([]);
-    attachEventFanout(eventBus, hub, notificationService);
+    attachEventFanout(eventBus, hub, notificationService, NOOP_LOGGER);
 
     eventBus.publish(bidPlacedEvent);
     await vi.waitFor(() => {
@@ -162,7 +179,7 @@ describe('attachEventFanout', () => {
     const connection = hub.addConnection('USR-viewer', fakeSocket);
     hub.joinRoom(connection, 'grid');
     const notificationService = makeFakeNotificationService([]);
-    attachEventFanout(eventBus, hub, notificationService);
+    attachEventFanout(eventBus, hub, notificationService, NOOP_LOGGER);
 
     eventBus.publish(auctionClosedEvent);
     await vi.waitFor(() => {
@@ -179,7 +196,7 @@ describe('attachEventFanout', () => {
     const connection = hub.addConnection('USR-viewer', fakeSocket);
     hub.joinRoom(connection, 'auction:AUC-1');
     const notificationService = makeFakeNotificationService([]);
-    attachEventFanout(eventBus, hub, notificationService);
+    attachEventFanout(eventBus, hub, notificationService, NOOP_LOGGER);
 
     eventBus.publish(auctionClosedEvent);
     await vi.waitFor(() => {
@@ -207,7 +224,7 @@ describe('attachEventFanout', () => {
       markAllRead: vi.fn(),
       updatePreferences: vi.fn(),
     };
-    attachEventFanout(eventBus, hub, notificationService);
+    attachEventFanout(eventBus, hub, notificationService, NOOP_LOGGER);
 
     eventBus.publish(bidPlacedEvent);
     await vi.waitFor(() => {
@@ -217,12 +234,37 @@ describe('attachEventFanout', () => {
     });
   });
 
+  it('logs notification_push_failed when the notification service fails', async () => {
+    const eventBus = new FakeEventBus();
+    const hub = createRealtimeHub();
+    const notificationService: NotificationService = {
+      recordForEvent: vi.fn(),
+      recordForEventWithRecipients: vi.fn().mockRejectedValue(new Error('boom')),
+      list: vi.fn(),
+      markRead: vi.fn(),
+      markAllRead: vi.fn(),
+      updatePreferences: vi.fn(),
+    };
+    const { logger, calls } = createFakeLogger();
+    attachEventFanout(eventBus, hub, notificationService, logger);
+
+    eventBus.publish(bidPlacedEvent);
+
+    await vi.waitFor(() => {
+      expect(calls).toContainEqual({
+        level: 'error',
+        event: 'notification_push_failed',
+        fields: expect.objectContaining({ message: 'boom' }) as Record<string, unknown>,
+      });
+    });
+  });
+
   it('returns an unsubscribe function', () => {
     const eventBus = new FakeEventBus();
     const hub = createRealtimeHub();
     const notificationService = makeFakeNotificationService([]);
 
-    const unsubscribe = attachEventFanout(eventBus, hub, notificationService);
+    const unsubscribe = attachEventFanout(eventBus, hub, notificationService, NOOP_LOGGER);
     unsubscribe();
     expect(() => eventBus.publish(bidPlacedEvent)).not.toThrow();
   });

@@ -50,19 +50,24 @@ export function buildContainer(): Container {
 
   const bidRepository = createJsonBidRepository(join(dataDir, 'bids.json'));
   const mutex = createKeyedMutex();
-  const eventBus = createEventBus();
+  const eventBus = createEventBus(logger);
   const bidService = createBidService(
     auctionRepository,
     bidRepository,
     userRepository,
     mutex,
     eventBus,
+    logger,
   );
 
   const notificationRepository = createJsonNotificationRepository(
     join(dataDir, 'notifications.json'),
   );
-  const notificationService = createNotificationService(notificationRepository, userRepository);
+  const notificationService = createNotificationService(
+    notificationRepository,
+    userRepository,
+    logger,
+  );
 
   return {
     userRepository,

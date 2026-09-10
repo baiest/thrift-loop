@@ -5,12 +5,40 @@ import type { AuctionPatch, AuctionRepository } from '../repositories/auction.re
 import type { BidRepository } from '../repositories/bid.repository.js';
 import { createKeyedMutex } from './keyed-mutex.js';
 import { createEventBus, type DomainEvent } from './event-bus.js';
+import { getRequestId } from './request-context.js';
+import { NOOP_LOGGER, type Logger } from './logger.js';
 import {
   closeDueAuctions,
   publishDueAuctions,
   startAuctionScheduler,
   startPublishScheduler,
 } from './publish-scheduler.js';
+
+interface RecordedLogCall {
+  level: string;
+  event: string;
+  fields: Record<string, unknown>;
+}
+
+function createFakeLogger(): { logger: Logger; calls: RecordedLogCall[] } {
+  const calls: RecordedLogCall[] = [];
+  const record =
+    (level: string) =>
+    (event: string, fields: Record<string, unknown> = {}) => {
+      calls.push({ level, event, fields });
+    };
+  return {
+    calls,
+    logger: {
+      info: record('info'),
+      warning: record('warning'),
+      error: record('error'),
+      critical: record('critical'),
+      time: async (_event, _fields, fn) => fn(),
+      close: async () => {},
+    },
+  };
+}
 
 function makeAuction(overrides: Partial<Auction> = {}): Auction {
   return {
@@ -99,7 +127,7 @@ describe('publishDueAuctions', () => {
     const due = [makeAuction({ id: 'AUC-1' }), makeAuction({ id: 'AUC-2' })];
     const repository = makeFakeRepository(due);
 
-    await publishDueAuctions(repository, new Date('2026-02-01T00:00:00.000Z'));
+    await publishDueAuctions(repository, new Date('2026-02-01T00:00:00.000Z'), NOOP_LOGGER);
 
     expect(repository.updateCalls).toEqual([
       { id: 'AUC-1', patch: { status: 'published' } },
@@ -110,9 +138,23 @@ describe('publishDueAuctions', () => {
   it('does nothing when there are no due auctions', async () => {
     const repository = makeFakeRepository([]);
 
-    await publishDueAuctions(repository, new Date());
+    await publishDueAuctions(repository, new Date(), NOOP_LOGGER);
 
     expect(repository.updateCalls).toEqual([]);
+  });
+
+  it('logs auction_published for each published auction', async () => {
+    const due = [makeAuction({ id: 'AUC-1' })];
+    const repository = makeFakeRepository(due);
+    const { logger, calls } = createFakeLogger();
+
+    await publishDueAuctions(repository, new Date('2026-02-01T00:00:00.000Z'), logger);
+
+    expect(calls).toContainEqual({
+      level: 'info',
+      event: 'auction_published',
+      fields: { auctionId: 'AUC-1' },
+    });
   });
 });
 
@@ -122,7 +164,7 @@ describe('startPublishScheduler', () => {
     const repository = makeFakeRepository([makeAuction()]);
     const intervalMs = 1000;
 
-    const stop = startPublishScheduler(repository, intervalMs);
+    const stop = startPublishScheduler(repository, intervalMs, NOOP_LOGGER);
     await vi.advanceTimersByTimeAsync(intervalMs * 2);
     expect(repository.updateCalls).toHaveLength(2);
 
@@ -152,8 +194,9 @@ describe('closeDueAuctions', () => {
       repository,
       bidRepository,
       createKeyedMutex(),
-      createEventBus(),
+      createEventBus(NOOP_LOGGER),
       new Date('2026-02-01T00:00:00.000Z'),
+      NOOP_LOGGER,
     );
 
     expect(repository.updateCalls).toEqual([
@@ -169,8 +212,9 @@ describe('closeDueAuctions', () => {
       repository,
       bidRepository,
       createKeyedMutex(),
-      createEventBus(),
+      createEventBus(NOOP_LOGGER),
       new Date(),
+      NOOP_LOGGER,
     );
 
     expect(repository.updateCalls).toEqual([]);
@@ -188,7 +232,7 @@ describe('closeDueAuctions', () => {
     const bidRepository = makeFakeBidRepository({
       'AUC-1': [makeBid({ userId: 'USR-winner', amountCOP: 60_000 })],
     });
-    const eventBus = createEventBus();
+    const eventBus = createEventBus(NOOP_LOGGER);
     const published: DomainEvent[] = [];
     eventBus.subscribe((event) => published.push(event));
 
@@ -198,6 +242,7 @@ describe('closeDueAuctions', () => {
       createKeyedMutex(),
       eventBus,
       new Date('2026-02-01T00:00:00.000Z'),
+      NOOP_LOGGER,
     );
 
     expect(published).toEqual([
@@ -218,7 +263,7 @@ describe('closeDueAuctions', () => {
     });
     const repository = makeFakeRepository([], [due]);
     const bidRepository = makeFakeBidRepository({});
-    const eventBus = createEventBus();
+    const eventBus = createEventBus(NOOP_LOGGER);
     const published: DomainEvent[] = [];
     eventBus.subscribe((event) => published.push(event));
 
@@ -228,9 +273,40 @@ describe('closeDueAuctions', () => {
       createKeyedMutex(),
       eventBus,
       new Date('2026-02-01T00:00:00.000Z'),
+      NOOP_LOGGER,
     );
 
     expect(published).toEqual([]);
+  });
+
+  it('logs auction_closed for each closed auction', async () => {
+    const due = makeAuction({
+      id: 'AUC-1',
+      status: 'published',
+      currentBidCOP: 60_000,
+      bidCount: 1,
+      bidEndsAt: '2026-01-01T00:00:00.000Z',
+    });
+    const repository = makeFakeRepository([], [due]);
+    const bidRepository = makeFakeBidRepository({
+      'AUC-1': [makeBid({ userId: 'USR-winner', amountCOP: 60_000 })],
+    });
+    const { logger, calls } = createFakeLogger();
+
+    await closeDueAuctions(
+      repository,
+      bidRepository,
+      createKeyedMutex(),
+      createEventBus(NOOP_LOGGER),
+      new Date('2026-02-01T00:00:00.000Z'),
+      logger,
+    );
+
+    expect(calls).toContainEqual({
+      level: 'info',
+      event: 'auction_closed',
+      fields: { auctionId: 'AUC-1', winnerUserId: 'USR-winner', finalPriceCOP: 60_000 },
+    });
   });
 });
 
@@ -254,8 +330,9 @@ describe('startAuctionScheduler', () => {
       repository,
       bidRepository,
       createKeyedMutex(),
-      createEventBus(),
+      createEventBus(NOOP_LOGGER),
       intervalMs,
+      NOOP_LOGGER,
     );
     await vi.advanceTimersByTimeAsync(intervalMs);
 
@@ -268,5 +345,71 @@ describe('startAuctionScheduler', () => {
 
     stop();
     vi.useRealTimers();
+  });
+
+  it('logs scheduler_tick_failed when a tick throws', async () => {
+    vi.useFakeTimers();
+    const repository = makeFakeRepository([makeAuction()]);
+    repository.findDueForPublish = () => Promise.reject(new Error('boom'));
+    const { logger, calls } = createFakeLogger();
+
+    const stop = startAuctionScheduler(
+      repository,
+      makeFakeBidRepository({}),
+      createKeyedMutex(),
+      createEventBus(NOOP_LOGGER),
+      1000,
+      logger,
+    );
+    await vi.advanceTimersByTimeAsync(1000);
+    stop();
+    vi.useRealTimers();
+
+    expect(calls).toContainEqual({
+      level: 'critical',
+      event: 'scheduler_tick_failed',
+      fields: expect.objectContaining({ message: 'boom' }) as Record<string, unknown>,
+    });
+  });
+
+  it('shares one request id across a tick publishing and closing auctions', async () => {
+    const dueForPublish = makeAuction({ id: 'AUC-due-publish' });
+    const dueForClose = makeAuction({
+      id: 'AUC-due-close',
+      status: 'published',
+      currentBidCOP: 60_000,
+      bidCount: 1,
+      bidEndsAt: '2020-01-01T00:00:00.000Z',
+    });
+    const repository = makeFakeRepository([dueForPublish], [dueForClose]);
+    const bidRepository = makeFakeBidRepository({
+      'AUC-due-close': [makeBid({ auctionId: 'AUC-due-close', userId: 'USR-winner' })],
+    });
+    const requestIds: (string | undefined)[] = [];
+    const logger: Logger = {
+      info: () => requestIds.push(getRequestId()),
+      warning: () => {},
+      error: () => {},
+      critical: () => {},
+      time: async (_event, _fields, fn) => fn(),
+      close: async () => {},
+    };
+
+    vi.useFakeTimers();
+    const stop = startAuctionScheduler(
+      repository,
+      bidRepository,
+      createKeyedMutex(),
+      createEventBus(NOOP_LOGGER),
+      1000,
+      logger,
+    );
+    await vi.advanceTimersByTimeAsync(1000);
+    stop();
+    vi.useRealTimers();
+
+    expect(requestIds.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(requestIds).size).toBe(1);
+    expect(requestIds[0]).toMatch(/^TICK-/);
   });
 });
