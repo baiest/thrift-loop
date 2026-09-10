@@ -175,7 +175,11 @@ function DeleteAuctionControl({
         type="button"
         fullWidth={false}
         onClick={() => setConfirming(true)}
-        className="bg-white text-red-600 ring-1 ring-inset ring-red-200 hover:bg-red-50"
+        // `!` overrides: Button's own bg-brand-500/text-white base classes are
+        // the same CSS specificity as these, and would otherwise win the
+        // cascade tie regardless of this string's order, rendering white text
+        // on a white background.
+        className="!bg-white !text-red-600 ring-1 ring-inset ring-red-200 hover:!bg-red-50"
       >
         Delete auction
       </Button>
@@ -200,7 +204,7 @@ function DeleteAuctionControl({
           fullWidth={false}
           onClick={() => setConfirming(false)}
           disabled={deleting}
-          className="bg-white text-ink ring-1 ring-inset ring-hairline hover:bg-linen"
+          className="!bg-white !text-ink ring-1 ring-inset ring-hairline hover:!bg-linen"
         >
           Cancel
         </Button>
