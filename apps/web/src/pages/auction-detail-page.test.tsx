@@ -517,6 +517,27 @@ describe('AuctionDetailPage', () => {
     expect(await screen.findByRole('button', { name: /delete auction/i })).toBeInTheDocument();
   });
 
+  it('keeps the Delete auction button text visible over its white background', async () => {
+    // Regression: the shared Button atom's base classes include text-white;
+    // overriding just the background to bg-white left the text color still
+    // white too (same CSS specificity, and the base class wins the cascade
+    // tie regardless of prop order), rendering white-on-white — invisible.
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue({ ...sampleUser, id: 'USR-seller' });
+
+    renderPage();
+    const deleteButton = await screen.findByRole('button', { name: /delete auction/i });
+
+    // The `!` marks these !important, so they win the cascade tie against
+    // the base Button classes still present in the same class list.
+    expect(deleteButton).toHaveClass('!bg-white');
+    expect(deleteButton).toHaveClass('!text-red-600');
+  });
+
   it('does not show Delete auction for a non-owner', async () => {
     vi.mocked(fetchAuctionDetail).mockResolvedValue({
       auction: publicAuction,
@@ -562,6 +583,24 @@ describe('AuctionDetailPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: /confirm delete/i }));
 
     await waitFor(() => expect(deleteAuction).toHaveBeenCalledWith('AUC-1'));
+  });
+
+  it('keeps the Cancel button text visible over its white background', async () => {
+    // Same white-on-white bug as Delete auction: overriding only the
+    // background left the base Button text-white class winning the tie.
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue({ ...sampleUser, id: 'USR-seller' });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: /delete auction/i }));
+    const cancelButton = await screen.findByRole('button', { name: /^cancel$/i });
+
+    expect(cancelButton).toHaveClass('!bg-white');
+    expect(cancelButton).toHaveClass('!text-ink');
   });
 
   it('shows an error and lets the user retry if deleting fails', async () => {
