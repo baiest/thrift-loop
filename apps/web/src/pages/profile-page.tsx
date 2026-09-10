@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   COLOMBIA_CITIES,
@@ -8,7 +8,6 @@ import {
 } from '@thrift-loop/shared';
 import {
   fetchCurrentUser,
-  logout,
   updateNotificationPreferences,
   updateProfile,
 } from '../lib/api-client.js';
@@ -106,19 +105,14 @@ export function ProfilePage(): React.JSX.Element {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
-  const clearUser = useAuthStore((state) => state.clearUser);
   const [checkingSession, setCheckingSession] = useState(user === null);
   const [fields, setFields] = useState<ProfileFormState | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
-  const loggingOut = useRef(false);
 
   useEffect(() => {
     if (user) {
       setFields(fieldsFromUser(user));
-      return;
-    }
-    if (loggingOut.current) {
       return;
     }
     void fetchCurrentUser()
@@ -169,13 +163,6 @@ export function ProfilePage(): React.JSX.Element {
     }
   }
 
-  async function handleLogout(): Promise<void> {
-    loggingOut.current = true;
-    await logout();
-    clearUser();
-    void navigate('/login');
-  }
-
   if (checkingSession || !user || !fields) {
     return (
       <div aria-label="Loading profile" className="mx-auto flex max-w-2xl flex-col gap-3 py-6">
@@ -189,7 +176,7 @@ export function ProfilePage(): React.JSX.Element {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col py-6">
-      <h1 className="mb-4 font-display text-2xl font-bold text-ink">My profile</h1>
+      <h1 className="mb-4 font-display text-3xl font-bold text-ink">My profile</h1>
 
       <div className="mb-6 rounded-lg border border-hairline p-4">
         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-soft">Country</p>
@@ -244,9 +231,6 @@ export function ProfilePage(): React.JSX.Element {
         </Button>
         {saved && <p className="mt-2 text-sm text-brand-700">Saved.</p>}
       </form>
-      <Button type="button" onClick={() => void handleLogout()} className="mt-6">
-        Log out
-      </Button>
     </div>
   );
 }

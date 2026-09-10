@@ -105,4 +105,13 @@ describe('PurchasesPage', () => {
 
     expect(await screen.findByText(/Calle 1/)).toBeInTheDocument();
   });
+
+  it('uses the same heading size as the other pages', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+    vi.mocked(fetchMyPurchases).mockResolvedValue([]);
+
+    renderPage();
+
+    expect(await screen.findByText('My purchases')).toHaveClass('text-3xl');
+  });
 });

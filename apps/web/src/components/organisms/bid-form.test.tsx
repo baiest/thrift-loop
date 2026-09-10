@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ApiError } from '../../lib/api-client.js';
+import { formatCOP } from '../../lib/format.js';
 import { BidForm } from './bid-form.js';
 
 vi.mock('../../lib/api-client.js', async () => {
@@ -20,18 +21,18 @@ describe('BidForm', () => {
     vi.restoreAllMocks();
   });
 
-  it('pre-fills the amount with the minimum next bid (no bids yet)', () => {
+  it('pre-fills the amount with the minimum next bid, formatted as pesos (no bids yet)', () => {
     render(
       <BidForm auctionId="AUC-1" currentBidCOP={null} priceCOP={50_000} onBidPlaced={vi.fn()} />,
     );
-    expect(screen.getByLabelText('Your bid (COP)')).toHaveValue(50_000);
+    expect(screen.getByLabelText('Your bid (COP)')).toHaveValue(formatCOP(50_000));
   });
 
-  it('pre-fills the amount with currentBid + increment when there is a current bid', () => {
+  it('pre-fills the amount with currentBid + increment, formatted as pesos', () => {
     render(
       <BidForm auctionId="AUC-1" currentBidCOP={50_000} priceCOP={50_000} onBidPlaced={vi.fn()} />,
     );
-    expect(screen.getByLabelText('Your bid (COP)')).toHaveValue(51_000);
+    expect(screen.getByLabelText('Your bid (COP)')).toHaveValue(formatCOP(51_000));
   });
 
   it('submits the bid and calls onBidPlaced on success', async () => {

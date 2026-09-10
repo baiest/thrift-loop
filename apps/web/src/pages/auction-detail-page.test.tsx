@@ -233,6 +233,21 @@ describe('AuctionDetailPage', () => {
     expect(screen.getByText(publicAuction.location)).toBeInTheDocument();
   });
 
+  it('uses the same heading size as the other pages', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: publicAuction.title })).toHaveClass(
+      'text-3xl',
+    );
+  });
+
   it('shows a placeholder icon when the auction has no photos', async () => {
     vi.mocked(fetchAuctionDetail).mockResolvedValue({
       auction: publicAuction,

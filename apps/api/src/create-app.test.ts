@@ -11,7 +11,7 @@ import type { AuctionPatch, AuctionRepository } from './repositories/auction.rep
 import { createAuthService } from './services/auth.service.js';
 import { createAuctionService } from './services/auction.service.js';
 import { createApp, type CreateAppOptions } from './create-app.js';
-import { createRateLimiter } from './middlewares/rate-limit.js';
+import { AUTH_RATE_LIMIT, BROWSE_RATE_LIMIT, createRateLimiter } from './middlewares/rate-limit.js';
 import { signSessionToken } from './lib/jwt.js';
 import { SESSION_COOKIE_NAME } from './lib/cookies.js';
 
@@ -116,7 +116,7 @@ describe('/api/auth rate limiting', () => {
   it('returns 429 once the configured limit is exceeded', async () => {
     const limitedApp = createApp({
       ...baseOptions(new FakeUserRepository()),
-      authRateLimiter: createRateLimiter({ windowMs: 60_000, max: 2 }),
+      authRateLimiter: createRateLimiter({ windowMs: 60_000, limit: 2 }),
     });
 
     await request(limitedApp).post('/api/auth/login').send({});
@@ -124,6 +124,30 @@ describe('/api/auth rate limiting', () => {
     const third = await request(limitedApp).post('/api/auth/login').send({});
 
     expect(third.status).toBe(429);
+  });
+
+  it('uses a stricter default limit for auth than for browsing', async () => {
+    vi.stubEnv('JWT_SECRET', 'test-secret');
+    const app = createApp(baseOptions(new FakeUserRepository()));
+
+    const response = await request(app).post('/api/auth/login').send({});
+
+    expect(response.headers['ratelimit-limit']).toBe(String(AUTH_RATE_LIMIT.limit));
+    vi.unstubAllEnvs();
+  });
+
+  it('gives auction/bid browsing a much higher default limit than auth', async () => {
+    vi.stubEnv('JWT_SECRET', 'test-secret');
+    const userRepository = new FakeUserRepository();
+    const auctionRepository = new FakeAuctionRepository();
+    const auctionService = createAuctionService(auctionRepository, new NoopPhotoStorage());
+    const app = createApp({ ...baseOptions(userRepository), auctionService });
+
+    const response = await request(app).get('/api/auctions');
+
+    expect(response.headers['ratelimit-limit']).toBe(String(BROWSE_RATE_LIMIT.limit));
+    expect(BROWSE_RATE_LIMIT.limit).toBeGreaterThan(AUTH_RATE_LIMIT.limit as number);
+    vi.unstubAllEnvs();
   });
 });
 
