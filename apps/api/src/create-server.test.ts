@@ -9,6 +9,7 @@ import { createAuthService } from './services/auth.service.js';
 import { signSessionToken } from './lib/jwt.js';
 import { SESSION_COOKIE_NAME } from './lib/cookies.js';
 import { createEventBus } from './lib/event-bus.js';
+import { NOOP_LOGGER } from './lib/logger.js';
 import type { NotificationService } from './services/notification.service.js';
 import { createServer, type RunningServer } from './create-server.js';
 
@@ -89,7 +90,7 @@ describe('createServer realtime integration', () => {
 
 describe('createServer with event fanout wired', () => {
   it('attaches event-fanout and cleans it up on close without throwing', async () => {
-    const eventBus = createEventBus();
+    const eventBus = createEventBus(NOOP_LOGGER);
     const notificationService: NotificationService = {
       recordForEvent: vi.fn(),
       recordForEventWithRecipients: vi.fn().mockResolvedValue([]),
@@ -136,7 +137,7 @@ describe('createServer with event fanout wired', () => {
       authService: createAuthService(new FakeUserRepository()),
       userRepository: new FakeUserRepository(),
       allowedOrigins: [],
-      eventBus: createEventBus(),
+      eventBus: createEventBus(NOOP_LOGGER),
       notificationService,
     });
     await new Promise<void>((resolve) => running.server.listen(0, resolve));

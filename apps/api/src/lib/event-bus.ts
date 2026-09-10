@@ -22,6 +22,8 @@ export type DomainEvent =
       occurredAt: string;
     };
 
+import type { Logger } from './logger.js';
+
 export interface EventBus {
   publish(event: DomainEvent): void;
   subscribe(listener: (event: DomainEvent) => void): () => void;
@@ -32,7 +34,7 @@ export interface EventBus {
  * process, like lib/keyed-mutex.ts — a multi-instance deployment needs a
  * different EventBus implementation behind this same interface.
  */
-export function createEventBus(): EventBus {
+export function createEventBus(logger: Logger): EventBus {
   const listeners = new Set<(event: DomainEvent) => void>();
 
   return {
@@ -41,7 +43,10 @@ export function createEventBus(): EventBus {
         try {
           listener(event);
         } catch (error: unknown) {
-          console.error('Event listener failed', error);
+          logger.error('event_listener_failed', {
+            eventType: event.type,
+            message: error instanceof Error ? error.message : String(error),
+          });
         }
       }
     },

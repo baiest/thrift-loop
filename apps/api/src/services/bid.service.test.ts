@@ -9,6 +9,7 @@ import type { UserRepository } from '../repositories/user.repository.js';
 import { HttpError } from '../lib/http-error.js';
 import { createKeyedMutex } from '../lib/keyed-mutex.js';
 import type { DomainEvent, EventBus } from '../lib/event-bus.js';
+import type { Logger } from '../lib/logger.js';
 import { createBidService } from './bid.service.js';
 
 class FakeEventBus implements EventBus {
@@ -21,6 +22,32 @@ class FakeEventBus implements EventBus {
   subscribe(): () => void {
     return () => undefined;
   }
+}
+
+interface RecordedLogCall {
+  level: string;
+  event: string;
+  fields: Record<string, unknown>;
+}
+
+function createFakeLogger(): { logger: Logger; calls: RecordedLogCall[] } {
+  const calls: RecordedLogCall[] = [];
+  const record =
+    (level: string) =>
+    (event: string, fields: Record<string, unknown> = {}) => {
+      calls.push({ level, event, fields });
+    };
+  return {
+    calls,
+    logger: {
+      info: record('info'),
+      warning: record('warning'),
+      error: record('error'),
+      critical: record('critical'),
+      time: async (_event, _fields, fn) => fn(),
+      close: async () => {},
+    },
+  };
 }
 
 class FakeAuctionRepository implements AuctionRepository {
@@ -176,6 +203,7 @@ describe('BidService', () => {
   let bidRepository: FakeBidRepository;
   let userRepository: FakeUserRepository;
   let eventBus: FakeEventBus;
+  let logCalls: RecordedLogCall[];
   let service: ReturnType<typeof createBidService>;
 
   beforeEach(() => {
@@ -185,12 +213,15 @@ describe('BidService', () => {
     bidRepository = new FakeBidRepository();
     userRepository = new FakeUserRepository();
     eventBus = new FakeEventBus();
+    const fakeLogger = createFakeLogger();
+    logCalls = fakeLogger.calls;
     service = createBidService(
       auctionRepository,
       bidRepository,
       userRepository,
       createKeyedMutex(),
       eventBus,
+      fakeLogger.logger,
     );
   });
 
@@ -208,6 +239,39 @@ describe('BidService', () => {
       expect(auction.currentBidCOP).toBe(50_000);
       expect(auction.bidCount).toBe(1);
       expect(auction.bidEndsAt).toBe('2026-01-01T00:30:00.000Z');
+    });
+
+    it('logs bid_placed on success', async () => {
+      auctionRepository.seed(makeAuction());
+
+      await service.placeBid('USR-bidder', 'AUC-1', '50000');
+
+      expect(logCalls).toContainEqual({
+        level: 'info',
+        event: 'bid_placed',
+        fields: expect.objectContaining({
+          auctionId: 'AUC-1',
+          bidderId: 'USR-bidder',
+          amountCOP: 50_000,
+          bidCount: 1,
+        }) as Record<string, unknown>,
+      });
+    });
+
+    it('logs bid_rejected on a validation failure', async () => {
+      auctionRepository.seed(makeAuction());
+
+      await catchHttpError(service.placeBid('USR-bidder', 'AUC-1', '49999'));
+
+      expect(logCalls).toContainEqual({
+        level: 'warning',
+        event: 'bid_rejected',
+        fields: expect.objectContaining({
+          auctionId: 'AUC-1',
+          bidderId: 'USR-bidder',
+          attemptedAmount: '49999',
+        }) as Record<string, unknown>,
+      });
     });
 
     it('rejects a first bid below the starting price', async () => {
