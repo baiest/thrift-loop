@@ -19,6 +19,8 @@ export default [
       '**/dist/**',
       '**/build/**',
       '**/coverage/**',
+      'e2e/playwright-report/**',
+      'e2e/test-results/**',
       '**/*.config.js',
       '**/*.config.ts',
     ],
