@@ -1,9 +1,11 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { extensionForPhotoMimeType, type AllowedPhotoMimeType } from '@thrift-loop/shared';
 
 export interface UploadedFile {
   originalName: string;
+  mimeType: AllowedPhotoMimeType;
   buffer: Buffer;
 }
 
@@ -22,7 +24,9 @@ export function createLocalPhotoStorage(baseDir: string): PhotoStorage {
 
       const keys: string[] = [];
       for (const file of files) {
-        const fileName = `${randomUUID()}${extname(file.originalName)}`;
+        // Extension comes from the file's own validated content-type, never
+        // from client-supplied input (originalName) — see extensionForPhotoMimeType.
+        const fileName = `${randomUUID()}${extensionForPhotoMimeType(file.mimeType)}`;
         const key = `${userId}/${auctionId}/${fileName}`;
         // eslint-disable-next-line security/detect-non-literal-fs-filename
         await writeFile(join(baseDir, key), file.buffer);

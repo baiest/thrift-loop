@@ -13,3 +13,19 @@ const ALLOWED_PHOTO_MIME_TYPE_SET = new Set<string>(ALLOWED_PHOTO_MIME_TYPES);
 export function isAllowedPhotoMimeType(value: string): value is AllowedPhotoMimeType {
   return ALLOWED_PHOTO_MIME_TYPE_SET.has(value);
 }
+
+const PHOTO_MIME_TYPE_EXTENSIONS: Record<AllowedPhotoMimeType, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+};
+
+/** Storage extension for a validated content-type. Must never be derived
+ * from client input (e.g. a filename): static file servers key the served
+ * Content-Type off the extension, so an attacker-chosen extension could
+ * serve arbitrary bytes as SVG/HTML — stored XSS. */
+export function extensionForPhotoMimeType(mimeType: AllowedPhotoMimeType): string {
+  // mimeType is narrowed to the fixed AllowedPhotoMimeType union above.
+  // eslint-disable-next-line security/detect-object-injection
+  return PHOTO_MIME_TYPE_EXTENSIONS[mimeType];
+}

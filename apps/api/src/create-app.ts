@@ -51,7 +51,13 @@ function mountUploads(app: Express, uploadsDir: string): void {
   if (!existsSync(uploadsDir)) {
     return;
   }
-  app.use(UPLOADS_URL_PATH, express.static(uploadsDir));
+  app.use(
+    UPLOADS_URL_PATH,
+    express.static(uploadsDir, {
+      // Defense in depth for user-uploaded content: blocks MIME-sniffing.
+      setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
+    }),
+  );
 }
 
 export function createApp(options: CreateAppOptions): Express {
