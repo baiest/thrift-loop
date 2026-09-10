@@ -2,9 +2,9 @@ import { useState } from 'react';
 import type { PublicAuction, PublicBid } from '@thrift-loop/shared';
 import { minimumNextBid } from '@thrift-loop/shared';
 import { ApiError, placeBid } from '../../lib/api-client.js';
-import { TextInput } from '../atoms/text-input.js';
 import { Button } from '../atoms/button.js';
 import { FormField } from '../molecules/form-field.js';
+import { CurrencyInput } from '../molecules/currency-input.js';
 
 export interface BidFormProps {
   readonly auctionId: string;
@@ -47,7 +47,12 @@ export function BidForm({
   return (
     <form onSubmit={(event) => void handleSubmit(event)}>
       <FormField id="amountCOP" label="Your bid (COP)" error={error}>
-        <TextInput id="amountCOP" type="number" value={amount} onChange={setAmount} />
+        <CurrencyInput
+          id="amountCOP"
+          value={amount}
+          invalid={Boolean(error)}
+          onChange={setAmount}
+        />
       </FormField>
       <Button type="submit" disabled={disabled || submitting}>
         {submitting ? 'Placing bid…' : 'Place bid'}

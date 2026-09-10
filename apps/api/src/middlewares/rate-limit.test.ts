@@ -3,9 +3,9 @@ import request from 'supertest';
 import express from 'express';
 import { createRateLimiter } from './rate-limit.js';
 
-function buildApp(max: number): express.Express {
+function buildApp(limit: number): express.Express {
   const app = express();
-  app.use(createRateLimiter({ windowMs: 60_000, max }));
+  app.use(createRateLimiter({ windowMs: 60_000, limit }));
   app.get('/probe', (_req, res) => {
     res.status(200).json({ ok: true });
   });

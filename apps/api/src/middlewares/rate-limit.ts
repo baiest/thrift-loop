@@ -2,17 +2,33 @@ import rateLimit, { type Options } from 'express-rate-limit';
 import type { RequestHandler } from 'express';
 import { HTTP_STATUS } from '../lib/http-status.js';
 
-const WINDOW_MINUTES = 15;
 const SECONDS_PER_MINUTE = 60;
 const MILLISECONDS_PER_SECOND = 1000;
-const DEFAULT_WINDOW_MS = WINDOW_MINUTES * SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND;
-const DEFAULT_MAX_REQUESTS = 20;
 const TOO_MANY_REQUESTS_MESSAGE = 'Too many requests, try again later';
+
+const AUTH_WINDOW_MINUTES = 15;
+const AUTH_MAX_REQUESTS = 30;
+
+// Auction/bid/notification traffic includes auction-detail-page.tsx's own
+// live realtime subscription plus normal debounced search/filter/sort
+// browsing — a strict window here trips on the app's own ordinary use, not
+// just abuse.
+const BROWSE_WINDOW_SECONDS = 60;
+const BROWSE_MAX_REQUESTS = 120;
+
+export const AUTH_RATE_LIMIT: Partial<Options> = {
+  windowMs: AUTH_WINDOW_MINUTES * SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND,
+  limit: AUTH_MAX_REQUESTS,
+};
+
+export const BROWSE_RATE_LIMIT: Partial<Options> = {
+  windowMs: BROWSE_WINDOW_SECONDS * MILLISECONDS_PER_SECOND,
+  limit: BROWSE_MAX_REQUESTS,
+};
 
 export function createRateLimiter(options: Partial<Options> = {}): RequestHandler {
   return rateLimit({
-    windowMs: DEFAULT_WINDOW_MS,
-    max: DEFAULT_MAX_REQUESTS,
+    ...AUTH_RATE_LIMIT,
     standardHeaders: true,
     legacyHeaders: false,
     handler: (_req, res) => {

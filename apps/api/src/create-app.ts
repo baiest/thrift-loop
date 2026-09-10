@@ -6,7 +6,7 @@ import { createAuthRouter } from './routes/auth.routes.js';
 import { createAuctionRouter } from './routes/auction.routes.js';
 import { createNotificationRouter } from './routes/notification.routes.js';
 import { HTTP_STATUS } from './lib/http-status.js';
-import { createRateLimiter } from './middlewares/rate-limit.js';
+import { AUTH_RATE_LIMIT, BROWSE_RATE_LIMIT, createRateLimiter } from './middlewares/rate-limit.js';
 import type { UserRepository } from './repositories/user.repository.js';
 import type { AuthService } from './services/auth.service.js';
 import type { AuctionService } from './services/auction.service.js';
@@ -55,14 +55,14 @@ export function createApp(options: CreateAppOptions): Express {
   const {
     authService,
     userRepository,
-    authRateLimiter = createRateLimiter(),
+    authRateLimiter = createRateLimiter(AUTH_RATE_LIMIT),
     webDistPath,
     auctionService,
     bidService,
     notificationService,
     uploadsDir,
-    auctionRateLimiter = createRateLimiter(),
-    notificationRateLimiter = createRateLimiter(),
+    auctionRateLimiter = createRateLimiter(BROWSE_RATE_LIMIT),
+    notificationRateLimiter = createRateLimiter(BROWSE_RATE_LIMIT),
   } = options;
 
   const app = express();

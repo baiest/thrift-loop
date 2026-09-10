@@ -29,4 +29,14 @@ describe('CreateAuctionPage', () => {
     expect(screen.getByRole('heading', { name: /create auction/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/add photos/i)).toBeInTheDocument();
   });
+
+  it('uses the same heading size as the other pages', () => {
+    render(
+      <MemoryRouter>
+        <CreateAuctionPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('heading', { name: /create auction/i })).toHaveClass('text-3xl');
+  });
 });

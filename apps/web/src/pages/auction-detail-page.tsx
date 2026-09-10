@@ -178,7 +178,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
         />
 
         <div className="flex flex-col">
-          <h1 className="mb-1 text-xl font-bold text-ink">{auction.title}</h1>
+          <h1 className="mb-1 font-display text-3xl font-bold text-ink">{auction.title}</h1>
           <p className="mb-2 text-sm text-ink-soft">{auction.location}</p>
           <p className="mb-4 whitespace-pre-wrap text-sm text-ink-soft">{auction.description}</p>
           <p className="text-sm text-ink-soft">

@@ -11,12 +11,11 @@ vi.mock('../lib/api-client.js', async () => {
     ...actual,
     fetchCurrentUser: vi.fn(),
     updateProfile: vi.fn(),
-    logout: vi.fn(),
     updateNotificationPreferences: vi.fn(),
   };
 });
 
-const { fetchCurrentUser, updateProfile, logout, updateNotificationPreferences } =
+const { fetchCurrentUser, updateProfile, updateNotificationPreferences } =
   await import('../lib/api-client.js');
 
 const sampleUser = {
@@ -46,7 +45,6 @@ describe('ProfilePage', () => {
     useAuthStore.getState().clearUser();
     vi.mocked(fetchCurrentUser).mockReset();
     vi.mocked(updateProfile).mockReset();
-    vi.mocked(logout).mockReset().mockResolvedValue(undefined);
     vi.mocked(updateNotificationPreferences).mockReset();
   });
 
@@ -135,6 +133,14 @@ describe('ProfilePage', () => {
     expect(await screen.findByText('CO')).toBeInTheDocument();
   });
 
+  it('uses the same heading size as the other pages', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+
+    expect(await screen.findByText('My profile')).toHaveClass('text-3xl');
+  });
+
   it('pre-fills first name, last name, and city from the current user', async () => {
     vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
 
@@ -173,16 +179,13 @@ describe('ProfilePage', () => {
     expect(screen.getByText(/unsaved changes/i)).toBeInTheDocument();
   });
 
-  it('logs out and redirects to /login', async () => {
+  it('has no logout button of its own (the shell owns logout)', async () => {
     vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
 
     renderPage();
-    await screen.findByLabelText('Address');
-    await userEvent.click(screen.getByRole('button', { name: /log out/i }));
 
-    expect(await screen.findByText('login screen')).toBeInTheDocument();
-    expect(logout).toHaveBeenCalledOnce();
-    expect(useAuthStore.getState().user).toBeNull();
+    await screen.findByLabelText('Address');
+    expect(screen.queryByRole('button', { name: /log out/i })).not.toBeInTheDocument();
   });
 
   it('shows the three notification preference toggles', async () => {
