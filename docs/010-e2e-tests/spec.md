@@ -43,8 +43,10 @@ nothing automated crosses that seam.
       publishing a draft, and seeing it under "My auctions".
 - [ ] Bidding: a valid bid succeeds; a bid below the minimum is rejected; the seller cannot bid on
       their own auction; a second bid resets the bidding window.
-- [ ] Realtime: a bid placed in one browser context is reflected live (no reload) on another
-      context's open detail page, grid card, and notification bell.
+- [ ] Realtime: a test exists asserting a bid placed in one browser context is reflected live (no
+      reload) on another context's open detail page. It currently fails and is marked
+      `test.fail()` — a real, tracked bug this suite found, not yet root-caused (see
+      `tasks.md`'s "Bugs found by this suite").
 - [ ] My-bids/purchases: correct status badges and purchase/handover details for a seeded sold
       auction.
 - [ ] Notifications/profile: notification preference toggles persist; profile field edits save.

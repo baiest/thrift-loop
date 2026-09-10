@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import { getSessionCookieOptions, SESSION_COOKIE_NAME } from '../lib/cookies.js';
 import { attachCsrfCookie, CSRF_COOKIE_NAME } from '../lib/csrf.js';
 import { HTTP_STATUS } from '../lib/http-status.js';
@@ -44,11 +44,24 @@ function setSessionCookies(req: Request, res: Response, token: string): void {
   attachCsrfCookie(req, res, token);
 }
 
-export function createAuthRouter(authService: AuthService, userRepository: UserRepository): Router {
+/**
+ * Only /register and /login sit behind the strict auth rate limiter (brute
+ * force protection). /me is a lightweight session check the frontend fires
+ * on nearly every page load, not a credential-guessing target, so it (and
+ * /logout) use the caller-supplied general limiter instead — otherwise
+ * ordinary browsing exhausts the same 30-requests-per-15-minutes budget.
+ */
+export function createAuthRouter(
+  authService: AuthService,
+  userRepository: UserRepository,
+  authRateLimiter: RequestHandler,
+  generalRateLimiter: RequestHandler,
+): Router {
   const router = Router();
 
   router.post(
     '/register',
+    authRateLimiter,
     asyncHandler(async (req, res) => {
       const input = pickStringFields<RegisterInput>(req.body, REGISTER_FIELDS);
       const { user, token } = await authService.register(input);
@@ -59,6 +72,7 @@ export function createAuthRouter(authService: AuthService, userRepository: UserR
 
   router.post(
     '/login',
+    authRateLimiter,
     asyncHandler(async (req, res) => {
       const input = pickStringFields<LoginInput>(req.body, LOGIN_FIELDS);
       const { user, token } = await authService.login(input);
@@ -67,7 +81,7 @@ export function createAuthRouter(authService: AuthService, userRepository: UserR
     }),
   );
 
-  router.post('/logout', requireCsrf, (_req, res) => {
+  router.post('/logout', generalRateLimiter, requireCsrf, (_req, res) => {
     res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
     res.clearCookie(CSRF_COOKIE_NAME, { path: '/' });
     res.status(HTTP_STATUS.NO_CONTENT).end();
@@ -75,6 +89,7 @@ export function createAuthRouter(authService: AuthService, userRepository: UserR
 
   router.get(
     '/me',
+    generalRateLimiter,
     requireAuth,
     asyncHandler(async (_req, res) => {
       const userId = res.locals['userId'] as string;
@@ -88,6 +103,7 @@ export function createAuthRouter(authService: AuthService, userRepository: UserR
 
   router.patch(
     '/me',
+    generalRateLimiter,
     requireAuth,
     requireCsrf,
     asyncHandler(async (req, res) => {

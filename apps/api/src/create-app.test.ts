@@ -137,6 +137,16 @@ describe('/api/auth rate limiting', () => {
     vi.unstubAllEnvs();
   });
 
+  it('uses the browse limit, not the strict auth limit, for GET /api/auth/me', async () => {
+    vi.stubEnv('JWT_SECRET', 'test-secret');
+    const app = createApp(baseOptions(new FakeUserRepository()));
+
+    const response = await request(app).get('/api/auth/me');
+
+    expect(response.headers['ratelimit-limit']).toBe(String(BROWSE_RATE_LIMIT.limit));
+    vi.unstubAllEnvs();
+  });
+
   it('gives auction/bid browsing a much higher default limit than auth', async () => {
     vi.stubEnv('JWT_SECRET', 'test-secret');
     const userRepository = new FakeUserRepository();

@@ -69,6 +69,7 @@ export function createApp(options: CreateAppOptions): Express {
     logger = NOOP_LOGGER,
   } = options;
   const resolvedAuthRateLimiter = authRateLimiter ?? createRateLimiter(AUTH_RATE_LIMIT, logger);
+  const authGeneralRateLimiter = createRateLimiter(BROWSE_RATE_LIMIT, logger);
   const resolvedAuctionRateLimiter =
     auctionRateLimiter ?? createRateLimiter(BROWSE_RATE_LIMIT, logger);
   const resolvedNotificationRateLimiter =
@@ -86,8 +87,7 @@ export function createApp(options: CreateAppOptions): Express {
 
   app.use(
     `${API_PREFIX}/auth`,
-    resolvedAuthRateLimiter,
-    createAuthRouter(authService, userRepository),
+    createAuthRouter(authService, userRepository, resolvedAuthRateLimiter, authGeneralRateLimiter),
   );
 
   if (auctionService) {
