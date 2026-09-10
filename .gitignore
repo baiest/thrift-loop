@@ -11,4 +11,9 @@ coverage/
 !.vscode/extensions.json
 .husky/_
 apps/api/data/
+e2e/.auth/
+e2e/test-results/
+e2e/playwright-report/
+blob-report/
+playwright/.cache/
 

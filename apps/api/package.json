@@ -13,6 +13,7 @@
     "test:cov": "vitest run --coverage",
     "seed": "tsx scripts/seed.ts",
     "seed:clear": "tsx scripts/seed.ts --clear",
+    "seed:e2e": "tsx scripts/seed-e2e.ts",
     "logs": "tsx scripts/log-viewer.ts"
   },
   "dependencies": {
