@@ -128,6 +128,70 @@ describe('AuctionDetailPage', () => {
     expect(fetchAuctionDetail).toHaveBeenCalledTimes(1);
   });
 
+  it('briefly highlights the price when a live auction-updated message arrives', async () => {
+    // A live-pushed price change happens fast enough to be missed entirely
+    // without some visual cue drawing the eye to it.
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+
+    renderPage();
+    const price = await screen.findByText(/50\.000/);
+    expect(price).not.toHaveClass('animate-flash-highlight');
+
+    useRealtimeStore.getState().applyServerMessage({
+      type: 'auction-updated',
+      auctionId: 'AUC-1',
+      currentBidCOP: 75_000,
+      bidCount: 1,
+      bidEndsAt: null,
+      serverTime: '2026-01-01T00:00:05.000Z',
+    });
+
+    expect(await screen.findByText(/75\.000/)).toHaveClass('animate-flash-highlight');
+  });
+
+  it('refreshes the bid history when a live auction-updated message arrives', async () => {
+    // Regression: the price/bid-count merge into `auction` is purely local
+    // (withLiveUpdate), but the bid history list comes from its own `bids`
+    // state, populated only by load()'s fetchBids call on mount/reconnect —
+    // a live bid from another viewer moved the price but left the list
+    // showing stale entries until a manual reload.
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValueOnce([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+
+    renderPage();
+    await screen.findByText(/no bids yet/i);
+
+    vi.mocked(fetchBids).mockResolvedValueOnce([
+      {
+        id: 'BID-1',
+        auctionId: 'AUC-1',
+        bidderId: 'USR-bidder',
+        bidderFirstName: 'Ana',
+        amountCOP: 75_000,
+        createdAt: '2026-01-01T00:00:05.000Z',
+      },
+    ]);
+    useRealtimeStore.getState().applyServerMessage({
+      type: 'auction-updated',
+      auctionId: 'AUC-1',
+      currentBidCOP: 75_000,
+      bidCount: 1,
+      bidEndsAt: null,
+      serverTime: '2026-01-01T00:00:05.000Z',
+    });
+
+    expect(await screen.findByText(/Ana/)).toBeInTheDocument();
+  });
+
   it('flips to Sold live when a live auction-closed message arrives', async () => {
     vi.mocked(fetchAuctionDetail).mockResolvedValue({
       auction: publicAuction,
@@ -151,6 +215,26 @@ describe('AuctionDetailPage', () => {
     // must not zero out the price display.
     expect(screen.getByText('Starting at')).toBeInTheDocument();
     expect(screen.getByText(/50\.000/)).toBeInTheDocument();
+  });
+
+  it('hydrates the shared auth store on load, not just its own local state', async () => {
+    // Regression: every other route hydrates useAuthStore on mount so
+    // RealtimeConnection (which gates client.connect() on it) and SidebarNav
+    // see the session. This page instead kept the fetched viewer in a plain
+    // useState shadowed under the same name — the global store never learned
+    // about the session, so on a fresh/direct load of the detail page (not
+    // client-side-navigated from an already-connected route) the realtime
+    // WebSocket never opened at all: bids placed here produced no live update.
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+
+    await waitFor(() => expect(useAuthStore.getState().user).toEqual(sampleUser));
   });
 
   it('shows a live viewer count', async () => {

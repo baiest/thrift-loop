@@ -1,15 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { PublicMyBid } from '@thrift-loop/shared';
+import type { PublicAuction, PublicMyBid } from '@thrift-loop/shared';
 import { fetchCurrentUser, fetchMyBids } from '../lib/api-client.js';
 import { useAuthStore } from '../stores/auth-store.js';
+import { useGridRealtime } from '../hooks/use-grid-realtime.js';
+import { withLiveAuctionUpdate } from '../lib/live-auction.js';
 import { AuctionCard, type BidStatus } from '../components/molecules/auction-card.js';
 
-function resolveStatus(entry: PublicMyBid, currentUserId: string): BidStatus {
-  if (entry.auction.status === 'sold') {
-    return entry.auction.winnerUserId === currentUserId ? 'Won' : 'Lost';
+// Matches the server's own definition in bid.service.ts's listMyBids exactly,
+// so recomputing this client-side against a live-merged auction (instead of
+// the isWinning the server computed at fetch time) never disagrees with it.
+function isWinningBid(auction: PublicAuction, myBidCOP: number): boolean {
+  return auction.status === 'published' && auction.currentBidCOP === myBidCOP;
+}
+
+function resolveStatus(auction: PublicAuction, myBidCOP: number, currentUserId: string): BidStatus {
+  if (auction.status === 'sold') {
+    return auction.winnerUserId === currentUserId ? 'Won' : 'Lost';
   }
-  return entry.isWinning ? 'Winning' : 'Outbid';
+  return isWinningBid(auction, myBidCOP) ? 'Winning' : 'Outbid';
 }
 
 // Auctions still open sort soonest-ending-first (nulls, i.e. not yet bid on
@@ -32,6 +41,7 @@ export function MyBidsPage(): React.JSX.Element | null {
   const setUser = useAuthStore((state) => state.setUser);
   const [checkingSession, setCheckingSession] = useState(user === null);
   const [myBids, setMyBids] = useState<PublicMyBid[]>([]);
+  const auctionUpdates = useGridRealtime();
 
   useEffect(() => {
     if (user) {
@@ -59,7 +69,15 @@ export function MyBidsPage(): React.JSX.Element | null {
     return null;
   }
 
-  const sortedBids = sortByEndingSoon(myBids);
+  // Merge each entry's own live update (if any) before sorting/rendering —
+  // a bid placed by someone else while this page is open should move the
+  // price, flip Winning to Outbid, and re-rank "ending soon" the same way a
+  // reload would, without one.
+  const liveBids = myBids.map((entry) => ({
+    ...entry,
+    auction: withLiveAuctionUpdate(entry.auction, auctionUpdates[entry.auction.id]),
+  }));
+  const sortedBids = sortByEndingSoon(liveBids);
 
   return (
     <div className="flex flex-col py-6">
@@ -74,7 +92,7 @@ export function MyBidsPage(): React.JSX.Element | null {
               auction={entry.auction}
               isOwn={false}
               myBidCOP={entry.myBidCOP}
-              bidStatus={resolveStatus(entry, user.id)}
+              bidStatus={resolveStatus(entry.auction, entry.myBidCOP, user.id)}
             />
           ))}
         </div>

@@ -21,9 +21,14 @@ export function CurrencyInput({
   onChange,
 }: CurrencyInputProps): React.JSX.Element {
   function handleChange(event: ChangeEvent<HTMLInputElement>): void {
-    const rawValue = event.target.value;
-    const digits = rawValue.replace(DIGITS_ONLY, '');
-    if (digits || rawValue === '') {
+    const digits = event.target.value.replace(DIGITS_ONLY, '');
+    // Only report an actual change. This both ignores a keystroke that added
+    // no digit (e.g. typing a letter into an empty field) and — the bug this
+    // guards against — still clears the value when backspacing the last digit
+    // away leaves a non-empty rawValue with no digits in it (the formatted
+    // display's currency-symbol/space prefix, e.g. "$ "), which a naive
+    // `digits || rawValue === ''` check silently no-ops on.
+    if (digits !== value) {
       onChange(digits);
     }
   }

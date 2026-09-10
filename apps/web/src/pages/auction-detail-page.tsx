@@ -9,6 +9,7 @@ import {
   updateAuction,
 } from '../lib/api-client.js';
 import { formatCOP } from '../lib/format.js';
+import { withLiveAuctionUpdate } from '../lib/live-auction.js';
 import { Countdown } from '../components/molecules/countdown.js';
 import { BidHistory } from '../components/molecules/bid-history.js';
 import { BidForm } from '../components/organisms/bid-form.js';
@@ -16,7 +17,9 @@ import { Button } from '../components/atoms/button.js';
 import { Skeleton } from '../components/atoms/skeleton.js';
 import { PhotoPlaceholder } from '../components/atoms/photo-placeholder.js';
 import { useAuctionRealtime } from '../hooks/use-auction-realtime.js';
+import { useFlashOnChange } from '../hooks/use-flash-on-change.js';
 import { useRealtimeStore, type AuctionUpdate } from '../stores/realtime-store.js';
+import { useAuthStore } from '../stores/auth-store.js';
 
 const STALE_AFTER_MS = 15_000;
 
@@ -69,19 +72,6 @@ function AuctionPhoto({
   );
 }
 
-function withLiveUpdate(auction: PublicAuction, update: AuctionUpdate | null): PublicAuction {
-  if (!update) {
-    return auction;
-  }
-  return {
-    ...auction,
-    currentBidCOP: update.currentBidCOP ?? auction.currentBidCOP,
-    bidCount: update.bidCount || auction.bidCount,
-    bidEndsAt: update.bidEndsAt ?? auction.bidEndsAt,
-    ...(update.closed && { status: 'sold', winnerUserId: update.winnerUserId }),
-  };
-}
-
 interface DetailState {
   auction: PublicAuction;
   serverOffsetMs: number;
@@ -99,6 +89,61 @@ function canUserDelete(user: PublicUser | null, auction: PublicAuction): boolean
   const isUnsold =
     auction.status === 'draft' || (auction.status === 'published' && auction.bidCount === 0);
   return user !== null && user.id === auction.userId && isUnsold;
+}
+
+/** Hydrates the shared auth store on mount. RealtimeConnection (and
+ * SidebarNav) key off useAuthStore, so a fresh/direct load of this page must
+ * hydrate it the same way every other route does — otherwise the realtime
+ * WebSocket never opens on a direct visit here. */
+function useHydrateAuthUser(
+  setAuthUser: (user: PublicUser) => void,
+  clearAuthUser: () => void,
+): void {
+  useEffect(() => {
+    void fetchCurrentUser().then((fetchedUser) => {
+      if (fetchedUser) {
+        setAuthUser(fetchedUser);
+      } else {
+        clearAuthUser();
+      }
+    });
+    // Deliberately mount-only despite listing setAuthUser/clearAuthUser: they're
+    // stable Zustand action references, not values this effect should re-run on.
+  }, [setAuthUser, clearAuthUser]);
+}
+
+/** withLiveAuctionUpdate merges price/bidCount into `auction` locally, but the bid
+ * history list is its own `bids` state — without this, a live bid from
+ * another viewer moves the price on screen while the list below it stays
+ * stale until a manual reload. Only refetches bids (not the full auction
+ * detail — that already updates locally) when a live message actually
+ * reports a new bid count (`bidCount` is undefined until the first live
+ * message arrives, so this stays inert on mount). */
+function useBidHistorySync(
+  id: string | undefined,
+  update: AuctionUpdate | null,
+  setBids: (bids: PublicBid[]) => void,
+): void {
+  const bidCount = update?.bidCount;
+  useEffect(() => {
+    if (!id || bidCount === undefined) {
+      return;
+    }
+    void fetchBids(id).then(setBids);
+    // setBids is a stable useState setter; only id/bidCount should retrigger this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, bidCount]);
+}
+
+/** True for a brief window after a live message actually moves the price —
+ * keyed on the raw update, not the merged display value, so this stays
+ * inert for the initial fetch and only fires for a genuine live push. */
+function usePriceFlash(update: AuctionUpdate | null): boolean {
+  return useFlashOnChange(update?.currentBidCOP ?? null);
+}
+
+function flashClass(active: boolean): string {
+  return active ? 'animate-flash-highlight' : '';
 }
 
 function DeleteAuctionControl({
@@ -170,7 +215,13 @@ export function AuctionDetailPage(): React.JSX.Element | null {
   const navigate = useNavigate();
   const [detail, setDetail] = useState<DetailState | null>(null);
   const [bids, setBids] = useState<PublicBid[]>([]);
-  const [user, setUser] = useState<PublicUser | null>(null);
+  // The shared store, not a page-local one: RealtimeConnection (and
+  // SidebarNav) key off useAuthStore, so a fresh/direct load of this page
+  // must hydrate it the same way every other route does — otherwise the
+  // realtime WebSocket never opens on a direct visit here.
+  const user = useAuthStore((state) => state.user);
+  const setAuthUser = useAuthStore((state) => state.setUser);
+  const clearAuthUser = useAuthStore((state) => state.clearUser);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
   const [photoFailed, setPhotoFailed] = useState(false);
@@ -197,13 +248,14 @@ export function AuctionDetailPage(): React.JSX.Element | null {
     setLoading(false);
   }, [id]);
 
-  useEffect(() => {
-    void fetchCurrentUser().then(setUser);
-  }, []);
+  useHydrateAuthUser(setAuthUser, clearAuthUser);
 
   useEffect(() => {
     void load();
   }, [load, resyncToken]);
+
+  useBidHistorySync(id, update, setBids);
+  const priceFlash = usePriceFlash(update);
 
   if (loading) {
     return (
@@ -230,7 +282,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
   }
 
   const { serverOffsetMs } = detail;
-  const auction = withLiveUpdate(detail.auction, update);
+  const auction = withLiveAuctionUpdate(detail.auction, update);
   const canBid = canUserBid(user, auction);
   const canPublish = canUserPublish(user, auction);
   const canDelete = canUserDelete(user, auction);
@@ -257,7 +309,9 @@ export function AuctionDetailPage(): React.JSX.Element | null {
           <p className="text-sm text-ink-soft">
             {auction.currentBidCOP === null ? 'Starting at' : 'Current bid'}
           </p>
-          <p className="mb-2 text-3xl font-bold text-ink">
+          <p
+            className={`mb-2 inline-block rounded-md text-3xl font-bold text-ink ${flashClass(priceFlash)}`}
+          >
             {formatCOP(auction.currentBidCOP ?? auction.priceCOP)}
           </p>
           <div className="mb-4">

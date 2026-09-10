@@ -162,4 +162,27 @@ describe('AuctionCard', () => {
     renderCard(makeAuction());
     expect(screen.queryByText(/you bid/i)).not.toBeInTheDocument();
   });
+
+  it('briefly highlights the price when a live update changes it, not on initial render', () => {
+    const { rerender } = render(
+      <MemoryRouter>
+        <AuctionCard
+          auction={makeAuction({ priceCOP: 50_000, currentBidCOP: null })}
+          isOwn={false}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText(/50\.000/)).not.toHaveClass('animate-flash-highlight');
+
+    rerender(
+      <MemoryRouter>
+        <AuctionCard
+          auction={makeAuction({ priceCOP: 50_000, currentBidCOP: 60_000 })}
+          isOwn={false}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/60\.000/)).toHaveClass('animate-flash-highlight');
+  });
 });

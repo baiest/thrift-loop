@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { PublicAuction } from '@thrift-loop/shared';
 import { formatCOP, formatTimeLeft } from '../../lib/format.js';
 import { useNow } from '../../hooks/use-now.js';
+import { useFlashOnChange } from '../../hooks/use-flash-on-change.js';
 import { Badge } from '../atoms/badge.js';
 import { PhotoPlaceholder } from '../atoms/photo-placeholder.js';
 
@@ -61,6 +62,10 @@ export function AuctionCard({
 }: AuctionCardProps): React.JSX.Element {
   const priceLabel = auction.currentBidCOP === null ? 'Starting at' : 'Current bid';
   const priceValue = auction.currentBidCOP ?? auction.priceCOP;
+  // The grid receives the same live price pushes as the detail page (via
+  // AuctionGrid's withLiveUpdate) — flash here too so a bid on a card you're
+  // browsing past doesn't just silently jump.
+  const priceFlash = useFlashOnChange(priceValue);
   const now = useNow();
   const timeLeft = formatTimeLeft(auction.bidEndsAt, now);
   const startedOn = START_DATE_FORMATTER.format(new Date(auction.createdAt));
@@ -87,7 +92,11 @@ export function AuctionCard({
         <div className="mt-1 flex items-end justify-between gap-2">
           <div>
             <p className="text-xs text-ink-soft">{priceLabel}</p>
-            <p className="font-display text-lg font-semibold text-ink">{formatCOP(priceValue)}</p>
+            <p
+              className={`inline-block rounded-md font-display text-lg font-semibold text-ink ${priceFlash ? 'animate-flash-highlight' : ''}`}
+            >
+              {formatCOP(priceValue)}
+            </p>
           </div>
           <p
             className={`text-xs font-medium ${timeLeft.isUrgent ? 'text-brand-600' : 'text-ink-soft'}`}
