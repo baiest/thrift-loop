@@ -35,7 +35,7 @@ written down.
 ### Backend — core logger (PR1)
 
 - [ ] A `Logger` (`apps/api/src/lib/logger.ts`) exposes `info`/`warning`/`error`/`critical(event,
-  fields?)` and a `time(event, fields, fn)` helper that measures an async function and logs its
+fields?)` and a `time(event, fields, fn)` helper that measures an async function and logs its
       outcome (success or failure) with duration.
 - [ ] Every real log entry is one JSON object per line, appended to `apps/api/data/logs/app.jsonl`,
       containing at least: `timestamp`, `level`, `event`, `requestId` (when a request context is
@@ -46,6 +46,8 @@ written down.
       produced while handling it, without being passed explicitly through function signatures.
 - [ ] Every HTTP request produces one `http_request` log line (method, path, status, durationMs),
       leveled `info`/`warning`/`critical` by status code.
+- [ ] A request whose client disconnects before a response is sent (a cancelled/aborted request)
+      logs `http_request_aborted` (warning) instead of a status-coded `http_request` line.
 - [ ] An unexpected error in a route handler is logged `critical` with the error's message and
       stack, correlated to the same request ID as its `http_request` line.
 - [ ] `create-app.ts`'s `logger` option defaults to a no-op logger, so existing tests are unaffected
