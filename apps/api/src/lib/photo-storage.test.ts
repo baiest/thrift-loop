@@ -2,7 +2,7 @@ import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createLocalPhotoStorage } from './photo-storage.js';
+import { createLocalPhotoStorage, type UploadedFile } from './photo-storage.js';
 
 describe('createLocalPhotoStorage', () => {
   let baseDir: string;
@@ -17,9 +17,9 @@ describe('createLocalPhotoStorage', () => {
 
   it('saves photos under <userId>/<auctionId> and returns their relative keys', async () => {
     const storage = createLocalPhotoStorage(baseDir);
-    const files = [
-      { originalName: 'front.jpg', buffer: Buffer.from('front-bytes') },
-      { originalName: 'back.jpg', buffer: Buffer.from('back-bytes') },
+    const files: UploadedFile[] = [
+      { originalName: 'front.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('front-bytes') },
+      { originalName: 'back.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('back-bytes') },
     ];
 
     const keys = await storage.savePhotos('USR-1', 'AUC-1', files);
@@ -30,10 +30,22 @@ describe('createLocalPhotoStorage', () => {
     }
   });
 
+  it('derives the stored extension from the mimeType, ignoring the originalName extension', async () => {
+    // Regression: extension used to come from originalName, not mimeType —
+    // stored XSS (see extensionForPhotoMimeType).
+    const storage = createLocalPhotoStorage(baseDir);
+    const [key] = await storage.savePhotos('USR-1', 'AUC-1', [
+      { originalName: 'evil.svg', mimeType: 'image/png', buffer: Buffer.from('<svg/>') },
+    ]);
+
+    expect(key).toMatch(/\.png$/);
+    expect(key).not.toMatch(/\.svg$/);
+  });
+
   it('writes the actual file contents to disk', async () => {
     const storage = createLocalPhotoStorage(baseDir);
     const [key] = await storage.savePhotos('USR-1', 'AUC-1', [
-      { originalName: 'front.jpg', buffer: Buffer.from('hello') },
+      { originalName: 'front.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('hello') },
     ]);
 
     // Path is built from the storage's own returned key, not attacker input.
@@ -45,8 +57,8 @@ describe('createLocalPhotoStorage', () => {
   it('gives each saved file a unique name even with duplicate originalNames', async () => {
     const storage = createLocalPhotoStorage(baseDir);
     const keys = await storage.savePhotos('USR-1', 'AUC-1', [
-      { originalName: 'photo.jpg', buffer: Buffer.from('a') },
-      { originalName: 'photo.jpg', buffer: Buffer.from('b') },
+      { originalName: 'photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('a') },
+      { originalName: 'photo.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('b') },
     ]);
 
     expect(new Set(keys).size).toBe(2);
@@ -55,7 +67,7 @@ describe('createLocalPhotoStorage', () => {
   it('deletes every photo file for an auction', async () => {
     const storage = createLocalPhotoStorage(baseDir);
     await storage.savePhotos('USR-1', 'AUC-1', [
-      { originalName: 'front.jpg', buffer: Buffer.from('a') },
+      { originalName: 'front.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('a') },
     ]);
 
     await storage.deletePhotosForAuction('USR-1', 'AUC-1');

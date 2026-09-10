@@ -276,6 +276,8 @@ describe('auction wiring', () => {
     const response = await request(app).get('/uploads/USR-1/AUC-1/photo.jpg');
 
     expect(response.status).toBe(200);
+    // Defense in depth for user-uploaded content: block MIME-sniffing.
+    expect(response.headers['x-content-type-options']).toBe('nosniff');
     await rm(uploadsDir, { recursive: true, force: true });
   });
 });
