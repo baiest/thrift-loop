@@ -112,6 +112,25 @@ export interface RegisterFormProps {
   readonly onSuccess?: () => void;
 }
 
+/** Purely visual grouping — same fields, same order, just labeled sections
+ * so the form reads as light and organized instead of one long list. */
+function FormSection({
+  title,
+  children,
+}: {
+  readonly title: string;
+  readonly children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <fieldset className="mb-6 border-0 p-0">
+      <legend className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-soft">
+        {title}
+      </legend>
+      <div>{children}</div>
+    </fieldset>
+  );
+}
+
 export function RegisterForm({ onSuccess }: RegisterFormProps): React.JSX.Element {
   const [values, setValues] = useState<FormValues>(EMPTY_VALUES);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -157,86 +176,92 @@ export function RegisterForm({ onSuccess }: RegisterFormProps): React.JSX.Elemen
 
   return (
     <form onSubmit={(event) => void handleSubmit(event)} noValidate>
-      <FormField id="phone" label="Phone number" error={errors.phone}>
-        <TextInput
-          id="phone"
-          type="tel"
-          autoComplete="tel"
-          value={values.phone}
-          invalid={Boolean(errors.phone)}
-          onChange={(value) => updateField('phone', value)}
-          onBlur={() => handleBlur('phone')}
-        />
-      </FormField>
+      <FormSection title="Contact">
+        <FormField id="phone" label="Phone number" error={errors.phone}>
+          <TextInput
+            id="phone"
+            type="tel"
+            autoComplete="tel"
+            value={values.phone}
+            invalid={Boolean(errors.phone)}
+            onChange={(value) => updateField('phone', value)}
+            onBlur={() => handleBlur('phone')}
+          />
+        </FormField>
+      </FormSection>
 
-      <FormField id="firstName" label="First name" error={errors.firstName}>
-        <TextInput
-          id="firstName"
-          autoComplete="given-name"
-          value={values.firstName}
-          invalid={Boolean(errors.firstName)}
-          onChange={(value) => updateField('firstName', value)}
-          onBlur={() => handleBlur('firstName')}
-        />
-      </FormField>
+      <FormSection title="About you">
+        <FormField id="firstName" label="First name" error={errors.firstName}>
+          <TextInput
+            id="firstName"
+            autoComplete="given-name"
+            value={values.firstName}
+            invalid={Boolean(errors.firstName)}
+            onChange={(value) => updateField('firstName', value)}
+            onBlur={() => handleBlur('firstName')}
+          />
+        </FormField>
 
-      <FormField id="lastName" label="Last name" error={errors.lastName}>
-        <TextInput
-          id="lastName"
-          autoComplete="family-name"
-          value={values.lastName}
-          invalid={Boolean(errors.lastName)}
-          onChange={(value) => updateField('lastName', value)}
-          onBlur={() => handleBlur('lastName')}
-        />
-      </FormField>
+        <FormField id="lastName" label="Last name" error={errors.lastName}>
+          <TextInput
+            id="lastName"
+            autoComplete="family-name"
+            value={values.lastName}
+            invalid={Boolean(errors.lastName)}
+            onChange={(value) => updateField('lastName', value)}
+            onBlur={() => handleBlur('lastName')}
+          />
+        </FormField>
 
-      <FormField id="city" label="City" error={errors.city}>
-        <SearchableSelect
-          id="city"
-          options={COLOMBIA_CITIES}
-          value={values.city}
-          placeholder="Search your city"
-          invalid={Boolean(errors.city)}
-          onChange={(value) => updateField('city', value)}
-          onBlur={() => handleBlur('city')}
-        />
-      </FormField>
+        <FormField id="city" label="City" error={errors.city}>
+          <SearchableSelect
+            id="city"
+            options={COLOMBIA_CITIES}
+            value={values.city}
+            placeholder="Search your city"
+            invalid={Boolean(errors.city)}
+            onChange={(value) => updateField('city', value)}
+            onBlur={() => handleBlur('city')}
+          />
+        </FormField>
 
-      <FormField
-        id="categoryPreference"
-        label="Category preference"
-        error={errors.categoryPreference}
-      >
-        <Select
+        <FormField
           id="categoryPreference"
-          options={CATEGORY_PREFERENCE_OPTIONS}
-          value={values.categoryPreference}
-          placeholder="No preference"
-          onChange={(value) => updateField('categoryPreference', value)}
-        />
-      </FormField>
+          label="Category preference"
+          error={errors.categoryPreference}
+        >
+          <Select
+            id="categoryPreference"
+            options={CATEGORY_PREFERENCE_OPTIONS}
+            value={values.categoryPreference}
+            placeholder="No preference"
+            onChange={(value) => updateField('categoryPreference', value)}
+          />
+        </FormField>
+      </FormSection>
 
-      <FormField id="password" label="Password" error={errors.password}>
-        <PasswordInput
-          id="password"
-          value={values.password}
-          invalid={Boolean(errors.password)}
-          onChange={(value) => updateField('password', value)}
-          onBlur={() => handleBlur('password')}
-        />
-        <PasswordStrengthMeter password={values.password} />
-      </FormField>
+      <FormSection title="Security">
+        <FormField id="password" label="Password" error={errors.password}>
+          <PasswordInput
+            id="password"
+            value={values.password}
+            invalid={Boolean(errors.password)}
+            onChange={(value) => updateField('password', value)}
+            onBlur={() => handleBlur('password')}
+          />
+          <PasswordStrengthMeter password={values.password} />
+        </FormField>
 
-      <FormField id="confirmPassword" label="Confirm password" error={errors.confirmPassword}>
-        <PasswordInput
-          id="confirmPassword"
-          value={values.confirmPassword}
-          invalid={Boolean(errors.confirmPassword)}
-          onChange={(value) => updateField('confirmPassword', value)}
-          onBlur={() => handleBlur('confirmPassword')}
-        />
-      </FormField>
+        <FormField id="confirmPassword" label="Confirm password" error={errors.confirmPassword}>
+          <PasswordInput
+            id="confirmPassword"
+            value={values.confirmPassword}
+            invalid={Boolean(errors.confirmPassword)}
+            onChange={(value) => updateField('confirmPassword', value)}
+            onBlur={() => handleBlur('confirmPassword')}
+          />
+        </FormField>
+      </FormSection>
 
       {serverError && (
         <p role="alert" className="mb-4 text-sm text-red-600">
