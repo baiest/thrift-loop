@@ -13,6 +13,7 @@ import {
 import { createLocalPhotoStorage } from './lib/photo-storage.js';
 import { createKeyedMutex, type KeyedMutex } from './lib/keyed-mutex.js';
 import { createEventBus, type EventBus } from './lib/event-bus.js';
+import { createLogger, type Logger } from './lib/logger.js';
 import type { UserRepository } from './repositories/user.repository.js';
 import type { AuctionRepository } from './repositories/auction.repository.js';
 import type { BidRepository } from './repositories/bid.repository.js';
@@ -32,11 +33,13 @@ export interface Container {
   mutex: KeyedMutex;
   eventBus: EventBus;
   uploadsDir: string;
+  logger: Logger;
 }
 
 export function buildContainer(): Container {
   const dataDir = join(process.cwd(), 'data');
   const uploadsDir = join(dataDir, 'uploads');
+  const logger = createLogger(join(dataDir, 'logs', 'app.jsonl'));
 
   const userRepository = createJsonUserRepository(join(dataDir, 'users.json'));
   const authService = createAuthService(userRepository);
@@ -73,5 +76,6 @@ export function buildContainer(): Container {
     mutex,
     eventBus,
     uploadsDir,
+    logger,
   };
 }

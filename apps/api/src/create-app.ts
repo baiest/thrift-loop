@@ -7,6 +7,8 @@ import { createAuctionRouter } from './routes/auction.routes.js';
 import { createNotificationRouter } from './routes/notification.routes.js';
 import { HTTP_STATUS } from './lib/http-status.js';
 import { AUTH_RATE_LIMIT, BROWSE_RATE_LIMIT, createRateLimiter } from './middlewares/rate-limit.js';
+import { createRequestLoggingMiddleware } from './middlewares/request-logging.js';
+import { NOOP_LOGGER, type Logger } from './lib/logger.js';
 import type { UserRepository } from './repositories/user.repository.js';
 import type { AuthService } from './services/auth.service.js';
 import type { AuctionService } from './services/auction.service.js';
@@ -28,6 +30,7 @@ export interface CreateAppOptions {
   uploadsDir?: string;
   auctionRateLimiter?: RequestHandler;
   notificationRateLimiter?: RequestHandler;
+  logger?: Logger;
 }
 
 function mountSpaFallback(app: Express, webDistPath: string): void {
@@ -63,12 +66,14 @@ export function createApp(options: CreateAppOptions): Express {
     uploadsDir,
     auctionRateLimiter = createRateLimiter(BROWSE_RATE_LIMIT),
     notificationRateLimiter = createRateLimiter(BROWSE_RATE_LIMIT),
+    logger = NOOP_LOGGER,
   } = options;
 
   const app = express();
 
   app.use(express.json());
   app.use(cookieParser());
+  app.use(createRequestLoggingMiddleware(logger));
 
   app.get('/health', (_req, res) => {
     res.status(HTTP_STATUS.OK).json({ status: 'ok' });

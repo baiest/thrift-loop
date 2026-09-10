@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { buildContainer } from './container.js';
 import { createServer } from './create-server.js';
 import { startAuctionScheduler } from './lib/publish-scheduler.js';
+import { setDefaultAsyncHandlerLogger } from './lib/async-handler.js';
 
 const DEFAULT_PORT = 3000;
 const DEFAULT_WEB_DIST_PATH = '../web/dist';
@@ -39,7 +40,22 @@ const {
   mutex,
   eventBus,
   uploadsDir,
+  logger,
 } = buildContainer();
+
+setDefaultAsyncHandlerLogger(logger);
+
+process.on('uncaughtException', (error) => {
+  logger.critical('uncaught_exception', { message: error.message, stack: error.stack });
+  void logger.close().finally(() => process.exit(1));
+});
+
+process.on('unhandledRejection', (reason) => {
+  const message = reason instanceof Error ? reason.message : String(reason);
+  const stack = reason instanceof Error ? reason.stack : undefined;
+  logger.critical('unhandled_rejection', { message, stack });
+  void logger.close().finally(() => process.exit(1));
+});
 
 const { server } = createServer({
   authService,
@@ -51,10 +67,11 @@ const { server } = createServer({
   uploadsDir,
   allowedOrigins,
   eventBus,
+  logger,
 });
 
 server.listen(port, () => {
-  console.log(`API listening on port ${port}`);
+  logger.info('server_started', { port });
 });
 
 startAuctionScheduler(

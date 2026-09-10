@@ -14,6 +14,7 @@ import { createApp, type CreateAppOptions } from './create-app.js';
 import { AUTH_RATE_LIMIT, BROWSE_RATE_LIMIT, createRateLimiter } from './middlewares/rate-limit.js';
 import { signSessionToken } from './lib/jwt.js';
 import { SESSION_COOKIE_NAME } from './lib/cookies.js';
+import type { Logger } from './lib/logger.js';
 
 class FakeUserRepository implements UserRepository {
   findByPhone(): Promise<User | null> {
@@ -147,6 +148,32 @@ describe('/api/auth rate limiting', () => {
 
     expect(response.headers['ratelimit-limit']).toBe(String(BROWSE_RATE_LIMIT.limit));
     expect(BROWSE_RATE_LIMIT.limit).toBeGreaterThan(AUTH_RATE_LIMIT.limit as number);
+    vi.unstubAllEnvs();
+  });
+});
+
+describe('request logging', () => {
+  it('logs an http_request line for a real request when a logger is provided', async () => {
+    vi.stubEnv('JWT_SECRET', 'test-secret');
+    const calls: { level: string; event: string }[] = [];
+    const record =
+      (level: string) =>
+      (event: string): void => {
+        calls.push({ level, event });
+      };
+    const logger: Logger = {
+      info: record('info'),
+      warning: record('warning'),
+      error: record('error'),
+      critical: record('critical'),
+      time: async (_event, _fields, fn) => fn(),
+      close: async () => {},
+    };
+    const app = createApp({ ...baseOptions(new FakeUserRepository()), logger });
+
+    await request(app).get('/health');
+
+    expect(calls).toContainEqual({ level: 'info', event: 'http_request' });
     vi.unstubAllEnvs();
   });
 });

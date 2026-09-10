@@ -32,6 +32,8 @@ the minimal code to pass.
       at `info` with method/path/status/durationMs.
 - [ ] Test: a 4xx response logs at `warning`; a 5xx response logs at `critical`.
 - [ ] Test: `getRequestId()` inside the dummy route handler returns a value.
+- [ ] Test: a client that disconnects before a response is sent logs `http_request_aborted`
+      (warning) instead of a status-coded `http_request` line.
 - [ ] Implement, mounted in `create-app.ts` right after `cookieParser()`.
 
 ## `lib/async-handler.ts`
@@ -67,4 +69,4 @@ the minimal code to pass.
 - [ ] Manual: hit a few endpoints, run `npm run logs`, confirm entries appear, level colors are
       correct, and clicking a request ID filters to that transaction.
 - [ ] Manual: temporarily throw a raw `Error` in a route, confirm a correlated `critical
-  unexpected_route_error` line with a readable stack; revert the throw.
+unexpected_route_error` line with a readable stack; revert the throw.
