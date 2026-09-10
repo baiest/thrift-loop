@@ -45,6 +45,21 @@ describe('CurrencyInput', () => {
     expect(onChange).toHaveBeenCalledWith('');
   });
 
+  it('lets a single remaining digit be backspaced away, not stuck behind the currency prefix', async () => {
+    // Regression: value "4" displays as "$ 4". Backspacing the "4" leaves the
+    // raw input at "$ " — digits === '' but rawValue !== '' — which must still
+    // clear the value instead of silently no-opping and snapping the digit back.
+    const onChange = vi.fn();
+    render(<CurrencyInput id="price" value="4" onChange={onChange} />);
+
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- tsc disagrees with the linter here; the cast is required to access `.value`.
+    const input = screen.getByRole('textbox') as HTMLInputElement;
+    input.setSelectionRange(input.value.length, input.value.length);
+    await userEvent.type(input, '{backspace}');
+
+    expect(onChange).toHaveBeenCalledWith('');
+  });
+
   it('marks the input as invalid via aria-invalid', () => {
     render(<CurrencyInput id="price" value="" onChange={vi.fn()} invalid />);
     expect(screen.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true');

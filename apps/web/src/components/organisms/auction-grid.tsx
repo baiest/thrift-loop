@@ -2,22 +2,9 @@ import type { PublicAuction } from '@thrift-loop/shared';
 import { AuctionCard } from '../molecules/auction-card.js';
 import { AuctionCardSkeleton } from '../molecules/auction-card-skeleton.js';
 import { useGridRealtime } from '../../hooks/use-grid-realtime.js';
-import type { AuctionUpdate } from '../../stores/realtime-store.js';
+import { withLiveAuctionUpdate } from '../../lib/live-auction.js';
 
 const SKELETON_CARD_COUNT = 8;
-
-function withLiveUpdate(auction: PublicAuction, update: AuctionUpdate | undefined): PublicAuction {
-  if (!update) {
-    return auction;
-  }
-  return {
-    ...auction,
-    currentBidCOP: update.currentBidCOP ?? auction.currentBidCOP,
-    bidCount: update.bidCount || auction.bidCount,
-    bidEndsAt: update.bidEndsAt ?? auction.bidEndsAt,
-    ...(update.closed && { status: 'sold', winnerUserId: update.winnerUserId }),
-  };
-}
 
 export interface AuctionGridProps {
   readonly auctions: readonly PublicAuction[];
@@ -57,7 +44,7 @@ export function AuctionGrid({
       {auctions.map((auction) => (
         <AuctionCard
           key={auction.id}
-          auction={withLiveUpdate(auction, auctionUpdates[auction.id])}
+          auction={withLiveAuctionUpdate(auction, auctionUpdates[auction.id])}
           isOwn={auction.userId === currentUserId}
           myBidCOP={myBidsByAuctionId?.get(auction.id)}
         />

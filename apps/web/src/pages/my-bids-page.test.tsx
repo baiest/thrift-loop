@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { MyBidsPage } from './my-bids-page.js';
 import { useAuthStore } from '../stores/auth-store.js';
+import { useRealtimeStore } from '../stores/realtime-store.js';
 
 vi.mock('../lib/api-client.js', async () => {
   const actual = await vi.importActual('../lib/api-client.js');
@@ -63,6 +64,14 @@ describe('MyBidsPage', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    useRealtimeStore.setState({
+      status: 'idle',
+      hasConnectedOnce: false,
+      resyncToken: 0,
+      unreadCount: 0,
+      auctionUpdates: {},
+      viewersByAuctionId: {},
+    });
   });
 
   it('redirects to /login when there is no session', async () => {
@@ -138,6 +147,52 @@ describe('MyBidsPage', () => {
     renderPage();
 
     expect(await screen.findByText('Outbid')).toBeInTheDocument();
+  });
+
+  it('reflects a live price update on the card without a reload', async () => {
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+    vi.mocked(fetchMyBids).mockResolvedValue([
+      { auction: { ...baseAuction, currentBidCOP: 60_000 }, myBidCOP: 60_000, isWinning: true },
+    ]);
+
+    renderPage();
+    await screen.findAllByText(/60\.000/);
+
+    useRealtimeStore.getState().applyServerMessage({
+      type: 'auction-updated',
+      auctionId: 'AUC-1',
+      currentBidCOP: 90_000,
+      bidCount: 3,
+      bidEndsAt: null,
+      serverTime: '2026-01-01T00:00:05.000Z',
+    });
+
+    expect(await screen.findByText(/90\.000/)).toBeInTheDocument();
+  });
+
+  it('flips Winning to Outbid live when someone else out-bids while the page is open', async () => {
+    // isWinning comes from the server at fetch time — a live price push that
+    // moves past the viewer's own bid must flip the badge without a reload,
+    // the same way the price itself already updates live.
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+    vi.mocked(fetchMyBids).mockResolvedValue([
+      { auction: { ...baseAuction, currentBidCOP: 60_000 }, myBidCOP: 60_000, isWinning: true },
+    ]);
+
+    renderPage();
+    await screen.findByText('Winning');
+
+    useRealtimeStore.getState().applyServerMessage({
+      type: 'auction-updated',
+      auctionId: 'AUC-1',
+      currentBidCOP: 90_000,
+      bidCount: 3,
+      bidEndsAt: null,
+      serverTime: '2026-01-01T00:00:05.000Z',
+    });
+
+    expect(await screen.findByText('Outbid')).toBeInTheDocument();
+    expect(screen.queryByText('Winning')).not.toBeInTheDocument();
   });
 
   it('shows a Won row when the auction sold to the current user', async () => {

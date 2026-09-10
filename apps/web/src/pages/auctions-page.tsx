@@ -12,6 +12,7 @@ import { AuctionFilters } from '../components/organisms/auction-filters.js';
 import { ResultsBar } from '../components/molecules/results-bar.js';
 import { Icon } from '../components/atoms/icon.js';
 import { useDebouncedValue } from '../hooks/use-debounced-value.js';
+import { useAuthStore } from '../stores/auth-store.js';
 
 const DEBOUNCE_MS = 300;
 
@@ -83,6 +84,8 @@ export function AuctionsPage(): React.JSX.Element {
   const hadInitialParams = useRef(Array.from(searchParams.keys()).length > 0);
   const [filters, setFilters] = useState<Filters>(() => filtersFromSearchParams(searchParams));
   const cityDefaulted = useRef(hadInitialParams.current);
+  const setAuthUser = useAuthStore((state) => state.setUser);
+  const clearAuthUser = useAuthStore((state) => state.clearUser);
 
   useEffect(() => {
     let isActive = true;
@@ -91,6 +94,16 @@ export function AuctionsPage(): React.JSX.Element {
       const user = await fetchCurrentUser();
       if (!isActive) {
         return;
+      }
+      // This is the "/" landing route — the page most likely to be a
+      // visitor's first load — so it must hydrate the shared auth store
+      // itself rather than only tracking currentUserId locally. SidebarNav's
+      // logged-in section and RealtimeConnection's WebSocket both key off
+      // useAuthStore, not this page's own state.
+      if (user) {
+        setAuthUser(user);
+      } else {
+        clearAuthUser();
       }
       setCurrentUserId(user?.id ?? null);
       if (user?.city && !cityDefaulted.current) {
@@ -110,7 +123,10 @@ export function AuctionsPage(): React.JSX.Element {
     return () => {
       isActive = false;
     };
-  }, []);
+    // Deliberately mount-only despite listing setAuthUser/clearAuthUser: they're
+    // stable Zustand action references, and re-running this on every render
+    // would re-fetch /me and re-apply the city default.
+  }, [setAuthUser, clearAuthUser]);
 
   useEffect(() => {
     setSearchParams(searchParamsFromFilters(filters), { replace: true });

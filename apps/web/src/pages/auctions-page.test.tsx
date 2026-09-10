@@ -100,6 +100,21 @@ describe('AuctionsPage', () => {
     );
   });
 
+  it('hydrates the shared auth store on load, not just its own local state', async () => {
+    // Regression: every other route hydrates useAuthStore on mount (so
+    // SidebarNav and RealtimeConnection see the session), but this page —
+    // the "/" landing route, so the one most likely to be a visitor's first
+    // load — only tracked currentUserId in local state. That left the
+    // sidebar's logged-in section and the realtime WebSocket connection
+    // (which both key off useAuthStore) dark on a fresh visit or hard reload,
+    // even with a valid session cookie.
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+
+    await vi.waitFor(() => expect(useAuthStore.getState().user).toEqual(sampleUser));
+  });
+
   it('does not re-apply the profile city default once the user has explicitly cleared it', async () => {
     // Simulates: user cleared the "Cali" chip (writing city= empty to the URL),
     // then reloaded the page — a fresh mount with that URL already in place.

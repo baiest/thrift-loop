@@ -44,8 +44,14 @@ describe('FilterPanel', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /filters/i }));
 
-    expect(screen.getByLabelText('Min price (COP)').value).toMatch(/\$\s?50\.000/);
-    expect(screen.getByLabelText('Max price (COP)').value).toMatch(/\$\s?300\.000/);
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- tsc disagrees with the linter here; the cast is required to access `.value`.
+    expect((screen.getByLabelText('Min price (COP)') as HTMLInputElement).value).toMatch(
+      /\$\s?50\.000/,
+    );
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- tsc disagrees with the linter here; the cast is required to access `.value`.
+    expect((screen.getByLabelText('Max price (COP)') as HTMLInputElement).value).toMatch(
+      /\$\s?300\.000/,
+    );
   });
 
   it('shows no count badge when no filter is active', () => {

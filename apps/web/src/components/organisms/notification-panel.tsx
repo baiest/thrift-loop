@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { PublicNotification } from '@thrift-loop/shared';
 import { fetchNotifications, markAllNotificationsRead } from '../../lib/api-client.js';
 import { NotificationItem } from '../molecules/notification-item.js';
+import { useRealtimeStore } from '../../stores/realtime-store.js';
 
 function markAllAsRead(notifications: readonly PublicNotification[]): PublicNotification[] {
   const readAt = new Date().toISOString();
@@ -10,8 +11,13 @@ function markAllAsRead(notifications: readonly PublicNotification[]): PublicNoti
 
 export function NotificationPanel(): React.JSX.Element {
   const [notifications, setNotifications] = useState<PublicNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  // The badge NotificationBell renders reads this shared store, not this
+  // panel's own state — without writing through it here too, marking all as
+  // read updated this list's checkmarks but left the badge showing a stale
+  // count until the next full fetch.
+  const unreadCount = useRealtimeStore((state) => state.unreadCount);
+  const setUnreadCount = useRealtimeStore((state) => state.setUnreadCount);
 
   useEffect(() => {
     void fetchNotifications().then((result) => {
@@ -19,6 +25,9 @@ export function NotificationPanel(): React.JSX.Element {
       setUnreadCount(result.unreadCount);
       setLoading(false);
     });
+    // setUnreadCount is a stable Zustand action reference; this should only
+    // run once, on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleMarkAllRead = (): void => {

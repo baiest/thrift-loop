@@ -44,4 +44,27 @@ describe('BidHistory', () => {
     expect(items[0]).toHaveTextContent('Highest');
     expect(items[1]).not.toHaveTextContent('Highest');
   });
+
+  it('animates the top row in when a new highest bid arrives, not on initial render', () => {
+    // A new bid is a genuinely new row, not just a value changing in place —
+    // it slides/fades in (bid-row-enter), distinct from the plain in-place
+    // flash used for a value like the price ticking up.
+    const { rerender } = render(
+      <BidHistory bids={[makeBid({ id: 'BID-1', bidderFirstName: 'Ana', amountCOP: 50_000 })]} />,
+    );
+    expect(screen.getAllByRole('listitem')[0]).not.toHaveClass('animate-bid-row-enter');
+
+    rerender(
+      <BidHistory
+        bids={[
+          makeBid({ id: 'BID-2', bidderFirstName: 'Carlos', amountCOP: 60_000 }),
+          makeBid({ id: 'BID-1', bidderFirstName: 'Ana', amountCOP: 50_000 }),
+        ]}
+      />,
+    );
+
+    const items = screen.getAllByRole('listitem');
+    expect(items[0]).toHaveClass('animate-bid-row-enter');
+    expect(items[1]).not.toHaveClass('animate-bid-row-enter');
+  });
 });
