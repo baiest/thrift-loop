@@ -1,7 +1,7 @@
 import { createWriteStream, mkdirSync, type WriteStream } from 'node:fs';
 import { dirname } from 'node:path';
 import { performance } from 'node:perf_hooks';
-import { getRequestId } from './request-context.js';
+import { getIp, getRequestId } from './request-context.js';
 
 export type LogLevel = 'info' | 'warning' | 'error' | 'critical';
 
@@ -40,11 +40,13 @@ function buildEntry(
   fields: Record<string, unknown>,
 ): Record<string, unknown> {
   const requestId = getRequestId();
+  const ip = getIp();
   return {
     timestamp: new Date().toISOString(),
     level,
     event,
     ...(requestId ? { requestId } : {}),
+    ...(ip ? { ip } : {}),
     pid: process.pid,
     memoryUsedMb: memoryUsedMb(),
     ...fields,

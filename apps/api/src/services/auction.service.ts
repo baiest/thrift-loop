@@ -26,6 +26,7 @@ import type { PhotoStorage, UploadedFile } from '../lib/photo-storage.js';
 import { createPrefixedId } from '../lib/prefixed-id.js';
 import { HttpError } from '../lib/http-error.js';
 import { HTTP_STATUS } from '../lib/http-status.js';
+import { NOOP_LOGGER, type Logger } from '../lib/logger.js';
 
 const AUCTION_ID_PREFIX = 'AUC';
 const AUCTION_NOT_FOUND_MESSAGE = 'Auction not found';
@@ -319,6 +320,7 @@ function buildAuctionFilter(input: AuctionSearchInput): AuctionFilter {
 export function createAuctionService(
   auctionRepository: AuctionRepository,
   photoStorage: PhotoStorage,
+  logger: Logger = NOOP_LOGGER,
 ) {
   async function getOwnedAuction(userId: string, auctionId: string): Promise<Auction> {
     const auction = await auctionRepository.findById(auctionId);
@@ -357,6 +359,7 @@ export function createAuctionService(
         updatedAt: now,
       };
       await auctionRepository.save(auction);
+      logger.info('auction_created', { auctionId: auction.id, userId });
       return auction;
     },
 
@@ -379,6 +382,7 @@ export function createAuctionService(
       }
 
       const updated = await auctionRepository.update(auctionId, repoPatch);
+      logger.info('auction_updated', { auctionId, userId });
       return updated as Auction;
     },
 
@@ -386,6 +390,7 @@ export function createAuctionService(
       await getOwnedAuction(userId, auctionId);
       await photoStorage.deletePhotosForAuction(userId, auctionId);
       await auctionRepository.delete(auctionId);
+      logger.info('auction_deleted', { auctionId, userId });
     },
 
     async listMyAuctions(userId: string): Promise<Auction[]> {
@@ -405,8 +410,19 @@ export function createAuctionService(
         throw new HttpError(TOO_MANY_PHOTOS_MESSAGE, HTTP_STATUS.CONFLICT);
       }
 
-      const keys = await photoStorage.savePhotos(userId, auctionId, files);
+      let keys: string[];
+      try {
+        keys = await photoStorage.savePhotos(userId, auctionId, files);
+      } catch (caught) {
+        logger.error('photo_upload_failed', {
+          auctionId,
+          userId,
+          message: caught instanceof Error ? caught.message : String(caught),
+        });
+        throw caught;
+      }
       const updated = await auctionRepository.addPhotoKeys(auctionId, keys);
+      logger.info('photos_uploaded', { auctionId, userId, count: files.length });
       return updated as Auction;
     },
 

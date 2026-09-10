@@ -19,32 +19,36 @@ function levelForStatus(status: number): LogLevel {
 
 export function createRequestLoggingMiddleware(logger: Logger): RequestHandler {
   return (req, res, next) => {
-    runWithRequestId(createPrefixedId('REQ'), () => {
-      const start = performance.now();
-      res.on('finish', () => {
-        const level = levelForStatus(res.statusCode);
-        // level comes from levelForStatus's fixed return type, not request data.
-        // eslint-disable-next-line security/detect-object-injection
-        logger[level]('http_request', {
-          method: req.method,
-          path: req.path,
-          status: res.statusCode,
-          durationMs: performance.now() - start,
+    runWithRequestId(
+      createPrefixedId('REQ'),
+      () => {
+        const start = performance.now();
+        res.on('finish', () => {
+          const level = levelForStatus(res.statusCode);
+          // level comes from levelForStatus's fixed return type, not request data.
+          // eslint-disable-next-line security/detect-object-injection
+          logger[level]('http_request', {
+            method: req.method,
+            path: req.path,
+            status: res.statusCode,
+            durationMs: performance.now() - start,
+          });
         });
-      });
-      // 'close' also fires after a normal 'finish'; only an aborted connection
-      // reaches here without ever sending headers, so guard on that.
-      res.on('close', () => {
-        if (res.headersSent) {
-          return;
-        }
-        logger.warning('http_request_aborted', {
-          method: req.method,
-          path: req.path,
-          durationMs: performance.now() - start,
+        // 'close' also fires after a normal 'finish'; only an aborted connection
+        // reaches here without ever sending headers, so guard on that.
+        res.on('close', () => {
+          if (res.headersSent) {
+            return;
+          }
+          logger.warning('http_request_aborted', {
+            method: req.method,
+            path: req.path,
+            durationMs: performance.now() - start,
+          });
         });
-      });
-      next();
-    });
+        next();
+      },
+      req.ip,
+    );
   };
 }

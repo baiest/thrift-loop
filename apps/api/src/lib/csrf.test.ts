@@ -1,6 +1,39 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Request, Response } from 'express';
-import { attachCsrfCookie, CSRF_COOKIE_NAME, CSRF_HEADER_NAME, csrfProtection } from './csrf.js';
+import {
+  attachCsrfCookie,
+  CSRF_COOKIE_NAME,
+  CSRF_HEADER_NAME,
+  csrfProtection,
+  setCsrfLogger,
+} from './csrf.js';
+import { NOOP_LOGGER, type Logger } from './logger.js';
+
+interface RecordedLogCall {
+  level: string;
+  event: string;
+  fields: Record<string, unknown>;
+}
+
+function createFakeLogger(): { logger: Logger; calls: RecordedLogCall[] } {
+  const calls: RecordedLogCall[] = [];
+  const record =
+    (level: string) =>
+    (event: string, fields: Record<string, unknown> = {}) => {
+      calls.push({ level, event, fields });
+    };
+  return {
+    calls,
+    logger: {
+      info: record('info'),
+      warning: record('warning'),
+      error: record('error'),
+      critical: record('critical'),
+      time: async (_event, _fields, fn) => fn(),
+      close: async () => {},
+    },
+  };
+}
 
 function createResponse(): Response & { cookieCalls: [string, string][] } {
   const cookieCalls: [string, string][] = [];
@@ -63,6 +96,10 @@ describe('attachCsrfCookie in production', () => {
 });
 
 describe('csrfProtection', () => {
+  afterEach(() => {
+    setCsrfLogger(NOOP_LOGGER);
+  });
+
   it('calls next when the header matches a token issued for the same session', () => {
     vi.stubEnv('JWT_SECRET', 'test-secret');
     const req = createRequest({ session: 'session-token' });
@@ -111,6 +148,19 @@ describe('csrfProtection', () => {
 
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(403);
+    vi.unstubAllEnvs();
+  });
+
+  it('logs csrf_rejected via the configured logger when the header is missing', () => {
+    vi.stubEnv('JWT_SECRET', 'test-secret');
+    const { logger, calls } = createFakeLogger();
+    setCsrfLogger(logger);
+    const req = createRequest({ session: 'session-token' });
+    const res = createResponse();
+
+    csrfProtection(req, res, vi.fn());
+
+    expect(calls).toContainEqual({ level: 'warning', event: 'csrf_rejected', fields: {} });
     vi.unstubAllEnvs();
   });
 });

@@ -42,11 +42,11 @@ export function buildContainer(): Container {
   const logger = createLogger(join(dataDir, 'logs', 'app.jsonl'));
 
   const userRepository = createJsonUserRepository(join(dataDir, 'users.json'));
-  const authService = createAuthService(userRepository);
+  const authService = createAuthService(userRepository, logger);
 
   const auctionRepository = createJsonAuctionRepository(join(dataDir, 'auctions.json'));
   const photoStorage = createLocalPhotoStorage(uploadsDir);
-  const auctionService = createAuctionService(auctionRepository, photoStorage);
+  const auctionService = createAuctionService(auctionRepository, photoStorage, logger);
 
   const bidRepository = createJsonBidRepository(join(dataDir, 'bids.json'));
   const mutex = createKeyedMutex();

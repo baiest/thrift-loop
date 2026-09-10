@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getRequestId, runWithRequestId } from './request-context.js';
+import { getIp, getRequestId, runWithRequestId } from './request-context.js';
 
 describe('request-context', () => {
   it('returns undefined outside any runWithRequestId call', () => {
@@ -40,5 +40,22 @@ describe('request-context', () => {
   it('does not leak the id outside the callback once it returns', () => {
     runWithRequestId('REQ-3', () => {});
     expect(getRequestId()).toBeUndefined();
+  });
+
+  it('returns undefined for the ip outside any call, and when none was given', () => {
+    expect(getIp()).toBeUndefined();
+    runWithRequestId('REQ-4', () => {
+      expect(getIp()).toBeUndefined();
+    });
+  });
+
+  it('makes an ip passed to runWithRequestId readable inside the callback', () => {
+    runWithRequestId(
+      'REQ-5',
+      () => {
+        expect(getIp()).toBe('127.0.0.1');
+      },
+      '127.0.0.1',
+    );
   });
 });

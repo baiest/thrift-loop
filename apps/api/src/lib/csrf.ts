@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { doubleCsrf } from 'csrf-csrf';
 import { HTTP_STATUS } from './http-status.js';
+import { NOOP_LOGGER, type Logger } from './logger.js';
 
 const CSRF_ERROR_MESSAGE = 'Invalid or missing CSRF token';
 
@@ -45,9 +46,21 @@ export function attachCsrfCookie(req: Request, res: Response, sessionToken: stri
   generateCsrfToken(req, res);
 }
 
+let defaultLogger: Logger = NOOP_LOGGER;
+
+/**
+ * Swaps the logger used by csrfProtection. Called once from the composition
+ * root (index.ts) so route files can keep using the plain requireCsrf
+ * middleware without threading a logger through every router.
+ */
+export function setCsrfLogger(logger: Logger): void {
+  defaultLogger = logger;
+}
+
 export function csrfProtection(req: Request, res: Response, next: NextFunction): void {
   doubleCsrfProtection(req, res, (error?: unknown) => {
     if (error) {
+      defaultLogger.warning('csrf_rejected', {});
       res.status(HTTP_STATUS.FORBIDDEN).json({ error: CSRF_ERROR_MESSAGE });
       return;
     }

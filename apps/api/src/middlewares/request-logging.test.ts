@@ -2,7 +2,7 @@ import express from 'express';
 import request from 'supertest';
 import { describe, expect, it, vi } from 'vitest';
 import type { Logger } from '../lib/logger.js';
-import { getRequestId } from '../lib/request-context.js';
+import { getIp, getRequestId } from '../lib/request-context.js';
 import { createRequestLoggingMiddleware } from './request-logging.js';
 
 interface RecordedCall {
@@ -37,7 +37,9 @@ function buildApp(logger: Logger): express.Express {
   app.get('/ok', (_req, res) => res.status(200).json({ ok: true }));
   app.get('/missing', (_req, res) => res.status(404).json({ error: 'not found' }));
   app.get('/broken', (_req, res) => res.status(500).json({ error: 'broken' }));
-  app.get('/context', (_req, res) => res.status(200).json({ requestId: getRequestId() }));
+  app.get('/context', (_req, res) =>
+    res.status(200).json({ requestId: getRequestId(), ip: getIp() }),
+  );
   app.get('/slow', () => {
     // Never responds — simulates a handler still working when the client gives up.
   });
@@ -75,6 +77,14 @@ describe('createRequestLoggingMiddleware', () => {
     const body = response.body as { requestId: unknown };
 
     expect(typeof body.requestId).toBe('string');
+  });
+
+  it('makes the client ip available to the handler via getIp()', async () => {
+    const { logger } = createFakeLogger();
+    const response = await request(buildApp(logger)).get('/context');
+    const body = response.body as { ip: unknown };
+
+    expect(typeof body.ip).toBe('string');
   });
 
   it('logs http_request_aborted at warning when the client disconnects before a response is sent', async () => {

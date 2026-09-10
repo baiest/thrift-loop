@@ -67,6 +67,19 @@ fields?)` and a `time(event, fields, fn)` helper that measures an async function
       per-message request ID.
 - [ ] An uncaught exception or unhandled rejection at the process level is logged `critical` (with
       message and stack) and the log file is flushed before the process exits.
+- [ ] The client's IP travels through the same request context as the request ID and is included
+      on every log line for that request automatically — including security-relevant events
+      (rate-limit and CSRF rejections) that fire deeper in the middleware chain.
+
+### Auth, auctions, rate-limit, CSRF (PR3)
+
+- [ ] Login/registration success and failure are logged (`auth_login_succeeded`/`auth_login_failed`,
+      `auth_register_succeeded`/`auth_register_failed`), with an internal failure reason distinct
+      from the generic user-facing error message.
+- [ ] Auction create/update/delete and photo uploads are logged (`auction_created`,
+      `auction_updated`, `auction_deleted`, `photos_uploaded`/`photo_upload_failed`).
+- [ ] A rate-limited request logs `rate_limit_exceeded` (warning); a rejected CSRF token logs
+      `csrf_rejected` (warning).
 
 ### Log viewer
 

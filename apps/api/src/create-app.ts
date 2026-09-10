@@ -58,16 +58,21 @@ export function createApp(options: CreateAppOptions): Express {
   const {
     authService,
     userRepository,
-    authRateLimiter = createRateLimiter(AUTH_RATE_LIMIT),
+    authRateLimiter,
     webDistPath,
     auctionService,
     bidService,
     notificationService,
     uploadsDir,
-    auctionRateLimiter = createRateLimiter(BROWSE_RATE_LIMIT),
-    notificationRateLimiter = createRateLimiter(BROWSE_RATE_LIMIT),
+    auctionRateLimiter,
+    notificationRateLimiter,
     logger = NOOP_LOGGER,
   } = options;
+  const resolvedAuthRateLimiter = authRateLimiter ?? createRateLimiter(AUTH_RATE_LIMIT, logger);
+  const resolvedAuctionRateLimiter =
+    auctionRateLimiter ?? createRateLimiter(BROWSE_RATE_LIMIT, logger);
+  const resolvedNotificationRateLimiter =
+    notificationRateLimiter ?? createRateLimiter(BROWSE_RATE_LIMIT, logger);
 
   const app = express();
 
@@ -79,12 +84,16 @@ export function createApp(options: CreateAppOptions): Express {
     res.status(HTTP_STATUS.OK).json({ status: 'ok' });
   });
 
-  app.use(`${API_PREFIX}/auth`, authRateLimiter, createAuthRouter(authService, userRepository));
+  app.use(
+    `${API_PREFIX}/auth`,
+    resolvedAuthRateLimiter,
+    createAuthRouter(authService, userRepository),
+  );
 
   if (auctionService) {
     app.use(
       `${API_PREFIX}/auctions`,
-      auctionRateLimiter,
+      resolvedAuctionRateLimiter,
       createAuctionRouter(auctionService, userRepository, bidService),
     );
   }
@@ -92,7 +101,7 @@ export function createApp(options: CreateAppOptions): Express {
   if (notificationService) {
     app.use(
       `${API_PREFIX}/notifications`,
-      notificationRateLimiter,
+      resolvedNotificationRateLimiter,
       createNotificationRouter(notificationService),
     );
   }

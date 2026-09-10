@@ -2,7 +2,34 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { User } from '../models/user.js';
 import type { UserRepository } from '../repositories/user.repository.js';
 import { HttpError } from '../lib/http-error.js';
+import type { Logger } from '../lib/logger.js';
 import { createAuthService, type AuthService, type RegisterInput } from './auth.service.js';
+
+interface RecordedLogCall {
+  level: string;
+  event: string;
+  fields: Record<string, unknown>;
+}
+
+function createFakeLogger(): { logger: Logger; calls: RecordedLogCall[] } {
+  const calls: RecordedLogCall[] = [];
+  const record =
+    (level: string) =>
+    (event: string, fields: Record<string, unknown> = {}) => {
+      calls.push({ level, event, fields });
+    };
+  return {
+    calls,
+    logger: {
+      info: record('info'),
+      warning: record('warning'),
+      error: record('error'),
+      critical: record('critical'),
+      time: async (_event, _fields, fn) => fn(),
+      close: async () => {},
+    },
+  };
+}
 
 class FakeUserRepository implements UserRepository {
   private readonly users = new Map<string, User>();
@@ -79,12 +106,15 @@ async function expectHttpError(
 
 describe('AuthService', () => {
   let repository: FakeUserRepository;
+  let logCalls: RecordedLogCall[];
   let service: AuthService;
 
   beforeEach(() => {
     vi.stubEnv('JWT_SECRET', 'test-secret');
     repository = new FakeUserRepository();
-    service = createAuthService(repository);
+    const fakeLogger = createFakeLogger();
+    logCalls = fakeLogger.calls;
+    service = createAuthService(repository, fakeLogger.logger);
   });
 
   afterEach(() => {
@@ -155,6 +185,29 @@ describe('AuthService', () => {
       );
     });
 
+    it('logs auth_register_succeeded on success', async () => {
+      const result = await service.register(validInput);
+
+      expect(logCalls).toContainEqual({
+        level: 'info',
+        event: 'auth_register_succeeded',
+        fields: { userId: result.user.id },
+      });
+    });
+
+    it('logs auth_register_failed on a duplicate phone number', async () => {
+      await service.register(validInput);
+      logCalls.length = 0;
+
+      await expectHttpError(service.register(validInput), 409, 'phone');
+
+      expect(logCalls).toContainEqual({
+        level: 'warning',
+        event: 'auth_register_failed',
+        fields: expect.objectContaining({ reason: 'phone_taken' }) as Record<string, unknown>,
+      });
+    });
+
     it('rejects a mismatched password confirmation', async () => {
       await expectHttpError(
         service.register({ ...validInput, confirmPassword: 'Different1' }),
@@ -219,6 +272,45 @@ describe('AuthService', () => {
       );
 
       expect(unknownPhoneError.message).toBe(wrongPasswordError.message);
+    });
+
+    it('logs auth_login_succeeded on success', async () => {
+      const registered = await service.register(validInput);
+      logCalls.length = 0;
+
+      await service.login({ phone: validInput.phone, password: validInput.password });
+
+      expect(logCalls).toContainEqual({
+        level: 'info',
+        event: 'auth_login_succeeded',
+        fields: { userId: registered.user.id },
+      });
+    });
+
+    it('logs auth_login_failed with reason user_not_found for an unknown phone', async () => {
+      await expectHttpError(service.login({ phone: '3009999999', password: 'whatever1A' }), 401);
+
+      expect(logCalls).toContainEqual({
+        level: 'warning',
+        event: 'auth_login_failed',
+        fields: { reason: 'user_not_found' },
+      });
+    });
+
+    it('logs auth_login_failed with reason invalid_password for a wrong password', async () => {
+      await service.register(validInput);
+      logCalls.length = 0;
+
+      await expectHttpError(
+        service.login({ phone: validInput.phone, password: 'WrongPassword1' }),
+        401,
+      );
+
+      expect(logCalls).toContainEqual({
+        level: 'warning',
+        event: 'auth_login_failed',
+        fields: { reason: 'invalid_password' },
+      });
     });
   });
 

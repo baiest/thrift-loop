@@ -14,6 +14,7 @@ import { signSessionToken } from '../lib/jwt.js';
 import { HTTP_STATUS } from '../lib/http-status.js';
 import { HttpError } from '../lib/http-error.js';
 import { createPrefixedId } from '../lib/prefixed-id.js';
+import { NOOP_LOGGER, type Logger } from '../lib/logger.js';
 
 const USER_ID_PREFIX = 'USR';
 
@@ -127,15 +128,21 @@ function validateRegisterInput(input: RegisterInput): Record<string, string> {
 
 async function registerUser(
   userRepository: UserRepository,
+  logger: Logger,
   input: RegisterInput,
 ): Promise<AuthResult> {
   const errors = validateRegisterInput(input);
   if (Object.keys(errors).length > 0) {
+    logger.warning('auth_register_failed', {
+      reason: 'validation_failed',
+      fields: Object.keys(errors),
+    });
     throw new HttpError('Validation failed', HTTP_STATUS.BAD_REQUEST, errors);
   }
 
   const existing = await userRepository.findByPhone(input.phone);
   if (existing) {
+    logger.warning('auth_register_failed', { reason: 'phone_taken' });
     throw new HttpError('Phone number already registered', HTTP_STATUS.CONFLICT, {
       phone: 'This phone number is already registered',
     });
@@ -158,21 +165,29 @@ async function registerUser(
     updatedAt: now,
   };
   await userRepository.save(user);
+  logger.info('auth_register_succeeded', { userId: user.id });
 
   return { user: toPublicUser(user), token: signSessionToken({ userId: user.id }) };
 }
 
-async function loginUser(userRepository: UserRepository, input: LoginInput): Promise<AuthResult> {
+async function loginUser(
+  userRepository: UserRepository,
+  logger: Logger,
+  input: LoginInput,
+): Promise<AuthResult> {
   const user = await userRepository.findByPhone(input.phone);
   if (!user) {
+    logger.warning('auth_login_failed', { reason: 'user_not_found' });
     throw new HttpError(GENERIC_LOGIN_ERROR, HTTP_STATUS.UNAUTHORIZED);
   }
 
   const passwordMatches = await bcrypt.compare(input.password, user.passwordHash);
   if (!passwordMatches) {
+    logger.warning('auth_login_failed', { reason: 'invalid_password' });
     throw new HttpError(GENERIC_LOGIN_ERROR, HTTP_STATUS.UNAUTHORIZED);
   }
 
+  logger.info('auth_login_succeeded', { userId: user.id });
   return { user: toPublicUser(user), token: signSessionToken({ userId: user.id }) };
 }
 
@@ -260,10 +275,13 @@ async function updateProfile(
   return toPublicUser(updated);
 }
 
-export function createAuthService(userRepository: UserRepository): AuthService {
+export function createAuthService(
+  userRepository: UserRepository,
+  logger: Logger = NOOP_LOGGER,
+): AuthService {
   return {
-    register: (input) => registerUser(userRepository, input),
-    login: (input) => loginUser(userRepository, input),
+    register: (input) => registerUser(userRepository, logger, input),
+    login: (input) => loginUser(userRepository, logger, input),
     updateProfile: (userId, input) => updateProfile(userRepository, userId, input),
   };
 }
