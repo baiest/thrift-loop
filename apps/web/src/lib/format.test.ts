@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCOP, formatRemaining, formatTimeLeft } from './format.js';
+import { formatCOP, formatRelativeTime, formatRemaining, formatTimeLeft } from './format.js';
 
 describe('formatCOP', () => {
   it('formats a whole number of pesos with the currency symbol', () => {
@@ -59,5 +59,34 @@ describe('formatTimeLeft', () => {
 
   it('shows Ended exactly at bidEndsAt', () => {
     expect(formatTimeLeft(now.toISOString(), now)).toEqual({ label: 'Ended', isUrgent: false });
+  });
+});
+
+describe('formatRelativeTime', () => {
+  const now = new Date('2026-01-01T12:00:00.000Z');
+
+  it('shows seconds as "just now"', () => {
+    const ts = new Date('2026-01-01T11:59:40.000Z').toISOString();
+    expect(formatRelativeTime(ts, now)).toBe('just now');
+  });
+
+  it('shows whole minutes', () => {
+    const ts = new Date('2026-01-01T11:58:00.000Z').toISOString();
+    expect(formatRelativeTime(ts, now)).toBe('2m ago');
+  });
+
+  it('shows whole hours', () => {
+    const ts = new Date('2026-01-01T09:30:00.000Z').toISOString();
+    expect(formatRelativeTime(ts, now)).toBe('2h ago');
+  });
+
+  it('shows "Yesterday" between 24h and 48h ago', () => {
+    const ts = new Date('2025-12-31T00:00:00.000Z').toISOString();
+    expect(formatRelativeTime(ts, now)).toBe('Yesterday');
+  });
+
+  it('shows whole days beyond 48h', () => {
+    const ts = new Date('2025-12-28T12:00:00.000Z').toISOString();
+    expect(formatRelativeTime(ts, now)).toBe('4d ago');
   });
 });

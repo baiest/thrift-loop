@@ -1,21 +1,38 @@
 import { useEffect, useState } from 'react';
 import type { PublicNotification } from '@thrift-loop/shared';
-import { fetchNotifications, markAllNotificationsRead } from '../../lib/api-client.js';
+import {
+  fetchNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '../../lib/api-client.js';
 import { NotificationItem } from '../molecules/notification-item.js';
+import { NotificationItemSkeleton } from '../molecules/notification-item-skeleton.js';
 import { useRealtimeStore } from '../../stores/realtime-store.js';
+
+const SKELETON_ROW_COUNT = 4;
 
 function markAllAsRead(notifications: readonly PublicNotification[]): PublicNotification[] {
   const readAt = new Date().toISOString();
   return notifications.map((notification) => ({ ...notification, readAt }));
 }
 
+function markOneAsRead(
+  notifications: readonly PublicNotification[],
+  id: string,
+  readAt: string,
+): PublicNotification[] {
+  return notifications.map((notification) =>
+    notification.id === id ? { ...notification, readAt } : notification,
+  );
+}
+
 export function NotificationPanel(): React.JSX.Element {
   const [notifications, setNotifications] = useState<PublicNotification[]>([]);
   const [loading, setLoading] = useState(true);
   // The badge NotificationBell renders reads this shared store, not this
-  // panel's own state — without writing through it here too, marking all as
-  // read updated this list's checkmarks but left the badge showing a stale
-  // count until the next full fetch.
+  // panel's own state — without writing through it here too, marking as read
+  // updated this list's checkmarks but left the badge showing a stale count
+  // until the next full fetch.
   const unreadCount = useRealtimeStore((state) => state.unreadCount);
   const setUnreadCount = useRealtimeStore((state) => state.setUnreadCount);
 
@@ -37,8 +54,25 @@ export function NotificationPanel(): React.JSX.Element {
     });
   };
 
+  const handleRead = (id: string): void => {
+    void markNotificationRead(id).then((updated) => {
+      setNotifications((current) => markOneAsRead(current, id, updated.readAt ?? ''));
+      // Read the store fresh rather than closing over `unreadCount`: a rapid
+      // second click must decrement from the value the first click already
+      // wrote, not from the render this handler was created in.
+      const current = useRealtimeStore.getState().unreadCount;
+      setUnreadCount(Math.max(0, current - 1));
+    });
+  };
+
   if (loading) {
-    return <p className="p-3 text-sm text-ink-soft">Loading…</p>;
+    return (
+      <div className="space-y-1">
+        {Array.from({ length: SKELETON_ROW_COUNT }, (_, index) => (
+          <NotificationItemSkeleton key={index} />
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -58,7 +92,7 @@ export function NotificationPanel(): React.JSX.Element {
         <ul className="space-y-1">
           {notifications.map((notification) => (
             <li key={notification.id}>
-              <NotificationItem notification={notification} />
+              <NotificationItem notification={notification} onRead={handleRead} />
             </li>
           ))}
         </ul>

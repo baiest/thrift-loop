@@ -1,23 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icon } from '../atoms/icon.js';
+import { UnreadBadge } from '../atoms/unread-badge.js';
 import { useAuthStore } from '../../stores/auth-store.js';
 import { useRealtimeStore } from '../../stores/realtime-store.js';
 import { fetchNotifications } from '../../lib/api-client.js';
 import { NotificationPanel } from './notification-panel.js';
-
-const MAX_BADGE_COUNT = 9;
-
-function UnreadBadge({ count }: { readonly count: number }): React.JSX.Element | null {
-  if (count <= 0) {
-    return null;
-  }
-  return (
-    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-semibold text-white">
-      {count > MAX_BADGE_COUNT ? '9+' : count}
-    </span>
-  );
-}
 
 export function NotificationBell(): React.JSX.Element | null {
   const user = useAuthStore((state) => state.user);

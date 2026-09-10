@@ -51,3 +51,38 @@ export function formatTimeLeft(bidEndsAt: string | null, now: Date): TimeLeft {
   }
   return { label: `${hours}h ${minutes}m left`, isUrgent: false };
 }
+
+const JUST_NOW_THRESHOLD_MS = SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND;
+const HOURS_PER_DAY = 24;
+const DAYS_PER_YESTERDAY_WINDOW = 2;
+const YESTERDAY_THRESHOLD_MS =
+  DAYS_PER_YESTERDAY_WINDOW *
+  HOURS_PER_DAY *
+  MINUTES_PER_HOUR *
+  SECONDS_PER_MINUTE *
+  MILLISECONDS_PER_SECOND;
+
+/** A short relative timestamp for a notification ("2m ago", "3h ago",
+ * "Yesterday", "4d ago") — pure over a given `now`, matching formatTimeLeft's
+ * pattern of accepting the caller's clock rather than reading Date.now(). */
+export function formatRelativeTime(iso: string, now: Date): string {
+  const elapsedMs = now.getTime() - new Date(iso).getTime();
+  if (elapsedMs < JUST_NOW_THRESHOLD_MS) {
+    return 'just now';
+  }
+
+  const millisecondsPerMinute = MILLISECONDS_PER_SECOND * SECONDS_PER_MINUTE;
+  const millisecondsPerHour = millisecondsPerMinute * MINUTES_PER_HOUR;
+  const millisecondsPerDay = millisecondsPerHour * HOURS_PER_DAY;
+
+  if (elapsedMs < millisecondsPerHour) {
+    return `${Math.floor(elapsedMs / millisecondsPerMinute)}m ago`;
+  }
+  if (elapsedMs < millisecondsPerDay) {
+    return `${Math.floor(elapsedMs / millisecondsPerHour)}h ago`;
+  }
+  if (elapsedMs < YESTERDAY_THRESHOLD_MS) {
+    return 'Yesterday';
+  }
+  return `${Math.floor(elapsedMs / millisecondsPerDay)}d ago`;
+}
