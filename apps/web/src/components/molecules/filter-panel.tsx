@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { COLOMBIA_CITIES, ITEM_CATEGORIES } from '@thrift-loop/shared';
 import type { AuctionFilters } from '../../lib/api-client.js';
 import { Select, type SelectOption } from '../atoms/select.js';
-import { TextInput } from '../atoms/text-input.js';
 import { Icon } from '../atoms/icon.js';
 import { SearchableSelect } from './searchable-select.js';
 import { FormField } from './form-field.js';
+import { CurrencyInput } from './currency-input.js';
 
 const COUNTED_FIELDS = ['category', 'city', 'minPriceCOP', 'maxPriceCOP'] as const;
 
@@ -39,7 +39,7 @@ export function FilterPanel({ value, onChange }: FilterPanelProps): React.JSX.El
         type="button"
         onClick={() => setIsOpen((current) => !current)}
         aria-expanded={isOpen}
-        className="flex h-14 shrink-0 items-center gap-2 rounded-xl border border-hairline bg-white px-5 font-medium text-ink"
+        className="flex h-14 w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-hairline bg-white px-5 font-medium text-ink sm:w-auto sm:justify-start"
       >
         <Icon name="sliders" className="h-5 w-5" />
         Filters
@@ -76,18 +76,16 @@ export function FilterPanel({ value, onChange }: FilterPanelProps): React.JSX.El
           </FormField>
 
           <FormField id="auction-min-price" label="Min price (COP)">
-            <TextInput
+            <CurrencyInput
               id="auction-min-price"
-              type="number"
               value={value.minPriceCOP ?? ''}
               onChange={(next) => setField('minPriceCOP', next)}
             />
           </FormField>
 
           <FormField id="auction-max-price" label="Max price (COP)">
-            <TextInput
+            <CurrencyInput
               id="auction-max-price"
-              type="number"
               value={value.maxPriceCOP ?? ''}
               onChange={(next) => setField('maxPriceCOP', next)}
             />

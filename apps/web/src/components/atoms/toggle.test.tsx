@@ -33,4 +33,19 @@ describe('Toggle', () => {
 
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('pins the thumb to an explicit left offset instead of relying on the browser own centering of button content', () => {
+    // Regression: Chromium centers a <button>'s content by default, which
+    // corrupts the "auto" static position an absolutely-positioned child (the
+    // thumb) resolves to. Without an explicit `left-*` class the thumb renders
+    // detached from its track, mostly outside it, looking broken. Also needs
+    // appearance-none so the native button chrome doesn't paint over the
+    // custom rounded background.
+    render(<Toggle id="outbid" checked={false} onChange={vi.fn()} label="Outbid" />);
+    const track = screen.getByRole('switch', { name: 'Outbid' });
+    const thumb = track.querySelector('span');
+
+    expect(track).toHaveClass('appearance-none');
+    expect(thumb).toHaveClass('left-0.5');
+  });
 });

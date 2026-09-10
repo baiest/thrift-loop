@@ -106,6 +106,11 @@ describe('AuctionCard', () => {
     expect(screen.getByText('Draft')).toBeInTheDocument();
   });
 
+  it('wraps status badges instead of overflowing the card on narrow screens', () => {
+    renderCard(makeAuction({ status: 'draft' }), true);
+    expect(screen.getByText('Draft').closest('div')).toHaveClass('flex-wrap');
+  });
+
   it('shows a bid status badge when one is given', () => {
     renderCard(makeAuction(), false, 45_000, 'Winning');
     expect(screen.getByText('Winning')).toBeInTheDocument();

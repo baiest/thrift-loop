@@ -72,9 +72,15 @@ describe('AuctionGrid', () => {
       serverTime: '2026-01-01T00:00:00.000Z',
     });
 
-    renderGrid({ auctions: [makeAuction({ id: 'AUC-1', status: 'published' })] });
+    renderGrid({
+      auctions: [
+        makeAuction({ id: 'AUC-1', status: 'published', priceCOP: 50_000, currentBidCOP: null }),
+      ],
+    });
 
     expect(screen.getByText('Sold')).toBeInTheDocument();
+    // No bid was ever placed — the closed-auction message must not zero out the price.
+    expect(screen.getByText(/50\.000/)).toBeInTheDocument();
   });
 
   it('shows skeleton placeholders instead of a "Loading" string', () => {

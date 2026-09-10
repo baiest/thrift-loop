@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { DEFAULT_AUCTION_SORT, type AuctionSort, type PublicAuction } from '@thrift-loop/shared';
+import { Link, useSearchParams } from 'react-router-dom';
+import {
+  DEFAULT_AUCTION_SORT,
+  isAuctionSort,
+  type AuctionSort,
+  type PublicAuction,
+} from '@thrift-loop/shared';
 import { fetchAuctions, fetchCurrentUser, fetchMyBids } from '../lib/api-client.js';
 import { AuctionGrid } from '../components/organisms/auction-grid.js';
 import { AuctionFilters } from '../components/organisms/auction-filters.js';
@@ -28,7 +33,41 @@ const EMPTY_FILTERS: Filters = {
   sort: DEFAULT_AUCTION_SORT,
 };
 
+const FILTER_KEYS = Object.keys(EMPTY_FILTERS) as (keyof Filters)[];
+
+function filtersFromSearchParams(searchParams: URLSearchParams): Filters {
+  const filters = { ...EMPTY_FILTERS };
+  for (const key of FILTER_KEYS) {
+    const raw = searchParams.get(key);
+    if (raw === null) {
+      continue;
+    }
+    if (key === 'sort') {
+      filters.sort = isAuctionSort(raw) ? raw : DEFAULT_AUCTION_SORT;
+      continue;
+    }
+    // key comes from the fixed FILTER_KEYS tuple above, not request data.
+    // eslint-disable-next-line security/detect-object-injection
+    filters[key] = raw;
+  }
+  return filters;
+}
+
+function searchParamsFromFilters(filters: Filters): URLSearchParams {
+  const params = new URLSearchParams();
+  for (const key of FILTER_KEYS) {
+    // key comes from the fixed FILTER_KEYS tuple above, not request data.
+    // eslint-disable-next-line security/detect-object-injection
+    const value = filters[key];
+    if (value) {
+      params.set(key, value);
+    }
+  }
+  return params;
+}
+
 export function AuctionsPage(): React.JSX.Element {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [auctions, setAuctions] = useState<PublicAuction[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [myBidsByAuctionId, setMyBidsByAuctionId] = useState<ReadonlyMap<string, number>>(
@@ -36,8 +75,14 @@ export function AuctionsPage(): React.JSX.Element {
   );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const cityDefaulted = useRef(false);
+  // The URL is the source of truth: any query param present at all — including
+  // an explicit empty one left by clearing a filter — means the visitor's
+  // filter state has already been established, so the profile-city default
+  // below must not override it (that default only applies to a bare, param-free
+  // first visit).
+  const hadInitialParams = useRef(Array.from(searchParams.keys()).length > 0);
+  const [filters, setFilters] = useState<Filters>(() => filtersFromSearchParams(searchParams));
+  const cityDefaulted = useRef(hadInitialParams.current);
 
   useEffect(() => {
     let isActive = true;
@@ -66,6 +111,13 @@ export function AuctionsPage(): React.JSX.Element {
       isActive = false;
     };
   }, []);
+
+  useEffect(() => {
+    setSearchParams(searchParamsFromFilters(filters), { replace: true });
+    // setSearchParams's identity isn't stable across renders in some router
+    // versions; only re-sync when the filters we're persisting actually change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
 
   const debouncedFilters = useDebouncedValue(filters, DEBOUNCE_MS);
 

@@ -7,6 +7,7 @@ export interface TextareaProps {
   readonly value: string;
   readonly placeholder?: string;
   readonly invalid?: boolean;
+  readonly maxLength?: number;
   readonly onChange: (value: string) => void;
   readonly onBlur?: (() => void) | undefined;
 }
@@ -16,6 +17,7 @@ export function Textarea({
   value,
   placeholder,
   invalid = false,
+  maxLength,
   onChange,
   onBlur,
 }: TextareaProps): React.JSX.Element {
@@ -27,17 +29,24 @@ export function Textarea({
   };
 
   return (
-    <textarea
-      id={id}
-      rows={TEXTAREA_ROWS}
-      value={value}
-      placeholder={placeholder}
-      aria-invalid={invalid}
-      onChange={handleChange}
-      onBlur={handleBlur}
-      className={`w-full rounded-lg border px-4 py-3 text-base focus:outline-none focus:ring-2 ${
-        invalid ? 'border-red-500 focus:ring-red-300' : 'border-hairline focus:ring-brand-300'
-      }`}
-    />
+    <div>
+      <textarea
+        id={id}
+        rows={TEXTAREA_ROWS}
+        value={value}
+        placeholder={placeholder}
+        aria-invalid={invalid}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        className={`w-full rounded-lg border px-4 py-3 text-base focus:outline-none focus:ring-2 ${
+          invalid ? 'border-red-500 focus:ring-red-300' : 'border-hairline focus:ring-brand-300'
+        }`}
+      />
+      {maxLength !== undefined && (
+        <p className="mt-1 text-right text-xs text-ink-soft">
+          {value.length}/{maxLength}
+        </p>
+      )}
+    </div>
   );
 }

@@ -108,7 +108,7 @@ export function PhotoDropzone({ files, onChange }: PhotoDropzoneProps): React.JS
       </p>
       <FieldError message={error} />
       {previewUrls.length > 0 && (
-        <div className="mt-2 grid grid-cols-3 gap-2">
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
           {previewUrls.map((url, index) => (
             <div key={url} className="relative">
               <img src={url} alt="" className="aspect-square w-full rounded-lg object-cover" />
@@ -121,9 +121,9 @@ export function PhotoDropzone({ files, onChange }: PhotoDropzoneProps): React.JS
                 type="button"
                 onClick={() => removePhoto(index)}
                 aria-label={`Remove photo ${index + 1}`}
-                className="absolute right-1 top-1 rounded-full bg-white/90 px-2 text-xs font-semibold text-red-600 shadow"
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-red-600 shadow"
               >
-                Remove
+                <Icon name="x" className="h-3.5 w-3.5" />
               </button>
               {index < files.length - 1 && (
                 <button

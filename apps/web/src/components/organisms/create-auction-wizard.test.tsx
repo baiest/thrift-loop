@@ -127,6 +127,18 @@ describe('CreateAuctionWizard', () => {
     expect(screen.getByLabelText('Title')).toBeInTheDocument();
   });
 
+  it('clears a field error live once it becomes valid, without needing Continue again', async () => {
+    render(<CreateAuctionWizard />);
+    await goToDetails();
+
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+    expect(screen.getAllByRole('alert').length).toBeGreaterThan(0);
+
+    await userEvent.type(screen.getByLabelText('Title'), 'Chaqueta de cuero');
+
+    expect(screen.queryByText(/title/i, { selector: '[role="alert"]' })).not.toBeInTheDocument();
+  });
+
   it('does not block Details on invalid fields belonging to a later step', async () => {
     render(<CreateAuctionWizard />);
     await goToDetails();
@@ -187,6 +199,22 @@ describe('CreateAuctionWizard', () => {
         expect.arrayContaining([expect.objectContaining({ name: 'front.jpg' })]),
       ),
     );
+  });
+
+  it('does not create a duplicate auction when retrying after a failed photo upload', async () => {
+    vi.mocked(uploadAuctionPhotos).mockRejectedValueOnce(new Error('network error'));
+    render(<CreateAuctionWizard />);
+    const file = new File(['x'], 'front.jpg', { type: 'image/jpeg' });
+    await userEvent.upload(screen.getByLabelText(/add photos/i), file);
+    await advanceThroughToReview();
+
+    await userEvent.click(screen.getByRole('button', { name: /create auction/i }));
+    await waitFor(() => expect(uploadAuctionPhotos).toHaveBeenCalledTimes(1));
+
+    await userEvent.click(screen.getByRole('button', { name: /create auction/i }));
+    await waitFor(() => expect(uploadAuctionPhotos).toHaveBeenCalledTimes(2));
+
+    expect(createAuction).toHaveBeenCalledTimes(1);
   });
 
   it('shows the entered price formatted as currency while typing', async () => {

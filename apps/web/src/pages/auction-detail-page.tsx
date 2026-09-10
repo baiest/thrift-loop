@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import type { PublicAuction, PublicBid, PublicUser } from '@thrift-loop/shared';
 import {
+  deleteAuction,
   fetchAuctionDetail,
   fetchBids,
   fetchCurrentUser,
@@ -74,9 +75,9 @@ function withLiveUpdate(auction: PublicAuction, update: AuctionUpdate | null): P
   }
   return {
     ...auction,
-    currentBidCOP: update.currentBidCOP,
-    bidCount: update.bidCount,
-    bidEndsAt: update.bidEndsAt,
+    currentBidCOP: update.currentBidCOP ?? auction.currentBidCOP,
+    bidCount: update.bidCount || auction.bidCount,
+    bidEndsAt: update.bidEndsAt ?? auction.bidEndsAt,
     ...(update.closed && { status: 'sold', winnerUserId: update.winnerUserId }),
   };
 }
@@ -87,15 +88,86 @@ interface DetailState {
 }
 
 function canUserBid(user: PublicUser | null, auction: PublicAuction): boolean {
-  return user !== null && user.id !== auction.userId && auction.status === 'published';
+  return auction.status === 'published' && (user === null || user.id !== auction.userId);
 }
 
 function canUserPublish(user: PublicUser | null, auction: PublicAuction): boolean {
   return user !== null && user.id === auction.userId && auction.status === 'draft';
 }
 
+function canUserDelete(user: PublicUser | null, auction: PublicAuction): boolean {
+  const isUnsold =
+    auction.status === 'draft' || (auction.status === 'published' && auction.bidCount === 0);
+  return user !== null && user.id === auction.userId && isUnsold;
+}
+
+function DeleteAuctionControl({
+  auctionId,
+  onDeleted,
+}: {
+  readonly auctionId: string;
+  readonly onDeleted: () => void;
+}): React.JSX.Element {
+  const [deleting, setDeleting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | undefined>(undefined);
+
+  async function handleDelete(): Promise<void> {
+    setDeleteError(undefined);
+    setDeleting(true);
+    try {
+      await deleteAuction(auctionId);
+      onDeleted();
+    } catch {
+      setDeleteError('Could not delete the auction. Please try again.');
+      setDeleting(false);
+    }
+  }
+
+  if (!confirming) {
+    return (
+      <Button
+        type="button"
+        fullWidth={false}
+        onClick={() => setConfirming(true)}
+        className="bg-white text-red-600 ring-1 ring-inset ring-red-200 hover:bg-red-50"
+      >
+        Delete auction
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm text-ink-soft">Delete this auction? This cannot be undone.</p>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          fullWidth={false}
+          onClick={() => void handleDelete()}
+          disabled={deleting}
+          className="bg-red-600 hover:bg-red-700"
+        >
+          {deleting ? 'Deleting…' : 'Confirm delete'}
+        </Button>
+        <Button
+          type="button"
+          fullWidth={false}
+          onClick={() => setConfirming(false)}
+          disabled={deleting}
+          className="bg-white text-ink ring-1 ring-inset ring-hairline hover:bg-linen"
+        >
+          Cancel
+        </Button>
+      </div>
+      {deleteError && <p className="text-sm text-red-600">{deleteError}</p>}
+    </div>
+  );
+}
+
 export function AuctionDetailPage(): React.JSX.Element | null {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [detail, setDetail] = useState<DetailState | null>(null);
   const [bids, setBids] = useState<PublicBid[]>([]);
   const [user, setUser] = useState<PublicUser | null>(null);
@@ -161,6 +233,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
   const auction = withLiveUpdate(detail.auction, update);
   const canBid = canUserBid(user, auction);
   const canPublish = canUserPublish(user, auction);
+  const canDelete = canUserDelete(user, auction);
 
   async function handlePublish(): Promise<void> {
     await updateAuction(auction.id, { status: 'published' });
@@ -204,6 +277,15 @@ export function AuctionDetailPage(): React.JSX.Element | null {
             </div>
           )}
 
+          {canDelete && (
+            <div className="mb-6">
+              <DeleteAuctionControl
+                auctionId={auction.id}
+                onDeleted={() => void navigate('/auctions/mine')}
+              />
+            </div>
+          )}
+
           {canBid && (
             <div className="mb-6">
               <BidForm
@@ -211,6 +293,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
                 currentBidCOP={auction.currentBidCOP}
                 priceCOP={auction.priceCOP}
                 onBidPlaced={() => void load()}
+                requiresLogin={user === null}
               />
             </div>
           )}

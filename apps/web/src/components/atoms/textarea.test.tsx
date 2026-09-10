@@ -42,4 +42,9 @@ describe('Textarea', () => {
 
     expect(onChange).toHaveBeenCalledWith('a\nb');
   });
+
+  it('shows a character-count hint when maxLength is given', () => {
+    render(<Textarea id="description" value="Chaqueta" onChange={vi.fn()} maxLength={500} />);
+    expect(screen.getByText('8/500')).toBeInTheDocument();
+  });
 });

@@ -12,9 +12,9 @@ function withLiveUpdate(auction: PublicAuction, update: AuctionUpdate | undefine
   }
   return {
     ...auction,
-    currentBidCOP: update.currentBidCOP,
-    bidCount: update.bidCount,
-    bidEndsAt: update.bidEndsAt,
+    currentBidCOP: update.currentBidCOP ?? auction.currentBidCOP,
+    bidCount: update.bidCount || auction.bidCount,
+    bidEndsAt: update.bidEndsAt ?? auction.bidEndsAt,
     ...(update.closed && { status: 'sold', winnerUserId: update.winnerUserId }),
   };
 }

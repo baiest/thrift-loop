@@ -8,6 +8,7 @@
 // Usage (from apps/api):
 //   tsx scripts/seed.ts          populate
 //   tsx scripts/seed.ts --clear  wipe back to empty
+import 'dotenv/config';
 import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { buildContainer } from '../src/container.js';
@@ -254,6 +255,7 @@ async function clearData(): Promise<void> {
   await rm(join(DATA_DIR, 'users.json'), { force: true });
   await rm(join(DATA_DIR, 'auctions.json'), { force: true });
   await rm(join(DATA_DIR, 'bids.json'), { force: true });
+  await rm(join(DATA_DIR, 'notifications.json'), { force: true });
   await rm(join(DATA_DIR, 'uploads'), { recursive: true, force: true });
   console.log('Cleared all seeded data under apps/api/data.');
 }

@@ -7,6 +7,7 @@ const WS_PROXY_TARGET = 'ws://localhost:3000';
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: '0.0.0.0',
     proxy: {
       // Must come before '/api' below: proxy matches keys in insertion order,
       // and only this specific entry carries ws: true for the upgrade.

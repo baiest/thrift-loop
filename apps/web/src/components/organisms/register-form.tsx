@@ -95,6 +95,23 @@ function validateField(field: keyof FormValues, values: FormValues): string | un
   return FIELD_VALIDATORS[field](values);
 }
 
+/** Drops errors for fields whose value in `next` now passes validation. Used to
+ * live-clear a stale error (e.g. "passwords do not match") once the user's edit
+ * to some other field makes it valid again — not just on blur of that field. */
+function clearNowValidErrors(currentErrors: FormErrors, next: FormValues): FormErrors {
+  if (Object.keys(currentErrors).length === 0) {
+    return currentErrors;
+  }
+  const nextErrors = { ...currentErrors };
+  (Object.keys(nextErrors) as (keyof FormValues)[]).forEach((erroredField) => {
+    if (!validateField(erroredField, next)) {
+      // eslint-disable-next-line security/detect-object-injection
+      delete nextErrors[erroredField];
+    }
+  });
+  return nextErrors;
+}
+
 function validateAll(values: FormValues): FormErrors {
   const errors: FormErrors = {};
   (Object.keys(values) as (keyof FormValues)[]).forEach((field) => {
@@ -139,7 +156,11 @@ export function RegisterForm({ onSuccess }: RegisterFormProps): React.JSX.Elemen
   const setUser = useAuthStore((state) => state.setUser);
 
   function updateField(field: keyof FormValues, value: string): void {
-    setValues((current) => ({ ...current, [field]: value }));
+    setValues((current) => {
+      const next = { ...current, [field]: value };
+      setErrors((currentErrors) => clearNowValidErrors(currentErrors, next));
+      return next;
+    });
   }
 
   function handleBlur(field: keyof FormValues): void {

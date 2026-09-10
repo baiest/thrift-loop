@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { PublicAuction, PublicBid } from '@thrift-loop/shared';
 import { minimumNextBid } from '@thrift-loop/shared';
 import { ApiError, placeBid } from '../../lib/api-client.js';
@@ -12,6 +13,9 @@ export interface BidFormProps {
   readonly priceCOP: number;
   readonly onBidPlaced: (auction: PublicAuction, bid: PublicBid) => void;
   readonly disabled?: boolean;
+  /** True when the viewer isn't logged in: submitting sends them to /login
+   * instead of attempting to place a bid, rather than hiding the form. */
+  readonly requiresLogin?: boolean;
 }
 
 export function BidForm({
@@ -20,7 +24,9 @@ export function BidForm({
   priceCOP,
   onBidPlaced,
   disabled = false,
+  requiresLogin = false,
 }: BidFormProps): React.JSX.Element {
+  const navigate = useNavigate();
   const minimum = minimumNextBid(currentBidCOP, priceCOP);
   const [amount, setAmount] = useState(String(minimum));
   const [error, setError] = useState<string | undefined>(undefined);
@@ -28,6 +34,10 @@ export function BidForm({
 
   async function handleSubmit(event: React.FormEvent): Promise<void> {
     event.preventDefault();
+    if (requiresLogin) {
+      void navigate('/login');
+      return;
+    }
     setSubmitting(true);
     setError(undefined);
     try {
@@ -44,6 +54,13 @@ export function BidForm({
     }
   }
 
+  let submitLabel = 'Place bid';
+  if (requiresLogin) {
+    submitLabel = 'Log in to place a bid';
+  } else if (submitting) {
+    submitLabel = 'Placing bid…';
+  }
+
   return (
     <form onSubmit={(event) => void handleSubmit(event)}>
       <FormField id="amountCOP" label="Your bid (COP)" error={error}>
@@ -55,7 +72,7 @@ export function BidForm({
         />
       </FormField>
       <Button type="submit" disabled={disabled || submitting}>
-        {submitting ? 'Placing bid…' : 'Place bid'}
+        {submitLabel}
       </Button>
     </form>
   );

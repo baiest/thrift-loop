@@ -142,11 +142,14 @@ export function updateAuction(id: string, payload: UpdateAuctionPayload): Promis
 }
 
 export async function deleteAuction(id: string): Promise<void> {
-  await fetch(`/api/auctions/${id}`, {
+  const response = await fetch(`/api/auctions/${id}`, {
     method: 'DELETE',
     credentials: 'include',
     headers: csrfHeaders(),
   });
+  if (!response.ok) {
+    throw new ApiError('Could not delete the auction', response.status);
+  }
 }
 
 export async function fetchMyAuctions(): Promise<PublicAuction[]> {

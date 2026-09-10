@@ -205,13 +205,18 @@ describe('SidebarNav', () => {
       return screen.getByRole('navigation', { name: 'Mobile navigation' });
     }
 
-    it('renders the four primary tabs', () => {
+    it('renders every destination as a tab, without horizontal overflow', () => {
       renderNav();
       const nav = mobileNav();
       expect(within(nav).getByRole('link', { name: /^auctions$/i })).toHaveAttribute('href', '/');
-      expect(within(nav).getByRole('link', { name: /my auctions/i })).toHaveAttribute(
+      expect(within(nav).getByRole('link', { name: /selling/i })).toHaveAttribute(
         'href',
         '/auctions/mine',
+      );
+      expect(within(nav).getByRole('link', { name: /bids/i })).toHaveAttribute('href', '/my-bids');
+      expect(within(nav).getByRole('link', { name: /bought/i })).toHaveAttribute(
+        'href',
+        '/purchases',
       );
       expect(within(nav).getByRole('link', { name: /create/i })).toHaveAttribute(
         'href',
@@ -223,19 +228,26 @@ describe('SidebarNav', () => {
       );
     });
 
+    it('shows an alerts (notifications) link when signed in', () => {
+      useAuthStore.getState().setUser(SAMPLE_USER);
+      renderNav();
+      expect(within(mobileNav()).getByRole('link', { name: /alerts/i })).toHaveAttribute(
+        'href',
+        '/notifications',
+      );
+    });
+
+    it('does not show the alerts link when signed out', () => {
+      renderNav();
+      expect(within(mobileNav()).queryByRole('link', { name: /alerts/i })).not.toBeInTheDocument();
+    });
+
     it('marks the current route as active', () => {
       renderNav(['/auctions/new']);
       expect(within(mobileNav()).getByRole('link', { name: /create/i })).toHaveAttribute(
         'aria-current',
         'page',
       );
-    });
-
-    it('does not show My purchases (kept off the 4-tab bar)', () => {
-      renderNav();
-      expect(
-        within(mobileNav()).queryByRole('link', { name: /purchases/i }),
-      ).not.toBeInTheDocument();
     });
   });
 });

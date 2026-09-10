@@ -14,10 +14,11 @@ vi.mock('../lib/api-client.js', async () => {
     fetchBids: vi.fn(),
     fetchCurrentUser: vi.fn(),
     updateAuction: vi.fn(),
+    deleteAuction: vi.fn(),
   };
 });
 
-const { fetchAuctionDetail, fetchBids, fetchCurrentUser, updateAuction } =
+const { fetchAuctionDetail, fetchBids, fetchCurrentUser, updateAuction, deleteAuction } =
   await import('../lib/api-client.js');
 
 const publicAuction = {
@@ -77,6 +78,7 @@ describe('AuctionDetailPage', () => {
     vi.mocked(fetchBids).mockReset();
     vi.mocked(fetchCurrentUser).mockReset();
     vi.mocked(updateAuction).mockReset();
+    vi.mocked(deleteAuction).mockReset();
   });
 
   afterEach(() => {
@@ -145,6 +147,10 @@ describe('AuctionDetailPage', () => {
     });
 
     await waitFor(() => expect(screen.queryByLabelText('Your bid (COP)')).not.toBeInTheDocument());
+    // No bid was ever placed (currentBidCOP stays null) — the closed-auction message
+    // must not zero out the price display.
+    expect(screen.getByText('Starting at')).toBeInTheDocument();
+    expect(screen.getByText(/50\.000/)).toBeInTheDocument();
   });
 
   it('shows a live viewer count', async () => {
@@ -314,7 +320,7 @@ describe('AuctionDetailPage', () => {
     expect(screen.queryByLabelText('Your bid (COP)')).not.toBeInTheDocument();
   });
 
-  it('does not show the bid form for an anonymous viewer', async () => {
+  it('still shows the bid control for an anonymous viewer, prompting login instead of hiding it', async () => {
     vi.mocked(fetchAuctionDetail).mockResolvedValue({
       auction: publicAuction,
       serverTime: '2026-01-01T00:00:00.000Z',
@@ -325,7 +331,31 @@ describe('AuctionDetailPage', () => {
     renderPage();
 
     await screen.findByText(/50\.000/);
-    expect(screen.queryByLabelText('Your bid (COP)')).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: /log in to place a bid/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('sends an anonymous viewer to /login when they try to bid', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+
+    render(
+      <MemoryRouter initialEntries={['/auctions/AUC-1']}>
+        <Routes>
+          <Route path="/auctions/:id" element={<AuctionDetailPage />} />
+          <Route path="/login" element={<p>Login page</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByRole('button', { name: /log in to place a bid/i }));
+
+    expect(await screen.findByText('Login page')).toBeInTheDocument();
   });
 
   it('shows a Publish now button to the owner of a draft auction', async () => {
@@ -388,5 +418,81 @@ describe('AuctionDetailPage', () => {
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: /publish now/i })).not.toBeInTheDocument(),
     );
+  });
+
+  it('shows a Delete auction button to the owner of an unsold auction', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue({ ...sampleUser, id: 'USR-seller' });
+
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: /delete auction/i })).toBeInTheDocument();
+  });
+
+  it('does not show Delete auction for a non-owner', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+
+    await screen.findByText(/50\.000/);
+    expect(screen.queryByRole('button', { name: /delete auction/i })).not.toBeInTheDocument();
+  });
+
+  it('does not show Delete auction once the auction has bids', async () => {
+    const biddedAuction = { ...publicAuction, bidCount: 1, currentBidCOP: 60_000 };
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: biddedAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue({ ...sampleUser, id: 'USR-seller' });
+
+    renderPage();
+
+    await screen.findByText(/60\.000/);
+    expect(screen.queryByRole('button', { name: /delete auction/i })).not.toBeInTheDocument();
+  });
+
+  it('asks for confirmation, then deletes the auction and navigates away', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue({ ...sampleUser, id: 'USR-seller' });
+    vi.mocked(deleteAuction).mockResolvedValue(undefined);
+
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: /delete auction/i }));
+
+    expect(deleteAuction).not.toHaveBeenCalled();
+    await userEvent.click(await screen.findByRole('button', { name: /confirm delete/i }));
+
+    await waitFor(() => expect(deleteAuction).toHaveBeenCalledWith('AUC-1'));
+  });
+
+  it('shows an error and lets the user retry if deleting fails', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue({ ...sampleUser, id: 'USR-seller' });
+    vi.mocked(deleteAuction).mockRejectedValue(new Error('network error'));
+
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: /delete auction/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /confirm delete/i }));
+
+    expect(await screen.findByText(/could not delete/i)).toBeInTheDocument();
   });
 });
