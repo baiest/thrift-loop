@@ -1,17 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { BIDDER_STORAGE_STATE, SELLER_STORAGE_STATE } from '../support/users.js';
 
-// Known issue found by this suite, not yet root-caused: the seller's
-// WebSocket genuinely connects (upgrade returns 101, confirmed via trace)
-// and the bidder's HTTP bid succeeds (201), but the 'auction-updated'
-// broadcast never reaches the seller's open connection — the price/bid
-// count on their already-open detail page never updates. Ruled out so far:
-// CORS/origin rejection (fixed separately — see ALLOWED_ORIGINS in
-// apps/api/.env.example), auth-store hydration timing, and slow delivery
-// (still absent after 15s). Marked test.fail() so it's tracked without
-// blocking the rest of the suite — flip back to a normal test once fixed.
-test.fail();
-
 test('a bid placed by one browser updates another browser live, without a reload', async ({
   browser,
 }) => {
@@ -24,16 +13,27 @@ test('a bid placed by one browser updates another browser live, without a reload
   // hydrated (RealtimeConnection reads useAuthStore, not a page's own local
   // state) — normally that happens via the login form. A session restored
   // from storageState skips that, so visit a guarded page once first to
-  // populate it before relying on any live update.
+  // populate it before relying on any live update. From there on, navigate
+  // via in-app links, not page.goto() — goto() is a real browser navigation
+  // (full reload), which would wipe the in-memory store right back out
+  // (the home page never re-hydrates it), undoing the fix.
   await sellerPage.goto('/profile');
   await expect(sellerPage.getByLabel('First name')).toBeVisible();
+  await sellerPage
+    .getByRole('navigation', { name: 'Main navigation' })
+    .getByRole('link', { name: 'Auctions', exact: true })
+    .click();
+  await sellerPage.getByRole('link', { name: /E2E Realtime Auction/ }).click();
+  await expect(sellerPage.getByRole('heading', { name: 'E2E Realtime Auction' })).toBeVisible();
 
-  await sellerPage.goto('/');
-  await sellerPage.getByText('E2E Realtime Auction').click();
-  await expect(sellerPage.getByText('Starting at')).toBeVisible();
-
-  await bidderPage.goto('/');
-  await bidderPage.getByText('E2E Realtime Auction').click();
+  await bidderPage.goto('/profile');
+  await expect(bidderPage.getByLabel('First name')).toBeVisible();
+  await bidderPage
+    .getByRole('navigation', { name: 'Main navigation' })
+    .getByRole('link', { name: 'Auctions', exact: true })
+    .click();
+  await bidderPage.getByRole('link', { name: /E2E Realtime Auction/ }).click();
+  await expect(bidderPage.getByRole('heading', { name: 'E2E Realtime Auction' })).toBeVisible();
   await bidderPage.getByLabel('Your bid (COP)').fill('41000');
   await bidderPage.getByRole('button', { name: 'Place bid' }).click();
   await expect(bidderPage.getByText(/41[.,]000/).first()).toBeVisible();

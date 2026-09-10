@@ -30,27 +30,25 @@ nothing automated crosses that seam.
 
 ## Acceptance criteria
 
-- [ ] `npm run e2e:install` installs the Chromium browser Playwright needs.
-- [ ] `npm run e2e` builds `packages/shared` + `apps/web`, seeds a dedicated deterministic dataset,
+- [x] `npm run e2e:install` installs the Chromium browser Playwright needs.
+- [x] `npm run e2e` builds `packages/shared` + `apps/web`, seeds a dedicated deterministic dataset,
       starts `apps/api` serving the built SPA, and runs the suite against
       `E2E_BASE_URL` (default `http://localhost:3000`).
-- [ ] A setup project logs in as two seeded users (seller, bidder) once via the real login form and
+- [x] A setup project logs in as two seeded users (seller, bidder) once via the real login form and
       saves their sessions (`storageState`) for reuse by the other spec files.
-- [ ] Auth: register a new user, log in, log out, invalid-login error.
-- [ ] Browsing/search: anonymous visitor sees the grid and can search/filter/sort with no session;
+- [x] Auth: register a new user, log in, log out, invalid-login error.
+- [x] Browsing/search: anonymous visitor sees the grid and can search/filter/sort with no session;
       a logged-in visitor's city filter defaults to their profile city.
-- [ ] Listing creation: the full creation wizard (photos → details → pricing → schedule → review),
+- [x] Listing creation: the full creation wizard (photos → details → pricing → schedule → review),
       publishing a draft, and seeing it under "My auctions".
-- [ ] Bidding: a valid bid succeeds; a bid below the minimum is rejected; the seller cannot bid on
+- [x] Bidding: a valid bid succeeds; a bid below the minimum is rejected; the seller cannot bid on
       their own auction; a second bid resets the bidding window.
-- [ ] Realtime: a test exists asserting a bid placed in one browser context is reflected live (no
-      reload) on another context's open detail page. It currently fails and is marked
-      `test.fail()` — a real, tracked bug this suite found, not yet root-caused (see
-      `tasks.md`'s "Bugs found by this suite").
-- [ ] My-bids/purchases: correct status badges and purchase/handover details for a seeded sold
+- [x] Realtime: a bid placed in one browser context is reflected live (no reload) on another
+      context's open detail page.
+- [x] My-bids/purchases: correct status badges and purchase/handover details for a seeded sold
       auction.
-- [ ] Notifications/profile: notification preference toggles persist; profile field edits save.
-- [ ] Re-running `npm run e2e` twice in a row without manual cleanup passes both times (the seed
+- [x] Notifications/profile: notification preference toggles persist; profile field edits save.
+- [x] Re-running `npm run e2e` twice in a row without manual cleanup passes both times (the seed
       step clears and reseeds automatically).
 
 ## Open questions
