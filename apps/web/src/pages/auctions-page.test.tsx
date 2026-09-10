@@ -32,9 +32,9 @@ const publicAuction = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
-function renderPage(): void {
+function renderPage(initialEntries: string[] = ['/']): void {
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={initialEntries}>
       <AuctionsPage />
     </MemoryRouter>,
   );
@@ -97,6 +97,25 @@ describe('AuctionsPage', () => {
     expect(await screen.findByText('Cali')).toBeInTheDocument();
     await vi.waitFor(() =>
       expect(fetchAuctions).toHaveBeenCalledWith(expect.objectContaining({ city: 'Cali' })),
+    );
+  });
+
+  it('does not re-apply the profile city default once the user has explicitly cleared it', async () => {
+    // Simulates: user cleared the "Cali" chip (writing city= empty to the URL),
+    // then reloaded the page — a fresh mount with that URL already in place.
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage(['/?sort=newest']);
+
+    await vi.waitFor(() => expect(fetchAuctions).toHaveBeenCalled());
+    expect(screen.queryByText('Cali')).not.toBeInTheDocument();
+  });
+
+  it('persists a search filter across a reload via the URL', async () => {
+    renderPage(['/?search=denim']);
+
+    await vi.waitFor(() =>
+      expect(fetchAuctions).toHaveBeenCalledWith(expect.objectContaining({ search: 'denim' })),
     );
   });
 

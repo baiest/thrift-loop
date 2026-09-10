@@ -74,6 +74,35 @@ describe('RegisterForm', () => {
     expect(screen.getByText('Passwords do not match')).toBeInTheDocument();
   });
 
+  it('clears the phone error as soon as it becomes valid, without needing blur', async () => {
+    render(<RegisterForm />);
+
+    const phoneInput = screen.getByLabelText('Phone number');
+    await userEvent.type(phoneInput, '300123');
+    await userEvent.tab();
+    expect(screen.getByRole('alert')).toHaveTextContent(/valid colombian mobile number/i);
+
+    await userEvent.click(phoneInput);
+    await userEvent.type(phoneInput, '4567');
+
+    expect(screen.queryByText(/valid colombian mobile number/i)).not.toBeInTheDocument();
+  });
+
+  it('clears the confirm-password mismatch error live once the passwords match again', async () => {
+    render(<RegisterForm />);
+
+    await userEvent.type(document.getElementById('password') as HTMLInputElement, 'Abcdefg1');
+    const confirmInput = document.getElementById('confirmPassword') as HTMLInputElement;
+    await userEvent.type(confirmInput, 'Different1');
+    await userEvent.tab();
+    expect(screen.getByText('Passwords do not match')).toBeInTheDocument();
+
+    await userEvent.clear(confirmInput);
+    await userEvent.type(confirmInput, 'Abcdefg1');
+
+    expect(screen.queryByText('Passwords do not match')).not.toBeInTheDocument();
+  });
+
   it('does not submit when the form has validation errors', async () => {
     render(<RegisterForm />);
 

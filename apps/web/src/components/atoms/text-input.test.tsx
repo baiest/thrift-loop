@@ -33,4 +33,14 @@ describe('TextInput', () => {
     render(<TextInput id="phone" value="" onChange={vi.fn()} invalid />);
     expect(screen.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true');
   });
+
+  it('shows a character-count hint when maxLength is given', () => {
+    render(<TextInput id="title" value="Chaqueta" onChange={vi.fn()} maxLength={80} />);
+    expect(screen.getByText('8/80')).toBeInTheDocument();
+  });
+
+  it('shows no character-count hint when maxLength is not given', () => {
+    render(<TextInput id="title" value="Chaqueta" onChange={vi.fn()} />);
+    expect(screen.queryByText(/\/\d+/)).not.toBeInTheDocument();
+  });
 });

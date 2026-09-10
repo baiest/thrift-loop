@@ -35,6 +35,16 @@ describe('CurrencyInput', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('calls onChange with an empty string when the field is cleared', async () => {
+    const onChange = vi.fn();
+    render(<CurrencyInput id="price" value="120000" onChange={onChange} />);
+
+    const input = screen.getByRole('textbox');
+    await userEvent.clear(input);
+
+    expect(onChange).toHaveBeenCalledWith('');
+  });
+
   it('marks the input as invalid via aria-invalid', () => {
     render(<CurrencyInput id="price" value="" onChange={vi.fn()} invalid />);
     expect(screen.getByRole('textbox')).toHaveAttribute('aria-invalid', 'true');

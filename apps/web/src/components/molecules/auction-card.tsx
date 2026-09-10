@@ -38,7 +38,7 @@ function StatusBadges({
   readonly bidStatus: BidStatus | undefined;
 }): React.JSX.Element {
   return (
-    <div className="mb-1 flex items-center gap-2">
+    <div className="mb-1 flex flex-wrap items-center gap-2">
       <Badge tone="condition">{humanizeCondition(auction.condition)}</Badge>
       {isOwn && <Badge tone="own">Yours</Badge>}
       {bidStatus ? (

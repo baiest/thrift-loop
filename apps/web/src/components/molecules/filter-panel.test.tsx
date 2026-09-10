@@ -34,6 +34,20 @@ describe('FilterPanel', () => {
     expect(screen.getByLabelText('Max price (COP)')).toBeInTheDocument();
   });
 
+  it('formats the min/max price inputs as Colombian pesos', async () => {
+    render(
+      <FilterPanel
+        value={{ ...EMPTY_VALUE, minPriceCOP: '50000', maxPriceCOP: '300000' }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /filters/i }));
+
+    expect(screen.getByLabelText('Min price (COP)').value).toMatch(/\$\s?50\.000/);
+    expect(screen.getByLabelText('Max price (COP)').value).toMatch(/\$\s?300\.000/);
+  });
+
   it('shows no count badge when no filter is active', () => {
     render(<FilterPanel value={EMPTY_VALUE} onChange={vi.fn()} />);
     expect(screen.queryByText('2')).not.toBeInTheDocument();

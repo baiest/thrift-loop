@@ -3,7 +3,7 @@ import type { RealtimeStatus } from '../lib/realtime-client.js';
 import type { ServerMessage } from '@thrift-loop/shared';
 
 export interface AuctionUpdate {
-  currentBidCOP: number;
+  currentBidCOP: number | null;
   bidCount: number;
   bidEndsAt: string | null;
   closed: boolean;
@@ -23,7 +23,7 @@ interface RealtimeState {
 }
 
 const EMPTY_AUCTION_UPDATE: AuctionUpdate = {
-  currentBidCOP: 0,
+  currentBidCOP: null,
   bidCount: 0,
   bidEndsAt: null,
   closed: false,

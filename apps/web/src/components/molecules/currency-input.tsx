@@ -21,8 +21,9 @@ export function CurrencyInput({
   onChange,
 }: CurrencyInputProps): React.JSX.Element {
   function handleChange(event: ChangeEvent<HTMLInputElement>): void {
-    const digits = event.target.value.replace(DIGITS_ONLY, '');
-    if (digits) {
+    const rawValue = event.target.value;
+    const digits = rawValue.replace(DIGITS_ONLY, '');
+    if (digits || rawValue === '') {
       onChange(digits);
     }
   }

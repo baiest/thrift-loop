@@ -16,7 +16,10 @@ test.describe('auth', () => {
     await page.getByLabel('Confirm password').fill('Abcdefg1');
     await page.getByRole('button', { name: 'Create account' }).click();
 
-    await expect(page).toHaveURL('/');
+    // The auctions page mirrors filters (including the profile's default city)
+    // into the URL, so the landing URL carries query params — match path only.
+    await expect(page).not.toHaveURL(/\/register$/);
+    expect(new URL(page.url()).pathname).toBe('/');
   });
 
   test('shows an error for an invalid login', async ({ page }) => {
@@ -34,7 +37,8 @@ test.describe('auth', () => {
     await page.getByLabel('Phone number').fill(SELLER.phone);
     await page.getByLabel('Password', { exact: true }).fill(SELLER.password);
     await page.getByRole('button', { name: 'Log in' }).click();
-    await expect(page).toHaveURL('/');
+    await expect(page).not.toHaveURL(/\/login$/);
+    expect(new URL(page.url()).pathname).toBe('/');
 
     await page
       .getByRole('navigation', { name: 'Main navigation' })

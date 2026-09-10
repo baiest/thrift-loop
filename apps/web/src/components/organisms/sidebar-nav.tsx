@@ -2,7 +2,10 @@ import { NavLink } from 'react-router-dom';
 import { Icon, type IconName } from '../atoms/icon.js';
 import { useAuthStore } from '../../stores/auth-store.js';
 import { useLogout } from '../../hooks/use-logout.js';
+import { useRealtimeStore } from '../../stores/realtime-store.js';
 import { NotificationBell } from './notification-bell.js';
+
+const MAX_MOBILE_BADGE_COUNT = 9;
 
 interface NavItem {
   readonly label: string;
@@ -19,9 +22,14 @@ const NAV_ITEMS: readonly NavItem[] = [
   { label: 'My profile', to: '/profile', icon: 'user', end: false },
 ];
 
+// Shorter labels than the desktop nav's, purely so seven tabs (including the
+// notification bell below) fit a narrow phone screen without horizontal
+// scrolling — same destinations, same icons for context.
 const MOBILE_TAB_ITEMS: readonly NavItem[] = [
   { label: 'Auctions', to: '/', icon: 'compass', end: true },
-  { label: 'My auctions', to: '/auctions/mine', icon: 'tag', end: false },
+  { label: 'Selling', to: '/auctions/mine', icon: 'tag', end: false },
+  { label: 'Bids', to: '/my-bids', icon: 'gavel', end: false },
+  { label: 'Bought', to: '/purchases', icon: 'grip', end: false },
   { label: 'Create', to: '/auctions/new', icon: 'plus-circle', end: false },
   { label: 'Profile', to: '/profile', icon: 'user', end: false },
 ];
@@ -152,11 +160,41 @@ function TabletRail(): React.JSX.Element {
   );
 }
 
+function MobileNotificationsTab(): React.JSX.Element | null {
+  const user = useAuthStore((state) => state.user);
+  const unreadCount = useRealtimeStore((state) => state.unreadCount);
+
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <NavLink
+      to="/notifications"
+      className={({ isActive }) =>
+        `relative flex shrink-0 flex-col items-center gap-0.5 px-1 py-1 text-xs font-medium ${
+          isActive ? 'text-brand-600' : 'text-ink-soft'
+        }`
+      }
+    >
+      <span className="relative">
+        <Icon name="bell" className="h-5 w-5" />
+        {unreadCount > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-semibold text-white">
+            {unreadCount > MAX_MOBILE_BADGE_COUNT ? '9+' : unreadCount}
+          </span>
+        )}
+      </span>
+      Alerts
+    </NavLink>
+  );
+}
+
 function MobileTabBar(): React.JSX.Element {
   return (
     <nav
       aria-label="Mobile navigation"
-      className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-around border-t border-hairline bg-white py-2 md:hidden"
+      className="fixed inset-x-0 bottom-0 z-10 flex items-center justify-around overflow-x-auto border-t border-hairline bg-white py-2 md:hidden"
     >
       {MOBILE_TAB_ITEMS.map((item) => (
         <NavLink
@@ -164,7 +202,7 @@ function MobileTabBar(): React.JSX.Element {
           to={item.to}
           end={item.end}
           className={({ isActive }) =>
-            `flex flex-col items-center gap-0.5 px-3 py-1 text-xs font-medium ${
+            `flex shrink-0 flex-col items-center gap-0.5 px-1 py-1 text-xs font-medium ${
               isActive ? 'text-brand-600' : 'text-ink-soft'
             }`
           }
@@ -173,6 +211,7 @@ function MobileTabBar(): React.JSX.Element {
           {item.label}
         </NavLink>
       ))}
+      <MobileNotificationsTab />
     </nav>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatRemaining } from '../../lib/format.js';
 
 export interface CountdownProps {
@@ -21,6 +21,12 @@ export function Countdown({
   const [remaining, setRemaining] = useState(() =>
     endsAt ? computeRemaining(endsAt, serverOffsetMs) : 0,
   );
+  // A parent passing an inline `onExpire={() => ...}` creates a new function
+  // every render; reading it via a ref (kept fresh below) instead of listing it
+  // as an effect dependency keeps the interval on its original schedule instead
+  // of being torn down and restarted on every unrelated parent re-render.
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
 
   useEffect(() => {
     if (!endsAt) {
@@ -33,12 +39,12 @@ export function Countdown({
       setRemaining(next);
       if (next <= 0) {
         clearInterval(interval);
-        onExpire?.();
+        onExpireRef.current?.();
       }
     }, TICK_MS);
 
     return () => clearInterval(interval);
-  }, [endsAt, serverOffsetMs, onExpire]);
+  }, [endsAt, serverOffsetMs]);
 
   if (!endsAt) {
     return <span className="text-sm text-ink-soft">Waiting for first bid</span>;

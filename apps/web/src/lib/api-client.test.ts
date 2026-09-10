@@ -241,6 +241,15 @@ describe('api-client', () => {
     );
   });
 
+  it('deleteAuction throws an ApiError when the server rejects the request', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 403, json: () => Promise.resolve({}) }),
+    );
+
+    await expect(deleteAuction('AUC-1')).rejects.toBeInstanceOf(ApiError);
+  });
+
   it('fetchMyAuctions resolves with the list of the caller own auctions', async () => {
     mockFetchOnce(200, { auctions: [publicAuction] });
     await expect(fetchMyAuctions()).resolves.toEqual([publicAuction]);

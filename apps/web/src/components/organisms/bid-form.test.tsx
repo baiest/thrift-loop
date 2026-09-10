@@ -1,9 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { ApiError } from '../../lib/api-client.js';
 import { formatCOP } from '../../lib/format.js';
-import { BidForm } from './bid-form.js';
+import { BidForm, type BidFormProps } from './bid-form.js';
+
+function renderBidForm(props: BidFormProps): ReturnType<typeof render> {
+  return render(
+    <MemoryRouter>
+      <BidForm {...props} />
+    </MemoryRouter>,
+  );
+}
 
 vi.mock('../../lib/api-client.js', async () => {
   const actual = await vi.importActual('../../lib/api-client.js');
@@ -22,16 +31,22 @@ describe('BidForm', () => {
   });
 
   it('pre-fills the amount with the minimum next bid, formatted as pesos (no bids yet)', () => {
-    render(
-      <BidForm auctionId="AUC-1" currentBidCOP={null} priceCOP={50_000} onBidPlaced={vi.fn()} />,
-    );
+    renderBidForm({
+      auctionId: 'AUC-1',
+      currentBidCOP: null,
+      priceCOP: 50_000,
+      onBidPlaced: vi.fn(),
+    });
     expect(screen.getByLabelText('Your bid (COP)')).toHaveValue(formatCOP(50_000));
   });
 
   it('pre-fills the amount with currentBid + increment, formatted as pesos', () => {
-    render(
-      <BidForm auctionId="AUC-1" currentBidCOP={50_000} priceCOP={50_000} onBidPlaced={vi.fn()} />,
-    );
+    renderBidForm({
+      auctionId: 'AUC-1',
+      currentBidCOP: 50_000,
+      priceCOP: 50_000,
+      onBidPlaced: vi.fn(),
+    });
     expect(screen.getByLabelText('Your bid (COP)')).toHaveValue(formatCOP(51_000));
   });
 
@@ -41,14 +56,7 @@ describe('BidForm', () => {
     vi.mocked(placeBid).mockResolvedValue({ auction, bid });
     const onBidPlaced = vi.fn();
 
-    render(
-      <BidForm
-        auctionId="AUC-1"
-        currentBidCOP={null}
-        priceCOP={50_000}
-        onBidPlaced={onBidPlaced}
-      />,
-    );
+    renderBidForm({ auctionId: 'AUC-1', currentBidCOP: null, priceCOP: 50_000, onBidPlaced });
     await userEvent.click(screen.getByRole('button', { name: /place bid/i }));
 
     await waitFor(() => expect(onBidPlaced).toHaveBeenCalledWith(auction, bid));
@@ -60,9 +68,12 @@ describe('BidForm', () => {
       new ApiError('Validation failed', 400, { amountCOP: 'Too low' }),
     );
 
-    render(
-      <BidForm auctionId="AUC-1" currentBidCOP={null} priceCOP={50_000} onBidPlaced={vi.fn()} />,
-    );
+    renderBidForm({
+      auctionId: 'AUC-1',
+      currentBidCOP: null,
+      priceCOP: 50_000,
+      onBidPlaced: vi.fn(),
+    });
     await userEvent.click(screen.getByRole('button', { name: /place bid/i }));
 
     expect(await screen.findByText('Too low')).toBeInTheDocument();
@@ -76,9 +87,12 @@ describe('BidForm', () => {
       }),
     );
 
-    render(
-      <BidForm auctionId="AUC-1" currentBidCOP={null} priceCOP={50_000} onBidPlaced={vi.fn()} />,
-    );
+    renderBidForm({
+      auctionId: 'AUC-1',
+      currentBidCOP: null,
+      priceCOP: 50_000,
+      onBidPlaced: vi.fn(),
+    });
     await userEvent.click(screen.getByRole('button', { name: /place bid/i }));
 
     expect(screen.getByRole('button', { name: /placing/i })).toBeDisabled();
@@ -87,15 +101,28 @@ describe('BidForm', () => {
   });
 
   it('is disabled when disabled prop is set (own auction / not open)', () => {
-    render(
-      <BidForm
-        auctionId="AUC-1"
-        currentBidCOP={null}
-        priceCOP={50_000}
-        onBidPlaced={vi.fn()}
-        disabled
-      />,
-    );
+    renderBidForm({
+      auctionId: 'AUC-1',
+      currentBidCOP: null,
+      priceCOP: 50_000,
+      onBidPlaced: vi.fn(),
+      disabled: true,
+    });
     expect(screen.getByRole('button', { name: /place bid/i })).toBeDisabled();
+  });
+
+  it('sends the user to /login instead of submitting a bid when requiresLogin is set', async () => {
+    renderBidForm({
+      auctionId: 'AUC-1',
+      currentBidCOP: null,
+      priceCOP: 50_000,
+      onBidPlaced: vi.fn(),
+      requiresLogin: true,
+    });
+
+    expect(screen.getByRole('button', { name: /log in to place a bid/i })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /log in to place a bid/i }));
+
+    expect(placeBid).not.toHaveBeenCalled();
   });
 });

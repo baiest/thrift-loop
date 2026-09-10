@@ -47,6 +47,35 @@ describe('Countdown', () => {
     expect(screen.getByText('2m 00s')).toBeInTheDocument();
   });
 
+  it('keeps ticking on schedule when the parent re-renders with a new onExpire reference', async () => {
+    // Regression: a parent passing an inline `onExpire={() => ...}` creates a new
+    // function every render. If Countdown's effect depended on it directly, every
+    // parent re-render would tear down and restart the interval, delaying the next
+    // tick and making the displayed time visibly stall/flicker instead of ticking
+    // down every second on a stable schedule.
+    function Wrapper({ tick }: { readonly tick: number }): React.JSX.Element {
+      return (
+        <div>
+          <span data-testid="tick">{tick}</span>
+          <Countdown endsAt="2026-01-01T00:02:00.000Z" onExpire={() => {}} />
+        </div>
+      );
+    }
+
+    const { rerender } = render(<Wrapper tick={0} />);
+
+    // Re-render mid-tick (before the first scheduled 1s tick at t=1000ms).
+    await vi.advanceTimersByTimeAsync(500);
+    rerender(<Wrapper tick={1} />);
+    // Total elapsed just under 2000ms: on the original once-per-second schedule
+    // from mount, the tick at t=1000ms has fired (showing "1m 59s") but the one
+    // at t=2000ms has not yet. A restarted interval (reset at t=500ms) would
+    // instead have already ticked at t=1500ms, jumping straight to "1m 58s".
+    await vi.advanceTimersByTimeAsync(1499);
+
+    expect(screen.getByText('1m 59s')).toBeInTheDocument();
+  });
+
   it('cleans up its interval on unmount', () => {
     const { unmount } = render(<Countdown endsAt="2026-01-01T00:02:00.000Z" />);
     unmount();

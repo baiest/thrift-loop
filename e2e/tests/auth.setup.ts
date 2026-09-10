@@ -9,7 +9,11 @@ async function loginAs(
   await page.getByLabel('Phone number').fill(credentials.phone);
   await page.getByLabel('Password', { exact: true }).fill(credentials.password);
   await page.getByRole('button', { name: 'Log in' }).click();
-  await expect(page).toHaveURL('/');
+  // The auctions page now mirrors its filters (including the profile's default
+  // city) into the URL, so the post-login landing URL carries query params —
+  // wait for navigation away from /login, then check the path only.
+  await expect(page).not.toHaveURL(/\/login$/);
+  expect(new URL(page.url()).pathname).toBe('/');
 }
 
 setup('authenticate as seller', async ({ page }) => {

@@ -154,6 +154,25 @@ function validateFields(values: FormValues, fields: readonly ValidatedField[]): 
   return errors;
 }
 
+function clearResolvedErrors(errors: FormErrors, values: FormValues): FormErrors {
+  if (Object.keys(errors).length === 0) {
+    return errors;
+  }
+  const next = { ...errors };
+  for (const field of Object.keys(next) as (keyof FormValues)[]) {
+    if (field === 'publishAt' || !(field in FIELD_VALIDATORS)) {
+      continue;
+    }
+    // field was just confirmed to be a FIELD_VALIDATORS key, above.
+    // eslint-disable-next-line security/detect-object-injection
+    if (!FIELD_VALIDATORS[field](values)) {
+      // eslint-disable-next-line security/detect-object-injection
+      delete next[field];
+    }
+  }
+  return next;
+}
+
 function stepIndexForField(field: string): number {
   const index = WIZARD_STEPS.findIndex((step) =>
     (step.fields as readonly string[]).includes(field),
@@ -192,6 +211,7 @@ function DetailsStep({ values, errors, onChange }: DetailsStepProps): React.JSX.
           id="title"
           value={values.title}
           invalid={Boolean(errors.title)}
+          maxLength={MAX_TITLE_LENGTH}
           onChange={(value) => onChange('title', value)}
         />
       </FormField>
@@ -201,6 +221,7 @@ function DetailsStep({ values, errors, onChange }: DetailsStepProps): React.JSX.
           id="description"
           value={values.description}
           invalid={Boolean(errors.description)}
+          maxLength={MAX_DESCRIPTION_LENGTH}
           onChange={(value) => onChange('description', value)}
         />
       </FormField>
@@ -500,6 +521,9 @@ export function CreateAuctionWizard({ onSuccess }: CreateAuctionWizardProps): Re
   const [serverError, setServerError] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const locationTouched = useRef(false);
+  // Set as soon as createAuction succeeds so a retry after a photo-upload
+  // failure re-uses the same auction instead of creating a duplicate.
+  const createdAuctionId = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     let isActive = true;
@@ -517,7 +541,11 @@ export function CreateAuctionWizard({ onSuccess }: CreateAuctionWizardProps): Re
     if (field === 'location') {
       locationTouched.current = true;
     }
-    setValues((current) => ({ ...current, [field]: value }));
+    setValues((current) => {
+      const next = { ...current, [field]: value };
+      setErrors((currentErrors) => clearResolvedErrors(currentErrors, next));
+      return next;
+    });
   }
 
   function goToStep(index: number): void {
@@ -563,11 +591,16 @@ export function CreateAuctionWizard({ onSuccess }: CreateAuctionWizardProps): Re
 
     setSubmitting(true);
     try {
-      const auction = await createAuction(values);
-      if (photos.length > 0) {
-        await uploadAuctionPhotos(auction.id, photos);
+      let auctionId = createdAuctionId.current;
+      if (!auctionId) {
+        const auction = await createAuction(values);
+        auctionId = auction.id;
       }
-      onSuccess?.(auction.id);
+      createdAuctionId.current = auctionId;
+      if (photos.length > 0) {
+        await uploadAuctionPhotos(auctionId, photos);
+      }
+      onSuccess?.(auctionId);
     } catch (error) {
       const resolved = resolveSubmitError(error);
       if (resolved.fields) {
