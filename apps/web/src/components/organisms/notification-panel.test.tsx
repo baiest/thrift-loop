@@ -12,10 +12,12 @@ vi.mock('../../lib/api-client.js', async () => {
     ...actual,
     fetchNotifications: vi.fn(),
     markAllNotificationsRead: vi.fn(),
+    markNotificationRead: vi.fn(),
   };
 });
 
-const { fetchNotifications, markAllNotificationsRead } = await import('../../lib/api-client.js');
+const { fetchNotifications, markAllNotificationsRead, markNotificationRead } =
+  await import('../../lib/api-client.js');
 
 function makeNotification(overrides: Partial<PublicNotification> = {}): PublicNotification {
   return {
@@ -43,11 +45,21 @@ describe('NotificationPanel', () => {
   beforeEach(() => {
     vi.mocked(fetchNotifications).mockReset();
     vi.mocked(markAllNotificationsRead).mockReset();
+    vi.mocked(markNotificationRead).mockReset();
     useRealtimeStore.setState({ unreadCount: 0 });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('shows skeleton rows while loading, never the literal "Loading" text', () => {
+    vi.mocked(fetchNotifications).mockReturnValue(new Promise(() => {}));
+
+    renderPanel();
+
+    expect(screen.getAllByLabelText('Loading notification').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
   });
 
   it('shows an empty state when there are no notifications', async () => {
@@ -106,6 +118,44 @@ describe('NotificationPanel', () => {
     await user.click(screen.getByRole('button', { name: /mark all read/i }));
 
     await waitFor(() => expect(useRealtimeStore.getState().unreadCount).toBe(0));
+  });
+
+  it('marks a single notification read and decrements the shared unread count on click', async () => {
+    useRealtimeStore.setState({ unreadCount: 2 });
+    const unread = makeNotification({ id: 'NTF-1' });
+    vi.mocked(fetchNotifications).mockResolvedValue({
+      notifications: [unread, makeNotification({ id: 'NTF-2' })],
+      unreadCount: 2,
+    });
+    vi.mocked(markNotificationRead).mockResolvedValue({
+      ...unread,
+      readAt: '2026-01-02T00:00:00.000Z',
+    });
+    const user = userEvent.setup();
+
+    renderPanel();
+    await screen.findAllByText(/chaqueta de cuero/i);
+    const [firstLink] = screen.getAllByRole('link');
+    await user.click(firstLink as HTMLElement);
+
+    expect(markNotificationRead).toHaveBeenCalledWith('NTF-1');
+    await waitFor(() => expect(useRealtimeStore.getState().unreadCount).toBe(1));
+  });
+
+  it('does not decrement below zero or re-call the API for an already-read notification', async () => {
+    useRealtimeStore.setState({ unreadCount: 0 });
+    vi.mocked(fetchNotifications).mockResolvedValue({
+      notifications: [makeNotification({ readAt: '2026-01-02T00:00:00.000Z' })],
+      unreadCount: 0,
+    });
+    const user = userEvent.setup();
+
+    renderPanel();
+    await screen.findByText(/chaqueta de cuero/i);
+    await user.click(screen.getByRole('link'));
+
+    expect(markNotificationRead).not.toHaveBeenCalled();
+    expect(useRealtimeStore.getState().unreadCount).toBe(0);
   });
 
   it('does not show the mark-all-read button when there is nothing unread', async () => {

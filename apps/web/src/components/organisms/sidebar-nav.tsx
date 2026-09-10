@@ -1,11 +1,10 @@
 import { NavLink } from 'react-router-dom';
 import { Icon, type IconName } from '../atoms/icon.js';
+import { UnreadBadge } from '../atoms/unread-badge.js';
 import { useAuthStore } from '../../stores/auth-store.js';
 import { useLogout } from '../../hooks/use-logout.js';
 import { useRealtimeStore } from '../../stores/realtime-store.js';
 import { NotificationBell } from './notification-bell.js';
-
-const MAX_MOBILE_BADGE_COUNT = 9;
 
 interface NavItem {
   readonly label: string;
@@ -179,11 +178,7 @@ function MobileNotificationsTab(): React.JSX.Element | null {
     >
       <span className="relative">
         <Icon name="bell" className="h-5 w-5" />
-        {unreadCount > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-semibold text-white">
-            {unreadCount > MAX_MOBILE_BADGE_COUNT ? '9+' : unreadCount}
-          </span>
-        )}
+        <UnreadBadge count={unreadCount} />
       </span>
       Alerts
     </NavLink>

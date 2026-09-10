@@ -15,8 +15,14 @@
   --color-ink-soft: #7a7266;
   --color-ink-faint: #a89f91;
   --color-surface: #faf7f2;
+  --color-surface-alt: #f4efe7;
   --color-linen: #e8ddd0;
   --color-hairline: #efe7dc;
+
+  --color-amber-tint: #fbf0dd;
+  --color-amber-ink: #92600e;
+  --color-sage-tint: #e7efe8;
+  --color-sage-ink: #3f6b45;
 
   --animate-flash-highlight: flash-highlight 0.9s ease-out;
   --animate-bid-row-enter: bid-row-enter 0.5s ease-out;

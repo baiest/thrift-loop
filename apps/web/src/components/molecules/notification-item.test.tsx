@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import type { PublicNotification } from '@thrift-loop/shared';
 import { NotificationItem } from './notification-item.js';
@@ -18,10 +19,14 @@ function makeNotification(overrides: Partial<PublicNotification> = {}): PublicNo
   };
 }
 
-function renderItem(notification: PublicNotification): void {
+function renderItem(
+  notification: PublicNotification,
+  onRead?: (id: string) => void,
+  now = new Date('2026-01-01T01:00:00.000Z'),
+): void {
   render(
     <MemoryRouter>
-      <NotificationItem notification={notification} />
+      <NotificationItem notification={notification} {...(onRead && { onRead })} now={now} />
     </MemoryRouter>,
   );
 }
@@ -56,5 +61,53 @@ describe('NotificationItem', () => {
   it('does not mark a read notification', () => {
     renderItem(makeNotification({ readAt: '2026-01-02T00:00:00.000Z' }));
     expect(screen.getByRole('link')).not.toHaveClass('bg-brand-50');
+  });
+
+  it('shows a relative timestamp', () => {
+    renderItem(
+      makeNotification({ createdAt: '2026-01-01T00:00:00.000Z' }),
+      undefined,
+      new Date('2026-01-01T01:00:00.000Z'),
+    );
+    expect(screen.getByText('1h ago')).toBeInTheDocument();
+  });
+
+  it('shows a distinct icon per notification type', () => {
+    const { unmount: unmountOutbid } = render(
+      <MemoryRouter>
+        <NotificationItem notification={makeNotification({ type: 'outbid' })} />
+      </MemoryRouter>,
+    );
+    const outbidPath = document.querySelector('svg path')?.getAttribute('d');
+    unmountOutbid();
+
+    render(
+      <MemoryRouter>
+        <NotificationItem notification={makeNotification({ type: 'auction-won' })} />
+      </MemoryRouter>,
+    );
+    const wonPath = document.querySelector('svg path')?.getAttribute('d');
+
+    expect(outbidPath).not.toBe(wonPath);
+  });
+
+  it('calls onRead when an unread notification is clicked', async () => {
+    const onRead = vi.fn();
+    const user = userEvent.setup();
+    renderItem(makeNotification({ id: 'NTF-2', readAt: null }), onRead);
+
+    await user.click(screen.getByRole('link'));
+
+    expect(onRead).toHaveBeenCalledWith('NTF-2');
+  });
+
+  it('does not call onRead when an already-read notification is clicked', async () => {
+    const onRead = vi.fn();
+    const user = userEvent.setup();
+    renderItem(makeNotification({ readAt: '2026-01-02T00:00:00.000Z' }), onRead);
+
+    await user.click(screen.getByRole('link'));
+
+    expect(onRead).not.toHaveBeenCalled();
   });
 });

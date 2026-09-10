@@ -31,4 +31,14 @@ describe('Icon', () => {
     render(<Icon name="bell" aria-label="notifications" />);
     expect(screen.getByLabelText('notifications').tagName).toBe('svg');
   });
+
+  it('renders the alert-circle icon', () => {
+    render(<Icon name="alert-circle" aria-label="alert" />);
+    expect(screen.getByLabelText('alert').tagName).toBe('svg');
+  });
+
+  it('renders the check-circle icon', () => {
+    render(<Icon name="check-circle" aria-label="check" />);
+    expect(screen.getByLabelText('check').tagName).toBe('svg');
+  });
 });
