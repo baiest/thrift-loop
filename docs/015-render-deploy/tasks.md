@@ -11,3 +11,6 @@
 - [ ] Verify SPA loads at the Render URL and `/api/*` responds.
 - [ ] Manually verify: register user → create auction w/ photo → place bid → notification fires (WebSocket).
 - [ ] Document the deploy steps and the no-persistence caveat in README.md or this docs folder.
+- [x] Fix `express-rate-limit` `ERR_ERL_UNEXPECTED_X_FORWARDED_FOR` at boot: Render sits one
+      reverse-proxy hop in front, so `app.set('trust proxy', 1)` is required for the rate
+      limiter to read the real client IP from `X-Forwarded-For` (`create-app.ts`)
