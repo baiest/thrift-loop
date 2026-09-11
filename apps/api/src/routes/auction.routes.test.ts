@@ -266,6 +266,24 @@ describe('auction routes', () => {
     expect(body(response).auction?.photoUrls[0]).toContain('/uploads/');
   });
 
+  it('stores the file under an extension derived from its validated content-type, not the client-supplied filename', async () => {
+    // Regression: stored extension used to come from the attacker-controlled
+    // `originalname`, not the validated mimetype — stored XSS via SVG/HTML.
+    const created = await withAuth(request(app).post('/api/auctions')).send(validBody);
+    const id = body(created).auction?.id as string;
+
+    const response = await withAuth(request(app).post(`/api/auctions/${id}/photos`)).attach(
+      'photos',
+      Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'),
+      { filename: 'evil.svg', contentType: 'image/jpeg' },
+    );
+
+    expect(response.status).toBe(200);
+    const [url] = body(response).auction?.photoUrls as string[];
+    expect(url).toMatch(/\.jpe?g$/);
+    expect(url).not.toMatch(/\.svg$/);
+  });
+
   it('rejects a disallowed file type', async () => {
     const created = await withAuth(request(app).post('/api/auctions')).send(validBody);
     const id = body(created).auction?.id as string;
