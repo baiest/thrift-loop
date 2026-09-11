@@ -16,4 +16,14 @@ describe('AuthHero', () => {
     const hidden = container.querySelector('[aria-hidden="true"]');
     expect(hidden).not.toBeNull();
   });
+
+  it('shows real auction photos in the card collage instead of empty placeholders', () => {
+    const { container } = render(<AuthHero headline="Headline" subtext="Subtext" />);
+
+    const photos = container.querySelectorAll('[aria-hidden="true"] img');
+    expect(photos.length).toBeGreaterThanOrEqual(3);
+    for (const photo of photos) {
+      expect(photo.getAttribute('src')).toMatch(/^\/auth-hero\/.+\.jpg$/u);
+    }
+  });
 });

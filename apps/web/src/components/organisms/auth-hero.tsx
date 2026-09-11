@@ -1,15 +1,14 @@
 import { Badge } from '../atoms/badge.js';
-import { PhotoPlaceholder } from '../atoms/photo-placeholder.js';
 
 export interface AuthHeroProps {
   readonly headline: string;
   readonly subtext: string;
 }
 
-const AUCTION_CHIPS: readonly { label: string; rotate: string }[] = [
-  { label: 'Live', rotate: '-rotate-6' },
-  { label: 'New bid', rotate: 'rotate-3' },
-  { label: 'Ending soon', rotate: '-rotate-3' },
+const AUCTION_CHIPS: readonly { label: string; rotate: string; photo: string }[] = [
+  { label: 'Live', rotate: '-rotate-6', photo: '/auth-hero/1.jpg' },
+  { label: 'New bid', rotate: 'rotate-3', photo: '/auth-hero/2.jpg' },
+  { label: 'Ending soon', rotate: '-rotate-3', photo: '/auth-hero/3.jpg' },
 ];
 
 /**
@@ -40,7 +39,11 @@ export function AuthHero({ headline, subtext }: AuthHeroProps): React.JSX.Elemen
               key={chip.label}
               className={`w-20 rounded-xl bg-white/95 p-1.5 shadow-lg lg:w-28 lg:rounded-2xl lg:p-2 ${chip.rotate}`}
             >
-              <PhotoPlaceholder className="aspect-square" />
+              <img
+                src={chip.photo}
+                alt=""
+                className="aspect-square w-full rounded-lg object-cover"
+              />
               <div className="mt-1 flex justify-center lg:mt-2">
                 <Badge tone="live">{chip.label}</Badge>
               </div>
