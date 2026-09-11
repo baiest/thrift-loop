@@ -66,4 +66,19 @@ describe('useFlashOnChange', () => {
 
     expect(result.current).toBe(false);
   });
+
+  it('accepts a custom duration for callers that need a longer window than the default flash', async () => {
+    const { result, rerender } = renderHook(({ value }) => useFlashOnChange(value, 4_000), {
+      initialProps: { value: 'idle' },
+    });
+
+    rerender({ value: 'won' });
+    expect(result.current).toBe(true);
+
+    await act(() => vi.advanceTimersByTime(1_000));
+    expect(result.current).toBe(true);
+
+    await act(() => vi.advanceTimersByTime(3_000));
+    expect(result.current).toBe(false);
+  });
 });

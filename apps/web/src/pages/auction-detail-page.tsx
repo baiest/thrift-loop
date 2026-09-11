@@ -6,6 +6,7 @@ import {
   fetchAuctionDetail,
   fetchBids,
   fetchCurrentUser,
+  markAuctionSold,
   updateAuction,
 } from '../lib/api-client.js';
 import { formatCOP } from '../lib/format.js';
@@ -16,6 +17,7 @@ import { BidForm } from '../components/organisms/bid-form.js';
 import { Button } from '../components/atoms/button.js';
 import { Skeleton } from '../components/atoms/skeleton.js';
 import { PhotoPlaceholder } from '../components/atoms/photo-placeholder.js';
+import { WinnerCelebration } from '../components/molecules/winner-celebration.js';
 import { useAuctionRealtime } from '../hooks/use-auction-realtime.js';
 import { useFlashOnChange } from '../hooks/use-flash-on-change.js';
 import { useRealtimeStore, type AuctionUpdate } from '../stores/realtime-store.js';
@@ -91,6 +93,15 @@ function canUserDelete(user: PublicUser | null, auction: PublicAuction): boolean
   return user !== null && user.id === auction.userId && isUnsold;
 }
 
+function canUserMarkSold(user: PublicUser | null, auction: PublicAuction): boolean {
+  return (
+    user !== null &&
+    user.id === auction.userId &&
+    auction.status === 'published' &&
+    auction.bidCount > 0
+  );
+}
+
 /** Hydrates the shared auth store on mount. RealtimeConnection (and
  * SidebarNav) key off useAuthStore, so a fresh/direct load of this page must
  * hydrate it the same way every other route does — otherwise the realtime
@@ -140,6 +151,20 @@ function useBidHistorySync(
  * inert for the initial fetch and only fires for a genuine live push. */
 function usePriceFlash(update: AuctionUpdate | null): boolean {
   return useFlashOnChange(update?.currentBidCOP ?? null);
+}
+
+const CELEBRATION_DURATION_MS = 4000;
+
+/** True for a few seconds right after a live 'auction-closed' message names
+ * the current viewer as the winner. Keyed on the raw update (not the merged
+ * auction) so this stays inert for the initial fetch of an already-sold
+ * auction — only a genuine live push changes `update`. */
+function useWinnerCelebration(update: AuctionUpdate | null, userId: string | undefined): boolean {
+  const wonJustNow = useFlashOnChange(
+    update?.closed ? update.winnerUserId : null,
+    CELEBRATION_DURATION_MS,
+  );
+  return wonJustNow && update?.winnerUserId === userId;
 }
 
 function flashClass(active: boolean): string {
@@ -214,6 +239,106 @@ function DeleteAuctionControl({
   );
 }
 
+function MarkSoldControl({
+  auctionId,
+  onSold,
+}: {
+  readonly auctionId: string;
+  readonly onSold: () => void;
+}): React.JSX.Element {
+  const [closing, setClosing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [closeError, setCloseError] = useState<string | undefined>(undefined);
+
+  async function handleClose(): Promise<void> {
+    setCloseError(undefined);
+    setClosing(true);
+    try {
+      await markAuctionSold(auctionId);
+      onSold();
+    } catch {
+      setCloseError('Could not close the auction. Please try again.');
+      setClosing(false);
+    }
+  }
+
+  if (!confirming) {
+    return (
+      <Button type="button" fullWidth={false} onClick={() => setConfirming(true)}>
+        Mark as sold
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-sm text-ink-soft">
+        Sell it now to the current highest bidder? This cannot be undone.
+      </p>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          fullWidth={false}
+          onClick={() => void handleClose()}
+          disabled={closing}
+        >
+          {closing ? 'Closing…' : 'Confirm mark as sold'}
+        </Button>
+        <Button
+          type="button"
+          fullWidth={false}
+          onClick={() => setConfirming(false)}
+          disabled={closing}
+          className="!bg-white !text-ink ring-1 ring-inset ring-hairline hover:!bg-linen"
+        >
+          Cancel
+        </Button>
+      </div>
+      {closeError && <p className="text-sm text-red-600">{closeError}</p>}
+    </div>
+  );
+}
+
+function OwnerControls({
+  auction,
+  canPublish,
+  canMarkSold,
+  canDelete,
+  onPublish,
+  onSold,
+  onDeleted,
+}: {
+  readonly auction: PublicAuction;
+  readonly canPublish: boolean;
+  readonly canMarkSold: boolean;
+  readonly canDelete: boolean;
+  readonly onPublish: () => void;
+  readonly onSold: () => void;
+  readonly onDeleted: () => void;
+}): React.JSX.Element {
+  return (
+    <>
+      {canPublish && (
+        <div className="mb-6">
+          <Button type="button" onClick={onPublish}>
+            Publish now
+          </Button>
+        </div>
+      )}
+      {canMarkSold && (
+        <div className="mb-6">
+          <MarkSoldControl auctionId={auction.id} onSold={onSold} />
+        </div>
+      )}
+      {canDelete && (
+        <div className="mb-6">
+          <DeleteAuctionControl auctionId={auction.id} onDeleted={onDeleted} />
+        </div>
+      )}
+    </>
+  );
+}
+
 function BidWindowStatus({
   auction,
   serverOffsetMs,
@@ -279,6 +404,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
 
   useBidHistorySync(id, update, setBids);
   const priceFlash = usePriceFlash(update);
+  const celebrating = useWinnerCelebration(update, user?.id);
 
   if (loading) {
     return (
@@ -309,6 +435,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
   const canBid = canUserBid(user, auction);
   const canPublish = canUserPublish(user, auction);
   const canDelete = canUserDelete(user, auction);
+  const canMarkSold = canUserMarkSold(user, auction);
 
   async function handlePublish(): Promise<void> {
     await updateAuction(auction.id, { status: 'published' });
@@ -317,6 +444,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
 
   return (
     <div className="mx-auto flex max-w-4xl flex-col py-6">
+      {celebrating && <WinnerCelebration />}
       {showReconnecting && <p className="mb-4 text-xs font-medium text-amber-700">Reconnecting…</p>}
       <div className="grid gap-8 lg:grid-cols-2">
         <AuctionPhoto
@@ -346,22 +474,15 @@ export function AuctionDetailPage(): React.JSX.Element | null {
           </div>
           <ViewerCount viewers={viewers} />
 
-          {canPublish && (
-            <div className="mb-6">
-              <Button type="button" onClick={() => void handlePublish()}>
-                Publish now
-              </Button>
-            </div>
-          )}
-
-          {canDelete && (
-            <div className="mb-6">
-              <DeleteAuctionControl
-                auctionId={auction.id}
-                onDeleted={() => void navigate('/auctions/mine')}
-              />
-            </div>
-          )}
+          <OwnerControls
+            auction={auction}
+            canPublish={canPublish}
+            canMarkSold={canMarkSold}
+            canDelete={canDelete}
+            onPublish={() => void handlePublish()}
+            onSold={() => void load()}
+            onDeleted={() => void navigate('/auctions/mine')}
+          />
 
           {canBid && (
             <div className="mb-6">

@@ -153,13 +153,19 @@ describe('auction routes', () => {
     userRepository = new FakeUserRepository();
     userRepository.seed(makeUser({ id: 'USR-1' }));
     userRepository.seed(makeUser({ id: 'USR-2', phone: '3000000001' }));
-    const auctionService = createAuctionService(auctionRepository, photoStorage);
+    const mutex = createKeyedMutex();
+    const eventBus = createEventBus(NOOP_LOGGER);
+    const auctionService = createAuctionService(auctionRepository, photoStorage, NOOP_LOGGER, {
+      bidRepository,
+      mutex,
+      eventBus,
+    });
     const bidService = createBidService(
       auctionRepository,
       bidRepository,
       userRepository,
-      createKeyedMutex(),
-      createEventBus(NOOP_LOGGER),
+      mutex,
+      eventBus,
       NOOP_LOGGER,
     );
 
@@ -445,6 +451,54 @@ describe('auction routes', () => {
       expect(response.status).toBe(200);
       expect(body(response).bids).toHaveLength(1);
       expect(body(response).bids?.[0]).toMatchObject({ bidderFirstName: 'Ana', amountCOP: 50_000 });
+    });
+  });
+
+  describe('POST /:id/close', () => {
+    async function publishedAuctionWithBid(): Promise<string> {
+      const created = await withAuth(request(app).post('/api/auctions')).send(validBody);
+      const id = body(created).auction?.id as string;
+      await withAuth(request(app).patch(`/api/auctions/${id}`)).send({ status: 'published' });
+      await withAuth(request(app).post(`/api/auctions/${id}/bids`), 'USR-2').send({
+        amountCOP: '50000',
+      });
+      return id;
+    }
+
+    it('closes the auction early, awarding it to the current highest bidder', async () => {
+      const id = await publishedAuctionWithBid();
+
+      const response = await withAuth(request(app).post(`/api/auctions/${id}/close`));
+
+      expect(response.status).toBe(200);
+      expect(body(response).auction?.status).toBe('sold');
+      expect(body(response).auction?.winnerUserId).toBe('USR-2');
+    });
+
+    it('requires authentication', async () => {
+      const id = await publishedAuctionWithBid();
+
+      const response = await request(app).post(`/api/auctions/${id}/close`);
+
+      expect(response.status).toBe(401);
+    });
+
+    it('rejects a non-owner', async () => {
+      const id = await publishedAuctionWithBid();
+
+      const response = await withAuth(request(app).post(`/api/auctions/${id}/close`), 'USR-2');
+
+      expect(response.status).toBe(404);
+    });
+
+    it('rejects an auction with no bids', async () => {
+      const created = await withAuth(request(app).post('/api/auctions')).send(validBody);
+      const id = body(created).auction?.id as string;
+      await withAuth(request(app).patch(`/api/auctions/${id}`)).send({ status: 'published' });
+
+      const response = await withAuth(request(app).post(`/api/auctions/${id}/close`));
+
+      expect(response.status).toBe(409);
     });
   });
 

@@ -15,6 +15,7 @@ import {
   login,
   logout,
   markAllNotificationsRead,
+  markAuctionSold,
   markNotificationRead,
   placeBid,
   register,
@@ -221,6 +222,40 @@ describe('api-client', () => {
         headers: csrfHeaderMatcher,
       }),
     );
+  });
+
+  it('markAuctionSold posts to /api/auctions/:id/close', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ auction: publicAuction }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await markAuctionSold('AUC-1');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/auctions/AUC-1/close',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        headers: csrfHeaderMatcher,
+      }),
+    );
+    expect(result).toEqual(publicAuction);
+  });
+
+  it('markAuctionSold throws an ApiError when the server rejects the request', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 409,
+        json: () => Promise.resolve({ error: 'Only a published auction with a bid can be closed' }),
+      }),
+    );
+
+    await expect(markAuctionSold('AUC-1')).rejects.toThrow(ApiError);
   });
 
   it('deleteAuction calls DELETE on /api/auctions/:id', async () => {

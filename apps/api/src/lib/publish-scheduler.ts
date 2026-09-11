@@ -1,3 +1,4 @@
+import type { Auction } from '../models/auction.js';
 import type { AuctionRepository } from '../repositories/auction.repository.js';
 import type { BidRepository } from '../repositories/bid.repository.js';
 import type { KeyedMutex } from './keyed-mutex.js';
@@ -37,22 +38,24 @@ export function startPublishScheduler(
 }
 
 /**
- * Closes one auction whose bid window has elapsed: the winner is whoever
- * placed the highest bid. Since every accepted bid must beat the previous one
- * (enforced by bid.service.ts), the newest bid for an auction is also its
- * highest, so no separate "find max" pass is needed.
+ * Closes one auction, whether its bid window elapsed or an owner closed it
+ * early: the winner is whoever placed the highest bid. Since every accepted
+ * bid must beat the previous one (enforced by bid.service.ts), the newest
+ * bid for an auction is also its highest, so no separate "find max" pass is
+ * needed. Returns the updated auction, or null if there's no bid to award it
+ * to (or it no longer exists) — callers decide what that means for them.
  */
-async function closeOneAuction(
+export async function closeOneAuction(
   auctionRepository: AuctionRepository,
   bidRepository: BidRepository,
   eventBus: EventBus,
   logger: Logger,
   auctionId: string,
-): Promise<void> {
+): Promise<Auction | null> {
   const bids = await bidRepository.findByAuctionId(auctionId);
   const winningBid = bids[0];
   if (!winningBid) {
-    return;
+    return null;
   }
   const auction = await auctionRepository.findById(auctionId);
   const updated = await auctionRepository.update(auctionId, {
@@ -60,7 +63,7 @@ async function closeOneAuction(
     winnerUserId: winningBid.userId,
   });
   if (!auction || !updated) {
-    return;
+    return null;
   }
   logger.info('auction_closed', {
     auctionId,
@@ -76,6 +79,7 @@ async function closeOneAuction(
     finalPriceCOP: winningBid.amountCOP,
     occurredAt: new Date().toISOString(),
   });
+  return updated;
 }
 
 export async function closeDueAuctions(

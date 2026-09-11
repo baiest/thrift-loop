@@ -4,8 +4,17 @@ const COP_FORMATTER = new Intl.NumberFormat('es-CO', {
   maximumFractionDigits: 0,
 });
 
-export function formatCOP(amount: number): string {
+/** Bare currency format ("$ 60.000"), for editable fields whose own label
+ * already states the currency (e.g. "Price (COP)") — appending a suffix here
+ * would shift while typing/backspacing. */
+export function formatCOPInput(amount: number): string {
   return COP_FORMATTER.format(amount);
+}
+
+export function formatCOP(amount: number): string {
+  // es-CO renders COP with a bare "$" — the same glyph as USD — so append the
+  // currency code to keep it unambiguous.
+  return `${formatCOPInput(amount)} COP`;
 }
 
 const MILLISECONDS_PER_SECOND = 1000;

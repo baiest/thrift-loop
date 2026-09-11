@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatCOP, formatRelativeTime, formatRemaining, formatTimeLeft } from './format.js';
+import {
+  formatCOP,
+  formatCOPInput,
+  formatRelativeTime,
+  formatRemaining,
+  formatTimeLeft,
+} from './format.js';
 
 describe('formatCOP', () => {
   it('formats a whole number of pesos with the currency symbol', () => {
@@ -8,6 +14,17 @@ describe('formatCOP', () => {
 
   it('formats zero', () => {
     expect(formatCOP(0)).toMatch(/\$\s?0/);
+  });
+
+  it('appends the COP suffix, since es-CO renders the same "$" symbol as USD', () => {
+    expect(formatCOP(50_000)).toMatch(/COP$/);
+  });
+});
+
+describe('formatCOPInput', () => {
+  it('has no COP suffix, for editable fields whose own label already states the currency', () => {
+    expect(formatCOPInput(50_000)).toMatch(/\$\s?50\.000/);
+    expect(formatCOPInput(50_000)).not.toMatch(/COP/);
   });
 });
 
