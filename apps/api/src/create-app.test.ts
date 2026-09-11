@@ -281,3 +281,19 @@ describe('auction wiring', () => {
     await rm(uploadsDir, { recursive: true, force: true });
   });
 });
+
+describe('trust proxy', () => {
+  beforeEach(() => {
+    vi.stubEnv('JWT_SECRET', 'test-secret');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('trusts exactly one hop, matching Render single-proxy deploys', () => {
+    const app = createApp(baseOptions(new FakeUserRepository()));
+
+    expect(app.get('trust proxy')).toBe(1);
+  });
+});

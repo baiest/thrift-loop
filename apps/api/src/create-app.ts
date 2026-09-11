@@ -83,6 +83,11 @@ export function createApp(options: CreateAppOptions): Express {
 
   const app = express();
 
+  // Render (and similar PaaS hosts) sit exactly one reverse-proxy hop in
+  // front of this server; trusting that hop lets Express (and
+  // express-rate-limit) read the real client IP from X-Forwarded-For.
+  app.set('trust proxy', 1);
+
   app.use(express.json());
   app.use(cookieParser());
   app.use(createRequestLoggingMiddleware(logger));
