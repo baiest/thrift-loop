@@ -23,6 +23,8 @@
     "test:cov": "tsx scripts/run-workspace-script.ts test:cov",
     "build": "tsx scripts/run-workspace-script.ts build",
     "audit": "npm audit --audit-level=high",
+    "assets:generate": "tsx scripts/generate-brand-assets.ts",
+    "screenshots": "tsx scripts/capture-screenshots.ts",
     "prepare": "husky || true",
     "e2e:install": "playwright install --with-deps chromium",
     "e2e:server": "npm run build:shared && npm run build --workspace=apps/web && npm run build --workspace=apps/api && npm run seed:e2e --workspace=apps/api && npm run start --workspace=apps/api",
