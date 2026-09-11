@@ -67,7 +67,7 @@ export function AuctionCard({
   // browsing past doesn't just silently jump.
   const priceFlash = useFlashOnChange(priceValue);
   const now = useNow();
-  const timeLeft = formatTimeLeft(auction.bidEndsAt, now);
+  const timeLeft = formatTimeLeft(auction.bidEndsAt, now, auction.status === 'sold');
   const startedOn = START_DATE_FORMATTER.format(new Date(auction.createdAt));
   const [photoFailed, setPhotoFailed] = useState(false);
 

@@ -214,6 +214,25 @@ function DeleteAuctionControl({
   );
 }
 
+function BidWindowStatus({
+  auction,
+  serverOffsetMs,
+  onExpire,
+}: {
+  readonly auction: PublicAuction;
+  readonly serverOffsetMs: number;
+  readonly onExpire: () => void;
+}): React.JSX.Element {
+  // A seed script or clock skew can leave bidEndsAt in the future for an
+  // already-sold auction — status wins over a live timer.
+  if (auction.status === 'sold') {
+    return <span className="text-sm font-medium text-ink">Ended</span>;
+  }
+  return (
+    <Countdown endsAt={auction.bidEndsAt} serverOffsetMs={serverOffsetMs} onExpire={onExpire} />
+  );
+}
+
 export function AuctionDetailPage(): React.JSX.Element | null {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -319,8 +338,8 @@ export function AuctionDetailPage(): React.JSX.Element | null {
             {formatCOP(auction.currentBidCOP ?? auction.priceCOP)}
           </p>
           <div className="mb-4">
-            <Countdown
-              endsAt={auction.bidEndsAt}
+            <BidWindowStatus
+              auction={auction}
               serverOffsetMs={serverOffsetMs}
               onExpire={() => void load()}
             />

@@ -101,6 +101,17 @@ describe('AuctionCard', () => {
     expect(screen.getByText('Sold')).toBeInTheDocument();
   });
 
+  it('shows Ended, not a live countdown, for a sold auction with a stale future bidEndsAt', () => {
+    renderCard(
+      makeAuction({
+        status: 'sold',
+        bidEndsAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      }),
+    );
+    expect(screen.getByText('Ended')).toBeInTheDocument();
+    expect(screen.queryByText(/left$/)).not.toBeInTheDocument();
+  });
+
   it('shows a "Draft" badge while still a draft', () => {
     renderCard(makeAuction({ status: 'draft' }));
     expect(screen.getByText('Draft')).toBeInTheDocument();
