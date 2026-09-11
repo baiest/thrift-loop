@@ -1,0 +1,15 @@
+[phases.setup]
+nixPkgs = ["nodejs_22"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = [
+  "npm run build:shared",
+  "npm run build --workspace=apps/web",
+  "npm run build --workspace=apps/api",
+]
+
+[start]
+cmd = "npm run start --workspace=apps/api"
