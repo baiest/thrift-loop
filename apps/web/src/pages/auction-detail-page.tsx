@@ -16,7 +16,7 @@ import { BidHistory } from '../components/molecules/bid-history.js';
 import { BidForm } from '../components/organisms/bid-form.js';
 import { Button } from '../components/atoms/button.js';
 import { Skeleton } from '../components/atoms/skeleton.js';
-import { PhotoPlaceholder } from '../components/atoms/photo-placeholder.js';
+import { PhotoCarousel } from '../components/molecules/photo-carousel.js';
 import { WinnerCelebration } from '../components/molecules/winner-celebration.js';
 import { useAuctionRealtime } from '../hooks/use-auction-realtime.js';
 import { useFlashOnChange } from '../hooks/use-flash-on-change.js';
@@ -49,28 +49,6 @@ function ViewerCount({ viewers }: { readonly viewers: number }): React.JSX.Eleme
     <p className="mb-4 text-xs text-ink-soft">
       {viewers} {viewers === 1 ? 'person' : 'people'} viewing
     </p>
-  );
-}
-
-function AuctionPhoto({
-  auction,
-  photoFailed,
-  onPhotoError,
-}: {
-  readonly auction: PublicAuction;
-  readonly photoFailed: boolean;
-  readonly onPhotoError: () => void;
-}): React.JSX.Element {
-  if (!auction.photoUrls[0] || photoFailed) {
-    return <PhotoPlaceholder className="aspect-square" />;
-  }
-  return (
-    <img
-      src={auction.photoUrls[0]}
-      alt={auction.category}
-      onError={onPhotoError}
-      className="aspect-square w-full rounded-lg object-cover"
-    />
   );
 }
 
@@ -372,7 +350,6 @@ export function AuctionDetailPage(): React.JSX.Element | null {
   const clearAuthUser = useAuthStore((state) => state.clearUser);
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [photoFailed, setPhotoFailed] = useState(false);
   const { update, viewers } = useAuctionRealtime(id);
   const resyncToken = useRealtimeStore((state) => state.resyncToken);
   const connectionStatus = useRealtimeStore((state) => state.status);
@@ -447,11 +424,7 @@ export function AuctionDetailPage(): React.JSX.Element | null {
       {celebrating && <WinnerCelebration />}
       {showReconnecting && <p className="mb-4 text-xs font-medium text-amber-700">Reconnecting…</p>}
       <div className="grid gap-8 lg:grid-cols-2">
-        <AuctionPhoto
-          auction={auction}
-          photoFailed={photoFailed}
-          onPhotoError={() => setPhotoFailed(true)}
-        />
+        <PhotoCarousel photoUrls={auction.photoUrls} category={auction.category} />
 
         <div className="flex flex-col">
           <h1 className="mb-1 font-display text-3xl font-bold text-ink">{auction.title}</h1>
