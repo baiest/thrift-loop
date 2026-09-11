@@ -504,6 +504,28 @@ describe('AuctionDetailPage', () => {
     );
   });
 
+  it('shows Ended, not a live countdown, for a sold auction with a stale future bidEndsAt', async () => {
+    // A seed script or clock skew can leave a sold auction's bidEndsAt in the
+    // future — status must still win over a running countdown.
+    const soldAuction = {
+      ...publicAuction,
+      status: 'sold' as const,
+      winnerUserId: 'USR-bidder',
+      bidEndsAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    };
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: soldAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(null);
+
+    renderPage();
+
+    expect(await screen.findByText('Ended')).toBeInTheDocument();
+    expect(screen.queryByText(/left$/)).not.toBeInTheDocument();
+  });
+
   it('shows a Delete auction button to the owner of an unsold auction', async () => {
     vi.mocked(fetchAuctionDetail).mockResolvedValue({
       auction: publicAuction,

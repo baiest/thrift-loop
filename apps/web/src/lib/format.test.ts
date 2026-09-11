@@ -60,6 +60,11 @@ describe('formatTimeLeft', () => {
   it('shows Ended exactly at bidEndsAt', () => {
     expect(formatTimeLeft(now.toISOString(), now)).toEqual({ label: 'Ended', isUrgent: false });
   });
+
+  it('shows Ended when already sold, even if bidEndsAt is still in the future', () => {
+    const futureEndsAt = new Date('2026-01-01T14:00:00.000Z').toISOString();
+    expect(formatTimeLeft(futureEndsAt, now, true)).toEqual({ label: 'Ended', isUrgent: false });
+  });
 });
 
 describe('formatRelativeTime', () => {

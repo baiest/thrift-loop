@@ -30,8 +30,13 @@ export interface TimeLeft {
   readonly isUrgent: boolean;
 }
 
-/** Card-level time-remaining summary ("2h 14m left"), pure over a given `now`. */
-export function formatTimeLeft(bidEndsAt: string | null, now: Date): TimeLeft {
+/** Card-level time-remaining summary ("2h 14m left"), pure over a given `now`.
+ * `isEnded` (an auction already sold) always wins over `bidEndsAt` — a stale
+ * or seeded `bidEndsAt` can still be in the future for a closed auction. */
+export function formatTimeLeft(bidEndsAt: string | null, now: Date, isEnded = false): TimeLeft {
+  if (isEnded) {
+    return { label: 'Ended', isUrgent: false };
+  }
   if (!bidEndsAt) {
     return { label: 'Not started', isUrgent: false };
   }

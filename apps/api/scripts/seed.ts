@@ -25,6 +25,8 @@ const URGENT_WINDOW_MINUTES = 20;
 const SECONDS_PER_MINUTE = 60;
 const MILLISECONDS_PER_SECOND = 1000;
 const URGENT_WINDOW_MS = URGENT_WINDOW_MINUTES * SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND;
+const SOLD_WINDOW_MINUTES = 30;
+const SOLD_ENDS_AT_MS_AGO = SOLD_WINDOW_MINUTES * SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND;
 
 interface SeedUser {
   phone: string;
@@ -344,9 +346,12 @@ async function applyStatus(
     const urgentEndsAt = new Date(Date.now() + URGENT_WINDOW_MS).toISOString();
     await container.auctionRepository.update(auctionId, { bidEndsAt: urgentEndsAt });
   } else if (seed.status === 'sold') {
+    // bidEndsAt must be in the past too — an auction only becomes sold once
+    // its timer actually expires, and the UI trusts that (defensively).
     await container.auctionRepository.update(auctionId, {
       status: 'sold',
       winnerUserId: winnerId,
+      bidEndsAt: new Date(Date.now() - SOLD_ENDS_AT_MS_AGO).toISOString(),
     });
   }
 }
