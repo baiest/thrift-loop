@@ -55,14 +55,24 @@ function buildEntry(
 
 /** filePath is trusted app configuration (from container.ts), never user input. */
 export function createLogger(filePath: string): Logger {
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
-  mkdirSync(dirname(filePath), { recursive: true });
-  // eslint-disable-next-line security/detect-non-literal-fs-filename
-  const stream: WriteStream = createWriteStream(filePath, { flags: 'a' });
+  const isProduction = process.env['NODE_ENV'] === 'production';
+
+  let stream: WriteStream | undefined;
+  if (!isProduction) {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    mkdirSync(dirname(filePath), { recursive: true });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    stream = createWriteStream(filePath, { flags: 'a' });
+  }
 
   function write(level: LogLevel, event: string, fields: Record<string, unknown>): void {
     assertValidEvent(event);
-    stream.write(`${JSON.stringify(buildEntry(level, event, fields))}\n`);
+    const line = JSON.stringify(buildEntry(level, event, fields));
+    if (isProduction) {
+      console.log(line);
+    } else {
+      stream?.write(`${line}\n`);
+    }
   }
 
   async function time<T>(
@@ -99,7 +109,7 @@ export function createLogger(filePath: string): Logger {
     time,
     close: () =>
       new Promise<void>((resolve, reject) => {
-        if (stream.closed || stream.destroyed) {
+        if (!stream || stream.closed || stream.destroyed) {
           resolve();
           return;
         }
