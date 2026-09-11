@@ -1,10 +1,10 @@
 import type { ChangeEvent } from 'react';
-import { formatCOP } from '../../lib/format.js';
+import { formatCOPInput } from '../../lib/format.js';
 
 const DIGITS_ONLY = /\D/g;
 
 function displayValue(rawDigits: string): string {
-  return rawDigits ? formatCOP(Number(rawDigits)) : '';
+  return rawDigits ? formatCOPInput(Number(rawDigits)) : '';
 }
 
 export interface CurrencyInputProps {

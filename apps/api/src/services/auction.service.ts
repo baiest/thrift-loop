@@ -22,7 +22,11 @@ import type {
   AuctionPatch,
   AuctionRepository,
 } from '../repositories/auction.repository.js';
+import type { BidRepository } from '../repositories/bid.repository.js';
 import type { PhotoStorage, UploadedFile } from '../lib/photo-storage.js';
+import type { KeyedMutex } from '../lib/keyed-mutex.js';
+import type { EventBus } from '../lib/event-bus.js';
+import { closeOneAuction } from '../lib/publish-scheduler.js';
 import { createPrefixedId } from '../lib/prefixed-id.js';
 import { HttpError } from '../lib/http-error.js';
 import { HTTP_STATUS } from '../lib/http-status.js';
@@ -31,6 +35,8 @@ import { NOOP_LOGGER, type Logger } from '../lib/logger.js';
 const AUCTION_ID_PREFIX = 'AUC';
 const AUCTION_NOT_FOUND_MESSAGE = 'Auction not found';
 const CANNOT_EDIT_PUBLISHED_MESSAGE = 'Cannot edit a published auction';
+const CANNOT_CLOSE_MESSAGE = 'Only a published auction with a bid can be closed';
+const MANUAL_CLOSE_NOT_AVAILABLE_MESSAGE = 'Closing an auction is not available';
 const TOO_MANY_PHOTOS_MESSAGE = `An auction can have at most ${MAX_PHOTOS_PER_AUCTION} photos`;
 const TITLE_ERROR_MESSAGE = 'Enter a title up to 80 characters, letters and numbers only';
 const DESCRIPTION_ERROR_MESSAGE = `Enter a description up to ${MAX_DESCRIPTION_LENGTH} characters, letters and numbers only`;
@@ -317,10 +323,17 @@ function buildAuctionFilter(input: AuctionSearchInput): AuctionFilter {
   };
 }
 
+export interface AuctionCloseDeps {
+  bidRepository: BidRepository;
+  mutex: KeyedMutex;
+  eventBus: EventBus;
+}
+
 export function createAuctionService(
   auctionRepository: AuctionRepository,
   photoStorage: PhotoStorage,
   logger: Logger = NOOP_LOGGER,
+  closeDeps?: AuctionCloseDeps,
 ) {
   async function getOwnedAuction(userId: string, auctionId: string): Promise<Auction> {
     const auction = await auctionRepository.findById(auctionId);
@@ -399,6 +412,35 @@ export function createAuctionService(
 
     async getAuction(userId: string, auctionId: string): Promise<Auction> {
       return getOwnedAuction(userId, auctionId);
+    },
+
+    /** Lets the owner accept the current highest bid early, instead of
+     * waiting for the scheduler's timer close. Reuses closeOneAuction so a
+     * manual close is indistinguishable downstream (notification, realtime,
+     * logging) from a timer-based one. */
+    async closeAuctionManually(userId: string, auctionId: string): Promise<Auction> {
+      if (!closeDeps) {
+        throw new HttpError(MANUAL_CLOSE_NOT_AVAILABLE_MESSAGE, HTTP_STATUS.NOT_FOUND);
+      }
+      const auction = await getOwnedAuction(userId, auctionId);
+      if (auction.status !== 'published') {
+        throw new HttpError(CANNOT_CLOSE_MESSAGE, HTTP_STATUS.CONFLICT);
+      }
+      // Same mutex key as bid.service.ts's placeBid and the scheduler, so a
+      // bid can never land in the same instant this auction closes.
+      const closed = await closeDeps.mutex.runExclusive(auctionId, () =>
+        closeOneAuction(
+          auctionRepository,
+          closeDeps.bidRepository,
+          closeDeps.eventBus,
+          logger,
+          auctionId,
+        ),
+      );
+      if (!closed) {
+        throw new HttpError(CANNOT_CLOSE_MESSAGE, HTTP_STATUS.CONFLICT);
+      }
+      return closed;
     },
 
     async addPhotos(userId: string, auctionId: string, files: UploadedFile[]): Promise<Auction> {

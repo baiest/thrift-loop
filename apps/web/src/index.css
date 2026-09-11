@@ -26,6 +26,7 @@
 
   --animate-flash-highlight: flash-highlight 0.9s ease-out;
   --animate-bid-row-enter: bid-row-enter 0.5s ease-out;
+  --animate-confetti-fall: confetti-fall 2.6s ease-in forwards;
 }
 
 /* A live update (a bid moving the price) can flip fast enough to be missed
@@ -63,10 +64,29 @@
   }
 }
 
+/* A winning bidder's confetti piece — falls and rotates from the top of the
+   overlay. Horizontal drift/rotation amount is per-piece via inline custom
+   properties (--drift, --spin), set from winner-celebration.tsx. */
+@keyframes confetti-fall {
+  0% {
+    transform: translateY(-10vh) translateX(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(110vh) translateX(var(--drift, 0)) rotate(var(--spin, 360deg));
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-flash-highlight,
   .animate-bid-row-enter {
     animation: none;
     background-color: var(--color-brand-100);
+  }
+
+  .animate-confetti-fall {
+    animation: none;
+    opacity: 0;
   }
 }

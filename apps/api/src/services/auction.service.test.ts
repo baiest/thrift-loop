@@ -1,12 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Auction } from '../models/auction.js';
+import type { Bid } from '../models/bid.js';
 import type {
   AuctionFilter,
   AuctionPatch,
   AuctionRepository,
 } from '../repositories/auction.repository.js';
+import type { BidRepository } from '../repositories/bid.repository.js';
 import type { PhotoStorage, UploadedFile } from '../lib/photo-storage.js';
 import { HttpError } from '../lib/http-error.js';
+import { createKeyedMutex } from '../lib/keyed-mutex.js';
+import type { DomainEvent, EventBus } from '../lib/event-bus.js';
 import type { Logger } from '../lib/logger.js';
 import { createAuctionService, type CreateAuctionInput } from './auction.service.js';
 
@@ -115,6 +119,43 @@ class FakeAuctionRepository implements AuctionRepository {
     return Promise.resolve(
       [...this.auctions.values()].filter((a) => a.status === 'sold' && a.winnerUserId === userId),
     );
+  }
+}
+
+class FakeBidRepository implements BidRepository {
+  private readonly bids: Bid[] = [];
+
+  seed(bid: Bid): void {
+    this.bids.push(bid);
+  }
+
+  findByAuctionId(auctionId: string): Promise<Bid[]> {
+    return Promise.resolve(
+      this.bids
+        .filter((bid) => bid.auctionId === auctionId)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    );
+  }
+
+  findByUserId(userId: string): Promise<Bid[]> {
+    return Promise.resolve(this.bids.filter((bid) => bid.userId === userId));
+  }
+
+  save(bid: Bid): Promise<void> {
+    this.bids.push(bid);
+    return Promise.resolve();
+  }
+}
+
+class FakeEventBus implements EventBus {
+  readonly published: DomainEvent[] = [];
+
+  publish(event: DomainEvent): void {
+    this.published.push(event);
+  }
+
+  subscribe(): () => void {
+    return () => undefined;
   }
 }
 
@@ -679,6 +720,97 @@ describe('AuctionService', () => {
 
     it('returns an empty list when the caller has won nothing', async () => {
       await expect(service.listMyPurchases('USR-9')).resolves.toEqual([]);
+    });
+  });
+
+  describe('closeAuctionManually', () => {
+    let bidRepository: FakeBidRepository;
+    let eventBus: FakeEventBus;
+    let closingService: ReturnType<typeof createAuctionService>;
+
+    beforeEach(() => {
+      bidRepository = new FakeBidRepository();
+      eventBus = new FakeEventBus();
+      closingService = createAuctionService(repository, photoStorage, undefined, {
+        bidRepository,
+        mutex: createKeyedMutex(),
+        eventBus,
+      });
+    });
+
+    async function publishedAuctionWithBid(): Promise<Auction> {
+      const auction = await closingService.createAuction('USR-1', validInput);
+      await closingService.updateAuction('USR-1', auction.id, { status: 'published' });
+      bidRepository.seed({
+        id: 'BID-1',
+        auctionId: auction.id,
+        userId: 'USR-2',
+        amountCOP: 60_000,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      });
+      return auction;
+    }
+
+    it('closes the auction, awarding it to the current highest bidder', async () => {
+      const auction = await publishedAuctionWithBid();
+
+      const closed = await closingService.closeAuctionManually('USR-1', auction.id);
+
+      expect(closed.status).toBe('sold');
+      expect(closed.winnerUserId).toBe('USR-2');
+    });
+
+    it('publishes the same auction-closed event a timer-based close would', async () => {
+      const auction = await publishedAuctionWithBid();
+
+      await closingService.closeAuctionManually('USR-1', auction.id);
+
+      expect(eventBus.published).toHaveLength(1);
+      const [event] = eventBus.published;
+      expect(event).toMatchObject({
+        type: 'auction-closed',
+        auctionId: auction.id,
+        auctionTitle: auction.title,
+        ownerUserId: 'USR-1',
+        winnerUserId: 'USR-2',
+        finalPriceCOP: 60_000,
+      });
+      expect(typeof (event as { occurredAt: string }).occurredAt).toBe('string');
+    });
+
+    it('rejects closing an auction with no bids', async () => {
+      const auction = await closingService.createAuction('USR-1', validInput);
+      await closingService.updateAuction('USR-1', auction.id, { status: 'published' });
+
+      const error = await catchHttpError(closingService.closeAuctionManually('USR-1', auction.id));
+
+      expect(error.status).toBe(409);
+      expect(eventBus.published).toEqual([]);
+    });
+
+    it('rejects a non-owner', async () => {
+      const auction = await publishedAuctionWithBid();
+
+      const error = await catchHttpError(closingService.closeAuctionManually('USR-9', auction.id));
+
+      expect(error.status).toBe(404);
+    });
+
+    it('rejects a draft auction', async () => {
+      const auction = await closingService.createAuction('USR-1', validInput);
+
+      const error = await catchHttpError(closingService.closeAuctionManually('USR-1', auction.id));
+
+      expect(error.status).toBe(409);
+    });
+
+    it('rejects an already-sold auction', async () => {
+      const auction = await publishedAuctionWithBid();
+      await closingService.closeAuctionManually('USR-1', auction.id);
+
+      const error = await catchHttpError(closingService.closeAuctionManually('USR-1', auction.id));
+
+      expect(error.status).toBe(409);
     });
   });
 });

@@ -259,6 +259,17 @@ export function createAuctionRouter(
   );
 
   router.post(
+    '/:id/close',
+    requireAuth,
+    requireCsrf,
+    asyncHandler(async (req, res) => {
+      const userId = res.locals['userId'] as string;
+      const auction = await auctionService.closeAuctionManually(userId, req.params['id'] as string);
+      res.status(HTTP_STATUS.OK).json({ auction: toPublicAuction(auction) });
+    }),
+  );
+
+  router.post(
     '/:id/photos',
     requireAuth,
     requireCsrf,

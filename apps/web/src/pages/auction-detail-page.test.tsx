@@ -15,11 +15,18 @@ vi.mock('../lib/api-client.js', async () => {
     fetchCurrentUser: vi.fn(),
     updateAuction: vi.fn(),
     deleteAuction: vi.fn(),
+    markAuctionSold: vi.fn(),
   };
 });
 
-const { fetchAuctionDetail, fetchBids, fetchCurrentUser, updateAuction, deleteAuction } =
-  await import('../lib/api-client.js');
+const {
+  fetchAuctionDetail,
+  fetchBids,
+  fetchCurrentUser,
+  updateAuction,
+  deleteAuction,
+  markAuctionSold,
+} = await import('../lib/api-client.js');
 
 const publicAuction = {
   id: 'AUC-1',
@@ -79,6 +86,7 @@ describe('AuctionDetailPage', () => {
     vi.mocked(fetchCurrentUser).mockReset();
     vi.mocked(updateAuction).mockReset();
     vi.mocked(deleteAuction).mockReset();
+    vi.mocked(markAuctionSold).mockReset();
   });
 
   afterEach(() => {
@@ -215,6 +223,69 @@ describe('AuctionDetailPage', () => {
     // must not zero out the price display.
     expect(screen.getByText('Starting at')).toBeInTheDocument();
     expect(screen.getByText(/50\.000/)).toBeInTheDocument();
+  });
+
+  it('celebrates the winner when a live auction-closed message names them as winnerUserId', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+    await screen.findByLabelText('Your bid (COP)');
+    expect(screen.queryByTestId('winner-celebration')).not.toBeInTheDocument();
+
+    useRealtimeStore.getState().applyServerMessage({
+      type: 'auction-closed',
+      auctionId: 'AUC-1',
+      winnerUserId: sampleUser.id,
+      serverTime: '2026-01-01T00:00:05.000Z',
+    });
+
+    expect(await screen.findByTestId('winner-celebration')).toBeInTheDocument();
+  });
+
+  it('does not celebrate a viewer who is not the winner', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+    await screen.findByLabelText('Your bid (COP)');
+
+    useRealtimeStore.getState().applyServerMessage({
+      type: 'auction-closed',
+      auctionId: 'AUC-1',
+      winnerUserId: 'USR-someone-else',
+      serverTime: '2026-01-01T00:00:05.000Z',
+    });
+
+    await waitFor(() => expect(screen.queryByLabelText('Your bid (COP)')).not.toBeInTheDocument());
+    expect(screen.queryByTestId('winner-celebration')).not.toBeInTheDocument();
+  });
+
+  it('does not celebrate on an initial fetch of an already-sold auction the viewer won', async () => {
+    const soldAuction = {
+      ...publicAuction,
+      status: 'sold' as const,
+      winnerUserId: sampleUser.id,
+    };
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: soldAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+
+    await screen.findByText('Ended');
+    expect(screen.queryByTestId('winner-celebration')).not.toBeInTheDocument();
   });
 
   it('hydrates the shared auth store on load, not just its own local state', async () => {
@@ -639,5 +710,85 @@ describe('AuctionDetailPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: /confirm delete/i }));
 
     expect(await screen.findByText(/could not delete/i)).toBeInTheDocument();
+  });
+
+  it('shows a Mark as sold button to the owner of a published auction with a bid', async () => {
+    const biddedAuction = { ...publicAuction, bidCount: 1, currentBidCOP: 60_000 };
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: biddedAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue({ ...sampleUser, id: 'USR-seller' });
+
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: /mark as sold/i })).toBeInTheDocument();
+  });
+
+  it('does not show Mark as sold when there are no bids yet', async () => {
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: publicAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue({ ...sampleUser, id: 'USR-seller' });
+
+    renderPage();
+
+    await screen.findByText(/50\.000/);
+    expect(screen.queryByRole('button', { name: /mark as sold/i })).not.toBeInTheDocument();
+  });
+
+  it('does not show Mark as sold to a non-owner', async () => {
+    const biddedAuction = { ...publicAuction, bidCount: 1, currentBidCOP: 60_000 };
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: biddedAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue(sampleUser);
+
+    renderPage();
+
+    await screen.findByText(/60\.000/);
+    expect(screen.queryByRole('button', { name: /mark as sold/i })).not.toBeInTheDocument();
+  });
+
+  it('asks for confirmation, then closes the auction and refreshes it', async () => {
+    const biddedAuction = { ...publicAuction, bidCount: 1, currentBidCOP: 60_000 };
+    const soldAuction = { ...biddedAuction, status: 'sold' as const, winnerUserId: 'USR-bidder' };
+    vi.mocked(fetchAuctionDetail)
+      .mockResolvedValueOnce({ auction: biddedAuction, serverTime: '2026-01-01T00:00:00.000Z' })
+      .mockResolvedValueOnce({ auction: soldAuction, serverTime: '2026-01-01T00:00:05.000Z' });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue({ ...sampleUser, id: 'USR-seller' });
+    vi.mocked(markAuctionSold).mockResolvedValue(soldAuction);
+
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: /mark as sold/i }));
+
+    expect(markAuctionSold).not.toHaveBeenCalled();
+    await userEvent.click(await screen.findByRole('button', { name: /confirm/i }));
+
+    await waitFor(() => expect(markAuctionSold).toHaveBeenCalledWith('AUC-1'));
+    expect(await screen.findByText('Ended')).toBeInTheDocument();
+  });
+
+  it('shows an error and lets the user retry if closing fails', async () => {
+    const biddedAuction = { ...publicAuction, bidCount: 1, currentBidCOP: 60_000 };
+    vi.mocked(fetchAuctionDetail).mockResolvedValue({
+      auction: biddedAuction,
+      serverTime: '2026-01-01T00:00:00.000Z',
+    });
+    vi.mocked(fetchBids).mockResolvedValue([]);
+    vi.mocked(fetchCurrentUser).mockResolvedValue({ ...sampleUser, id: 'USR-seller' });
+    vi.mocked(markAuctionSold).mockRejectedValue(new Error('network error'));
+
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: /mark as sold/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /confirm/i }));
+
+    expect(await screen.findByText(/could not close/i)).toBeInTheDocument();
   });
 });

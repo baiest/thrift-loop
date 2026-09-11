@@ -141,6 +141,10 @@ export function updateAuction(id: string, payload: UpdateAuctionPayload): Promis
   return requestAuction(`/api/auctions/${id}`, 'PATCH', payload);
 }
 
+export function markAuctionSold(id: string): Promise<PublicAuction> {
+  return requestAuction(`/api/auctions/${id}/close`, 'POST', undefined);
+}
+
 export async function deleteAuction(id: string): Promise<void> {
   const response = await fetch(`/api/auctions/${id}`, {
     method: 'DELETE',
