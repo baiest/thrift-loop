@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -134,6 +134,52 @@ describe('logger', () => {
         outcome: 'failure',
         message: 'boom',
       });
+    });
+  });
+
+  describe('production mode', () => {
+    const originalNodeEnv = process.env['NODE_ENV'];
+    const originalConsoleLog = console.log;
+    let consoleLines: string[];
+    let prodDir: string;
+    let prodFilePath: string;
+    let prodLogger: Logger;
+
+    beforeEach(async () => {
+      process.env['NODE_ENV'] = 'production';
+      consoleLines = [];
+      console.log = (line: string): void => {
+        consoleLines.push(line);
+      };
+      prodDir = await mkdtemp(join(tmpdir(), 'thrift-loop-logger-prod-'));
+      prodFilePath = join(prodDir, 'nested', 'app.jsonl');
+      prodLogger = createLogger(prodFilePath);
+    });
+
+    afterEach(async () => {
+      await prodLogger.close();
+      console.log = originalConsoleLog;
+      process.env['NODE_ENV'] = originalNodeEnv;
+      await rm(prodDir, { recursive: true, force: true });
+    });
+
+    it('writes each entry as a JSON line to console.log instead of the file', async () => {
+      prodLogger.info('bid_placed', { auctionId: 'AUC-1' });
+      await prodLogger.close();
+
+      expect(consoleLines).toHaveLength(1);
+      expect(JSON.parse(consoleLines[0] ?? '')).toMatchObject({
+        level: 'info',
+        event: 'bid_placed',
+        auctionId: 'AUC-1',
+      });
+
+      await expect(access(prodFilePath)).rejects.toThrow();
+    });
+
+    it('resolves close() without error and without creating the file', async () => {
+      await expect(prodLogger.close()).resolves.toBeUndefined();
+      await expect(access(prodFilePath)).rejects.toThrow();
     });
   });
 
