@@ -1,7 +1,8 @@
 #!/usr/bin/env tsx
 // Dev-only fixture script: populates data/*.json with a realistic "normal
-// day" of users, auctions (with generated placeholder photos), and bids so
-// the app has something to look at locally. Not part of the shipped app,
+// day" of users, auctions (with real thrift-photo fixtures, see
+// fixtures/photos/), and bids so the app has something to look at locally.
+// Not part of the shipped app,
 // not spec-gated (see AGENTS.md — SDD applies to product features, not
 // throwaway local tooling like this or scripts/check-eol.ts).
 //
@@ -9,7 +10,7 @@
 //   tsx scripts/seed.ts          populate
 //   tsx scripts/seed.ts --clear  wipe back to empty
 import 'dotenv/config';
-import { rm } from 'node:fs/promises';
+import { readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { buildContainer } from '../src/container.js';
 import type { PublicUser } from '@thrift-loop/shared';
@@ -105,7 +106,6 @@ interface SeedAuction {
   condition: string;
   deliveryMethod: string;
   priceCOP: number;
-  photoColor: string;
   status: SeedStatus;
   bidderCount: number;
 }
@@ -118,7 +118,6 @@ const SEED_AUCTIONS: readonly SeedAuction[] = [
     condition: 'good',
     deliveryMethod: 'pickup',
     priceCOP: 65_000,
-    photoColor: '#4A6FA5',
     status: 'published-fresh',
     bidderCount: 2,
   },
@@ -129,7 +128,6 @@ const SEED_AUCTIONS: readonly SeedAuction[] = [
     condition: 'unused',
     deliveryMethod: 'both',
     priceCOP: 45_000,
-    photoColor: '#355C7D',
     status: 'published-ending-soon',
     bidderCount: 3,
   },
@@ -140,7 +138,6 @@ const SEED_AUCTIONS: readonly SeedAuction[] = [
     condition: 'good',
     deliveryMethod: 'delivery',
     priceCOP: 90_000,
-    photoColor: '#6B4226',
     status: 'published-no-bids',
     bidderCount: 0,
   },
@@ -151,7 +148,6 @@ const SEED_AUCTIONS: readonly SeedAuction[] = [
     condition: 'unused',
     deliveryMethod: 'both',
     priceCOP: 80_000,
-    photoColor: '#2E8B57',
     status: 'published-fresh',
     bidderCount: 4,
   },
@@ -162,7 +158,6 @@ const SEED_AUCTIONS: readonly SeedAuction[] = [
     condition: 'new-with-tag',
     deliveryMethod: 'pickup',
     priceCOP: 35_000,
-    photoColor: '#C97B84',
     status: 'draft',
     bidderCount: 0,
   },
@@ -173,7 +168,6 @@ const SEED_AUCTIONS: readonly SeedAuction[] = [
     condition: 'worn',
     deliveryMethod: 'delivery',
     priceCOP: 55_000,
-    photoColor: '#1F1B16',
     status: 'sold',
     bidderCount: 3,
   },
@@ -184,7 +178,6 @@ const SEED_AUCTIONS: readonly SeedAuction[] = [
     condition: 'good',
     deliveryMethod: 'both',
     priceCOP: 40_000,
-    photoColor: '#2B2B3C',
     status: 'published-fresh',
     bidderCount: 1,
   },
@@ -195,7 +188,6 @@ const SEED_AUCTIONS: readonly SeedAuction[] = [
     condition: 'unused',
     deliveryMethod: 'pickup',
     priceCOP: 110_000,
-    photoColor: '#5C4033',
     status: 'published-no-bids',
     bidderCount: 0,
   },
@@ -206,7 +198,6 @@ const SEED_AUCTIONS: readonly SeedAuction[] = [
     condition: 'worn',
     deliveryMethod: 'delivery',
     priceCOP: 60_000,
-    photoColor: '#8C3B3B',
     status: 'published-ending-soon',
     bidderCount: 2,
   },
@@ -217,7 +208,6 @@ const SEED_AUCTIONS: readonly SeedAuction[] = [
     condition: 'unused',
     deliveryMethod: 'both',
     priceCOP: 70_000,
-    photoColor: '#D4AF37',
     status: 'draft',
     bidderCount: 0,
   },
@@ -228,7 +218,6 @@ const SEED_AUCTIONS: readonly SeedAuction[] = [
     condition: 'good',
     deliveryMethod: 'pickup',
     priceCOP: 50_000,
-    photoColor: '#2F4858',
     status: 'published-fresh',
     bidderCount: 2,
   },
@@ -239,18 +228,35 @@ const SEED_AUCTIONS: readonly SeedAuction[] = [
     condition: 'new-with-tag',
     deliveryMethod: 'delivery',
     priceCOP: 48_000,
-    photoColor: '#3F6C51',
     status: 'sold',
     bidderCount: 2,
   },
 ];
 
-function svgPlaceholder(label: string, color: string): Buffer {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="600" viewBox="0 0 480 600">
-    <rect width="480" height="600" fill="${color}"/>
-    <text x="240" y="300" font-family="sans-serif" font-size="32" fill="#ffffff" text-anchor="middle" dominant-baseline="middle">${label}</text>
-  </svg>`;
-  return Buffer.from(svg, 'utf8');
+// Real thrift-shop photos checked into fixtures/photos/<category>/*.jpg
+// (Unsplash, hotlink-free/licensed for reuse), one folder per seed category.
+const FIXTURES_DIR = join(process.cwd(), 'fixtures', 'photos');
+
+interface SeedPhoto {
+  originalName: string;
+  mimeType: 'image/jpeg';
+  buffer: Buffer;
+}
+
+async function categoryPhotos(category: string): Promise<SeedPhoto[]> {
+  // category comes from this file's own SEED_AUCTIONS constants, never user
+  // input.
+  const dir = join(FIXTURES_DIR, category);
+  // eslint-disable-next-line security/detect-non-literal-fs-filename
+  const files = (await readdir(dir)).sort((a, b) => a.localeCompare(b));
+  return Promise.all(
+    files.map(async (name) => ({
+      originalName: name,
+      mimeType: 'image/jpeg' as const,
+      // eslint-disable-next-line security/detect-non-literal-fs-filename
+      buffer: await readFile(join(dir, name)),
+    })),
+  );
 }
 
 async function clearData(): Promise<void> {
@@ -373,10 +379,8 @@ async function seedAuction(
     location: owner.city,
   });
 
-  const photo = svgPlaceholder(seed.title, seed.photoColor);
-  await container.auctionService.addPhotos(owner.id, auction.id, [
-    { originalName: 'photo.svg', buffer: photo },
-  ]);
+  const photos = await categoryPhotos(seed.category);
+  await container.auctionService.addPhotos(owner.id, auction.id, photos);
 
   await applyStatus(container, auction.id, owner.id, seed, users);
 }
