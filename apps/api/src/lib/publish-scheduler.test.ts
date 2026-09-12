@@ -49,6 +49,7 @@ function makeAuction(overrides: Partial<Auction> = {}): Auction {
     category: 'jeans',
     condition: 'good',
     priceCOP: 50_000,
+    maxBidIncrementCOP: 5_000,
     publishAt: null,
     status: 'draft',
     deliveryMethod: 'pickup',

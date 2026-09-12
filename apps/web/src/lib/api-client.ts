@@ -108,6 +108,7 @@ export interface CreateAuctionPayload {
   condition: string;
   deliveryMethod: string;
   priceCOP: string;
+  maxBidIncrementCOP: string;
   publishAt: string;
   location: string;
 }

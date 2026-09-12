@@ -2,6 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { MAX_PRICE_COP } from '@thrift-loop/shared';
 import type { Auction } from '../models/auction.js';
 import { createJsonAuctionRepository } from './auction.repository.json.js';
 
@@ -14,6 +15,7 @@ function makeAuction(overrides: Partial<Auction> = {}): Auction {
     category: 'jeans',
     condition: 'good',
     priceCOP: 50_000,
+    maxBidIncrementCOP: 5_000,
     publishAt: null,
     status: 'draft',
     deliveryMethod: 'pickup',
@@ -147,6 +149,7 @@ describe('createJsonAuctionRepository', () => {
       bidCount: 0,
       bidEndsAt: null,
       winnerUserId: null,
+      maxBidIncrementCOP: MAX_PRICE_COP,
     });
   });
 

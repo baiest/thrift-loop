@@ -10,6 +10,7 @@ export type AuctionPatch = Partial<
     | 'category'
     | 'condition'
     | 'priceCOP'
+    | 'maxBidIncrementCOP'
     | 'publishAt'
     | 'status'
     | 'deliveryMethod'

@@ -50,6 +50,7 @@ const validBody = {
   condition: 'good',
   deliveryMethod: 'pickup',
   priceCOP: '50000',
+  maxBidIncrementCOP: '5000',
   publishAt: '',
   location: 'Cali',
 };
@@ -195,6 +196,13 @@ describe('auction routes', () => {
 
     expect(response.status).toBe(201);
     expect(body(response).auction).toMatchObject({ status: 'draft', category: 'jeans' });
+  });
+
+  it('round-trips maxBidIncrementCOP through the response', async () => {
+    const response = await withAuth(request(app).post('/api/auctions')).send(validBody);
+
+    expect(response.status).toBe(201);
+    expect(body(response).auction?.maxBidIncrementCOP).toBe(5_000);
   });
 
   it('returns 400 with field errors for an invalid submission', async () => {

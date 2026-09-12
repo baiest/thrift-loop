@@ -181,6 +181,7 @@ const validInput: CreateAuctionInput = {
   condition: 'good',
   deliveryMethod: 'pickup',
   priceCOP: '50000',
+  maxBidIncrementCOP: '5000',
   publishAt: '',
   location: 'Cali',
 };
@@ -341,6 +342,25 @@ describe('AuctionService', () => {
         service.createAuction('USR-1', { ...validInput, priceCOP: 'free' }),
       );
       expect(error.fields?.['priceCOP']).toBeDefined();
+    });
+
+    it('persists a valid maxBidIncrementCOP', async () => {
+      const auction = await service.createAuction('USR-1', {
+        ...validInput,
+        maxBidIncrementCOP: '5000',
+      });
+      expect(auction.maxBidIncrementCOP).toBe(5_000);
+    });
+
+    it.each([
+      ['missing', ''],
+      ['non-integer', '99.5'],
+      ['below the minimum bid increment', '999'],
+    ])('rejects a %s maxBidIncrementCOP', async (_label, maxBidIncrementCOP) => {
+      const error = await catchHttpError(
+        service.createAuction('USR-1', { ...validInput, maxBidIncrementCOP }),
+      );
+      expect(error.fields?.['maxBidIncrementCOP']).toBeDefined();
     });
 
     it('rejects a publishAt that is not a valid date', async () => {
