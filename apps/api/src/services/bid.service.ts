@@ -1,4 +1,10 @@
-import { BID_WINDOW_MS, isValidNextBid, minimumNextBid, type PublicBid } from '@thrift-loop/shared';
+import {
+  BID_WINDOW_MS,
+  isValidNextBid,
+  maximumNextBid,
+  minimumNextBid,
+  type PublicBid,
+} from '@thrift-loop/shared';
 import type { Auction } from '../models/auction.js';
 import type { Bid } from '../models/bid.js';
 import type { AuctionRepository } from '../repositories/auction.repository.js';
@@ -35,10 +41,18 @@ function validateBid(auction: Auction, userId: string, amount: number | null, no
   if (auction.bidEndsAt !== null && new Date(auction.bidEndsAt).getTime() <= now.getTime()) {
     throw new HttpError(BIDDING_CLOSED_MESSAGE, HTTP_STATUS.CONFLICT);
   }
-  if (amount === null || !isValidNextBid(amount, auction.currentBidCOP, auction.priceCOP)) {
+  if (
+    amount === null ||
+    !isValidNextBid(amount, auction.currentBidCOP, auction.priceCOP, auction.maxBidIncrementCOP)
+  ) {
     const minimum = minimumNextBid(auction.currentBidCOP, auction.priceCOP);
+    const maximum = maximumNextBid(
+      auction.currentBidCOP,
+      auction.priceCOP,
+      auction.maxBidIncrementCOP,
+    );
     throw new HttpError('Validation failed', HTTP_STATUS.BAD_REQUEST, {
-      amountCOP: `Enter a whole number of at least ${minimum} COP`,
+      amountCOP: `Enter a whole number between ${minimum} and ${maximum} COP`,
     });
   }
 }

@@ -28,6 +28,7 @@ const createdAuction = {
   category: 'jeans' as const,
   condition: 'good' as const,
   priceCOP: 50_000,
+  maxBidIncrementCOP: 5_000,
   publishAt: null,
   status: 'draft' as const,
   deliveryMethod: 'pickup' as const,
@@ -67,6 +68,7 @@ async function fillDetailsAndContinue(): Promise<void> {
 
 async function fillPricingAndContinue(): Promise<void> {
   await userEvent.type(screen.getByLabelText('Price (COP)'), '50000');
+  await userEvent.type(screen.getByLabelText('Max bid increment (COP)'), '5000');
   await userEvent.click(screen.getByRole('button', { name: /continue/i }));
 }
 
@@ -153,6 +155,36 @@ describe('CreateAuctionWizard', () => {
     await fillDetailsAndContinue();
 
     expect(screen.getAllByText('Price (COP)')).toHaveLength(1);
+  });
+
+  it('blocks Continue on the Pricing step until the max bid increment is filled in', async () => {
+    render(<CreateAuctionWizard />);
+    await goToDetails();
+    await fillDetailsAndContinue();
+
+    await userEvent.type(screen.getByLabelText('Price (COP)'), '50000');
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+
+    expect(screen.getByLabelText('Price (COP)')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/schedule/i)).not.toBeInTheDocument();
+  });
+
+  it('submits with maxBidIncrementCOP in the payload once both pricing fields are valid', async () => {
+    render(<CreateAuctionWizard />);
+    await goToDetails();
+    await fillDetailsAndContinue();
+    await userEvent.type(screen.getByLabelText('Price (COP)'), '50000');
+    await userEvent.type(screen.getByLabelText('Max bid increment (COP)'), '5000');
+    await userEvent.click(screen.getByRole('button', { name: /continue/i }));
+    await skipScheduleStep();
+
+    await userEvent.click(screen.getByRole('button', { name: /create auction/i }));
+
+    await waitFor(() =>
+      expect(createAuction).toHaveBeenCalledWith(
+        expect.objectContaining({ priceCOP: '50000', maxBidIncrementCOP: '5000' }),
+      ),
+    );
   });
 
   it('reaches the review step and submits with the entered values', async () => {

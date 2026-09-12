@@ -40,6 +40,7 @@ const REALTIME_AUCTION_PRICE_COP = 40_000;
 const NOTIFICATIONS_AUCTION_PRICE_COP = 40_000;
 const SOLD_AUCTION_PRICE_COP = 30_000;
 const SOLD_AUCTION_WINNING_BID_COP = 35_000;
+const E2E_MAX_BID_INCREMENT_COP = 30_000;
 
 async function clearData(): Promise<void> {
   await rm(join(DATA_DIR, 'users.json'), { force: true });
@@ -77,6 +78,7 @@ async function main(): Promise<void> {
     condition: 'good',
     deliveryMethod: 'pickup',
     priceCOP: String(NO_BIDS_AUCTION_PRICE_COP),
+    maxBidIncrementCOP: String(E2E_MAX_BID_INCREMENT_COP),
     publishAt: '',
     location: seller.city,
   });
@@ -94,6 +96,7 @@ async function main(): Promise<void> {
     condition: 'good',
     deliveryMethod: 'pickup',
     priceCOP: String(REALTIME_AUCTION_PRICE_COP),
+    maxBidIncrementCOP: String(E2E_MAX_BID_INCREMENT_COP),
     publishAt: '',
     location: seller.city,
   });
@@ -112,6 +115,7 @@ async function main(): Promise<void> {
     condition: 'good',
     deliveryMethod: 'pickup',
     priceCOP: String(NOTIFICATIONS_AUCTION_PRICE_COP),
+    maxBidIncrementCOP: String(E2E_MAX_BID_INCREMENT_COP),
     publishAt: '',
     location: seller.city,
   });
@@ -128,6 +132,7 @@ async function main(): Promise<void> {
     condition: 'unused',
     deliveryMethod: 'delivery',
     priceCOP: String(SOLD_AUCTION_PRICE_COP),
+    maxBidIncrementCOP: String(E2E_MAX_BID_INCREMENT_COP),
     publishAt: '',
     location: seller.city,
   });

@@ -27,13 +27,30 @@ export function minimumNextBid(currentBidCOP: number | null, startPriceCOP: numb
   return currentBidCOP === null ? startPriceCOP : currentBidCOP + MIN_BID_INCREMENT_COP;
 }
 
+export function maximumNextBid(
+  currentBidCOP: number | null,
+  startPriceCOP: number,
+  maxBidIncrementCOP: number,
+): number {
+  const base = currentBidCOP ?? startPriceCOP;
+  return Math.min(base + maxBidIncrementCOP, MAX_PRICE_COP);
+}
+
+export function isValidMaxBidIncrement(value: number): boolean {
+  return Number.isInteger(value) && value >= MIN_BID_INCREMENT_COP && value <= MAX_PRICE_COP;
+}
+
 export function isValidNextBid(
   amount: number,
   currentBidCOP: number | null,
   startPriceCOP: number,
+  maxBidIncrementCOP: number,
 ): boolean {
   if (!Number.isInteger(amount) || amount > MAX_PRICE_COP) {
     return false;
   }
-  return amount >= minimumNextBid(currentBidCOP, startPriceCOP);
+  return (
+    amount >= minimumNextBid(currentBidCOP, startPriceCOP) &&
+    amount <= maximumNextBid(currentBidCOP, startPriceCOP, maxBidIncrementCOP)
+  );
 }

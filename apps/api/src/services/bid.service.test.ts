@@ -171,6 +171,7 @@ function makeAuction(overrides: Partial<Auction> = {}): Auction {
     category: 'jeans',
     condition: 'good',
     priceCOP: 50_000,
+    maxBidIncrementCOP: 5_000,
     publishAt: null,
     status: 'published',
     deliveryMethod: 'pickup',
@@ -316,6 +317,40 @@ describe('BidService', () => {
 
       const error = await catchHttpError(service.placeBid('USR-bidder-2', 'AUC-1', '50500'));
       expect(error.status).toBe(400);
+    });
+
+    it('accepts a first bid exactly at the max-increment ceiling above the starting price', async () => {
+      auctionRepository.seed(makeAuction({ priceCOP: 50_000, maxBidIncrementCOP: 5_000 }));
+
+      const { auction } = await service.placeBid('USR-bidder', 'AUC-1', '55000');
+
+      expect(auction.currentBidCOP).toBe(55_000);
+    });
+
+    it('rejects a first bid above the max-increment ceiling', async () => {
+      auctionRepository.seed(makeAuction({ priceCOP: 50_000, maxBidIncrementCOP: 5_000 }));
+
+      const error = await catchHttpError(service.placeBid('USR-bidder', 'AUC-1', '55001'));
+      expect(error.status).toBe(400);
+      expect(error.fields?.['amountCOP']).toBeDefined();
+    });
+
+    it('rejects a subsequent bid above the max-increment ceiling', async () => {
+      auctionRepository.seed(makeAuction({ priceCOP: 50_000, maxBidIncrementCOP: 5_000 }));
+      await service.placeBid('USR-bidder-1', 'AUC-1', '50000');
+
+      const error = await catchHttpError(service.placeBid('USR-bidder-2', 'AUC-1', '55001'));
+      expect(error.status).toBe(400);
+      expect(error.fields?.['amountCOP']).toBeDefined();
+    });
+
+    it('accepts a subsequent bid exactly at the max-increment ceiling', async () => {
+      auctionRepository.seed(makeAuction({ priceCOP: 50_000, maxBidIncrementCOP: 5_000 }));
+      await service.placeBid('USR-bidder-1', 'AUC-1', '50000');
+
+      const { auction } = await service.placeBid('USR-bidder-2', 'AUC-1', '55000');
+
+      expect(auction.currentBidCOP).toBe(55_000);
     });
 
     it('rejects the seller bidding on their own auction', async () => {

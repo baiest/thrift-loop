@@ -12,6 +12,7 @@ import {
   isItemCondition,
   isValidCopPrice,
   isValidDescription,
+  isValidMaxBidIncrement,
   isValidTitle,
 } from '@thrift-loop/shared';
 import {
@@ -59,6 +60,7 @@ const EMPTY_VALUES: FormValues = {
   condition: '',
   deliveryMethod: '',
   priceCOP: '',
+  maxBidIncrementCOP: '',
   publishAt: '',
   location: '',
 };
@@ -98,6 +100,13 @@ function validatePrice(values: FormValues): string | undefined {
     : 'Enter a whole number price in Colombian pesos';
 }
 
+function validateMaxBidIncrement(values: FormValues): string | undefined {
+  const parsed = Number(values.maxBidIncrementCOP);
+  return Number.isInteger(parsed) && isValidMaxBidIncrement(parsed)
+    ? undefined
+    : 'Enter a whole number for the maximum bid increment in Colombian pesos';
+}
+
 const FIELD_VALIDATORS: Record<
   Exclude<keyof FormValues, 'publishAt'>,
   (values: FormValues) => string | undefined
@@ -108,6 +117,7 @@ const FIELD_VALIDATORS: Record<
   condition: validateCondition,
   deliveryMethod: validateDeliveryMethod,
   priceCOP: validatePrice,
+  maxBidIncrementCOP: validateMaxBidIncrement,
   location: validateLocation,
 };
 
@@ -126,7 +136,7 @@ const WIZARD_STEPS: readonly WizardStep[] = [
     label: 'Details',
     fields: ['title', 'description', 'category', 'condition', 'deliveryMethod', 'location'],
   },
-  { id: 'pricing', label: 'Pricing', fields: ['priceCOP'] },
+  { id: 'pricing', label: 'Pricing', fields: ['priceCOP', 'maxBidIncrementCOP'] },
   { id: 'schedule', label: 'Schedule', fields: [] },
   { id: 'review', label: 'Review', fields: [] },
 ];
@@ -271,21 +281,33 @@ function DetailsStep({ values, errors, onChange }: DetailsStepProps): React.JSX.
 }
 
 interface PricingStepProps {
-  readonly priceCOP: string;
-  readonly error: string | undefined;
-  readonly onChange: (value: string) => void;
+  readonly values: FormValues;
+  readonly errors: FormErrors;
+  readonly onChange: (field: keyof FormValues, value: string) => void;
 }
 
-function PricingStep({ priceCOP, error, onChange }: PricingStepProps): React.JSX.Element {
+function PricingStep({ values, errors, onChange }: PricingStepProps): React.JSX.Element {
   return (
     <div>
       <h2 className="mb-4 font-display text-xl font-bold text-ink">Set your starting price</h2>
-      <FormField id="priceCOP" label="Price (COP)" error={error}>
+      <FormField id="priceCOP" label="Price (COP)" error={errors.priceCOP}>
         <CurrencyInput
           id="priceCOP"
-          value={priceCOP}
-          invalid={Boolean(error)}
-          onChange={onChange}
+          value={values.priceCOP}
+          invalid={Boolean(errors.priceCOP)}
+          onChange={(value) => onChange('priceCOP', value)}
+        />
+      </FormField>
+      <FormField
+        id="maxBidIncrementCOP"
+        label="Max bid increment (COP)"
+        error={errors.maxBidIncrementCOP}
+      >
+        <CurrencyInput
+          id="maxBidIncrementCOP"
+          value={values.maxBidIncrementCOP}
+          invalid={Boolean(errors.maxBidIncrementCOP)}
+          onChange={(value) => onChange('maxBidIncrementCOP', value)}
         />
       </FormField>
     </div>
@@ -408,6 +430,9 @@ function ReviewStep({ values, photoCount, onEditStep }: ReviewStepProps): React.
     ? new Date(values.publishAt).toLocaleString()
     : 'Publish now';
   const priceLabel = values.priceCOP ? formatCOP(Number(values.priceCOP)) : '';
+  const maxBidIncrementLabel = values.maxBidIncrementCOP
+    ? formatCOP(Number(values.maxBidIncrementCOP))
+    : '';
 
   return (
     <div className="space-y-4">
@@ -436,6 +461,7 @@ function ReviewStep({ values, photoCount, onEditStep }: ReviewStepProps): React.
         onEdit={() => onEditStep(STEP_INDEX.pricing)}
       >
         <p className="text-sm text-ink-soft">{priceLabel}</p>
+        <p className="text-sm text-ink-soft">Max bid increment: {maxBidIncrementLabel}</p>
       </ReviewSection>
 
       <ReviewSection
@@ -476,13 +502,7 @@ function StepContent({
     case 'details':
       return <DetailsStep values={values} errors={errors} onChange={onFieldChange} />;
     case 'pricing':
-      return (
-        <PricingStep
-          priceCOP={values.priceCOP}
-          error={errors.priceCOP}
-          onChange={(value) => onFieldChange('priceCOP', value)}
-        />
-      );
+      return <PricingStep values={values} errors={errors} onChange={onFieldChange} />;
     case 'schedule':
       return (
         <ScheduleStep

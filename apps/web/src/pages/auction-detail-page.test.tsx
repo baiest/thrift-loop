@@ -36,6 +36,7 @@ const publicAuction = {
   category: 'jeans' as const,
   condition: 'good' as const,
   priceCOP: 50_000,
+  maxBidIncrementCOP: 5_000,
   publishAt: null,
   status: 'published' as const,
   deliveryMethod: 'pickup' as const,

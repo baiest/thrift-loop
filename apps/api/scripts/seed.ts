@@ -375,6 +375,9 @@ async function seedAuction(
     condition: seed.condition,
     deliveryMethod: seed.deliveryMethod,
     priceCOP: String(seed.priceCOP),
+    // Cap set to this file's own random-demo-bid ceiling, so placeBids below
+    // can never generate a jump this auction would then reject.
+    maxBidIncrementCOP: String(MAX_BID_INCREMENT_COP),
     publishAt: '',
     location: owner.city,
   });

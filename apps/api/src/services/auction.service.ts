@@ -7,11 +7,13 @@ import {
   isItemCondition,
   isValidCopPrice,
   isValidDescription,
+  isValidMaxBidIncrement,
   isValidTitle,
   MAX_DESCRIPTION_LENGTH,
   MAX_PHOTOS_PER_AUCTION,
   MAX_PRICE_COP,
   MAX_TITLE_LENGTH,
+  MIN_BID_INCREMENT_COP,
   MIN_PRICE_COP,
   TITLE_PATTERN,
   type AuctionSort,
@@ -41,6 +43,7 @@ const TOO_MANY_PHOTOS_MESSAGE = `An auction can have at most ${MAX_PHOTOS_PER_AU
 const TITLE_ERROR_MESSAGE = 'Enter a title up to 80 characters, letters and numbers only';
 const DESCRIPTION_ERROR_MESSAGE = `Enter a description up to ${MAX_DESCRIPTION_LENGTH} characters, letters and numbers only`;
 const LOCATION_ERROR_MESSAGE = 'Select a valid city';
+const MAX_BID_INCREMENT_ERROR_MESSAGE = `Enter a whole number of at least ${MIN_BID_INCREMENT_COP} COP`;
 
 export interface CreateAuctionInput {
   title: string;
@@ -49,6 +52,7 @@ export interface CreateAuctionInput {
   condition: string;
   deliveryMethod: string;
   priceCOP: string;
+  maxBidIncrementCOP: string;
   publishAt: string;
   location: string;
 }
@@ -73,6 +77,18 @@ function validatePrice(value: string, errors: Record<string, string>): number | 
   return parsed;
 }
 
+function validateMaxBidIncrement(
+  value: string,
+  errors: Record<string, string>,
+): number | undefined {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || !isValidMaxBidIncrement(parsed)) {
+    errors['maxBidIncrementCOP'] = MAX_BID_INCREMENT_ERROR_MESSAGE;
+    return undefined;
+  }
+  return parsed;
+}
+
 function validatePublishAt(value: string, errors: Record<string, string>): string | null {
   if (value.length === 0) {
     return null;
@@ -92,6 +108,7 @@ function validatePublishAt(value: string, errors: Record<string, string>): strin
 function validateCreateInput(input: CreateAuctionInput): {
   errors: Record<string, string>;
   priceCOP: number | undefined;
+  maxBidIncrementCOP: number | undefined;
   publishAt: string | null;
 } {
   const errors: Record<string, string> = {};
@@ -115,9 +132,10 @@ function validateCreateInput(input: CreateAuctionInput): {
     errors['deliveryMethod'] = 'Select a valid delivery method';
   }
   const priceCOP = validatePrice(input.priceCOP, errors);
+  const maxBidIncrementCOP = validateMaxBidIncrement(input.maxBidIncrementCOP, errors);
   const publishAt = validatePublishAt(input.publishAt, errors);
 
-  return { errors, priceCOP, publishAt };
+  return { errors, priceCOP, maxBidIncrementCOP, publishAt };
 }
 
 function applyCategoryPatch(
@@ -254,6 +272,12 @@ function validateUpdatePatch(patch: UpdateAuctionInput): {
       repoPatch.priceCOP = priceCOP;
     }
   }
+  if (patch.maxBidIncrementCOP !== undefined) {
+    const maxBidIncrementCOP = validateMaxBidIncrement(patch.maxBidIncrementCOP, errors);
+    if (maxBidIncrementCOP !== undefined) {
+      repoPatch.maxBidIncrementCOP = maxBidIncrementCOP;
+    }
+  }
   if (patch.publishAt !== undefined) {
     repoPatch.publishAt = validatePublishAt(patch.publishAt, errors);
   }
@@ -345,7 +369,7 @@ export function createAuctionService(
 
   return {
     async createAuction(userId: string, input: CreateAuctionInput): Promise<Auction> {
-      const { errors, priceCOP, publishAt } = validateCreateInput(input);
+      const { errors, priceCOP, maxBidIncrementCOP, publishAt } = validateCreateInput(input);
       if (Object.keys(errors).length > 0) {
         throw new HttpError('Validation failed', HTTP_STATUS.BAD_REQUEST, errors);
       }
@@ -361,6 +385,7 @@ export function createAuctionService(
         condition: input.condition as Auction['condition'],
         deliveryMethod: input.deliveryMethod as Auction['deliveryMethod'],
         priceCOP: priceCOP as number,
+        maxBidIncrementCOP: maxBidIncrementCOP as number,
         publishAt,
         status: 'draft',
         photoKeys: [],

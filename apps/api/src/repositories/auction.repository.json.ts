@@ -1,4 +1,9 @@
-import { DEFAULT_AUCTION_SORT, type AuctionSort, type ItemCondition } from '@thrift-loop/shared';
+import {
+  DEFAULT_AUCTION_SORT,
+  MAX_PRICE_COP,
+  type AuctionSort,
+  type ItemCondition,
+} from '@thrift-loop/shared';
 import type { Auction } from '../models/auction.js';
 import { readJsonArray, writeJsonArrayAtomic } from '../lib/json-file-store.js';
 import type { AuctionFilter, AuctionPatch, AuctionRepository } from './auction.repository.js';
@@ -13,6 +18,7 @@ type LegacyAuction = Omit<
   | 'bidCount'
   | 'bidEndsAt'
   | 'winnerUserId'
+  | 'maxBidIncrementCOP'
 > &
   Partial<
     Pick<
@@ -24,6 +30,7 @@ type LegacyAuction = Omit<
       | 'bidCount'
       | 'bidEndsAt'
       | 'winnerUserId'
+      | 'maxBidIncrementCOP'
     >
   > & { condition: string };
 
@@ -59,6 +66,7 @@ function normalize(raw: LegacyAuction): Auction {
     bidCount: raw.bidCount ?? 0,
     bidEndsAt: raw.bidEndsAt ?? null,
     winnerUserId: raw.winnerUserId ?? null,
+    maxBidIncrementCOP: raw.maxBidIncrementCOP ?? MAX_PRICE_COP,
   };
 }
 

@@ -36,6 +36,7 @@ const CREATE_FIELDS = [
   'condition',
   'deliveryMethod',
   'priceCOP',
+  'maxBidIncrementCOP',
   'publishAt',
   'location',
 ] as const satisfies readonly (keyof CreateAuctionInput)[];
@@ -78,6 +79,7 @@ function toPublicAuction(auction: Auction): PublicAuction {
     category: auction.category,
     condition: auction.condition,
     priceCOP: auction.priceCOP,
+    maxBidIncrementCOP: auction.maxBidIncrementCOP,
     publishAt: auction.publishAt,
     status: auction.status,
     deliveryMethod: auction.deliveryMethod,

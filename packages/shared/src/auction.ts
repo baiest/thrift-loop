@@ -12,6 +12,7 @@ export interface PublicAuction {
   category: ItemCategory;
   condition: ItemCondition;
   priceCOP: number;
+  maxBidIncrementCOP: number;
   publishAt: string | null;
   status: AuctionStatus;
   deliveryMethod: DeliveryMethod;
